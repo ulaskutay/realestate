@@ -1,0 +1,227 @@
+/**
+ * Slider Editor Styles
+ * Görsel editor için özel stiller
+ */
+
+.slider-editor-container {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Canvas Container */
+.slider-canvas-container {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Layer Elements */
+.layer-element {
+    position: absolute;
+    user-select: none;
+    transition: transform 0.1s ease;
+}
+
+.layer-element:hover {
+    outline: 2px dashed #137fec;
+    outline-offset: 2px;
+}
+
+.layer-element.selected {
+    outline: 2px solid #137fec;
+    outline-offset: 2px;
+}
+
+.layer-element.dragging {
+    opacity: 0.8;
+    cursor: grabbing;
+}
+
+/* Layer Item in Sidebar */
+.layer-item {
+    transition: all 0.2s ease;
+}
+
+.layer-item:hover {
+    transform: translateX(2px);
+}
+
+.layer-item.dragging {
+    opacity: 0.5;
+}
+
+/* Properties Panel */
+.properties-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .properties-section {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.properties-section:last-child {
+    border-bottom: none;
+}
+
+.properties-section h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.75rem;
+}
+
+.dark .properties-section h3 {
+    color: #e5e7eb;
+}
+
+/* Resize Handles */
+.resize-handle {
+    position: absolute;
+    background: #137fec;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+    z-index: 1000;
+    cursor: nwse-resize;
+}
+
+.resize-handle.nw { top: -6px; left: -6px; cursor: nw-resize; }
+.resize-handle.ne { top: -6px; right: -6px; cursor: ne-resize; }
+.resize-handle.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+.resize-handle.se { bottom: -6px; right: -6px; cursor: se-resize; }
+.resize-handle.n { top: -6px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+.resize-handle.s { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+.resize-handle.e { right: -6px; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+.resize-handle.w { left: -6px; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+
+/* Grid Overlay */
+.canvas-grid {
+    position: absolute;
+    inset: 0;
+    background-image: 
+        linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    pointer-events: none;
+    opacity: 0.3;
+}
+
+/* Ruler */
+.canvas-ruler {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.ruler-horizontal {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+}
+
+.ruler-vertical {
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 20px;
+}
+
+/* Animation Timeline */
+.timeline-container {
+    background: #1f2937;
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+.timeline-track {
+    height: 40px;
+    background: #374151;
+    border-radius: 0.25rem;
+    position: relative;
+    margin-bottom: 0.5rem;
+}
+
+.timeline-keyframe {
+    position: absolute;
+    width: 8px;
+    height: 100%;
+    background: #137fec;
+    cursor: pointer;
+}
+
+/* Color Picker */
+.color-picker-container {
+    position: relative;
+}
+
+.color-preview {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+/* Drag Ghost */
+.drag-ghost {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+/* Loading State */
+.editor-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 1000;
+}
+
+.dark .editor-loading {
+    background: rgba(16, 25, 34, 0.9);
+}
+
+/* Scrollbar Styles */
+.layers-panel::-webkit-scrollbar,
+.properties-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.layers-panel::-webkit-scrollbar-track,
+.properties-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.layers-panel::-webkit-scrollbar-thumb,
+.properties-panel::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.dark .layers-panel::-webkit-scrollbar-thumb,
+.dark .properties-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .slider-editor-container aside {
+        width: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .slider-editor-container {
+        flex-direction: column;
+    }
+    
+    .slider-editor-container aside {
+        width: 100%;
+        height: 200px;
+    }
+}

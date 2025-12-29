@@ -1,0 +1,96 @@
+/* Modern minimal CMS frontend ana tasarım stili */
+body {
+  font-family: 'Inter', Arial, sans-serif;
+  background: #f6f8fb;
+  color: #23272f;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  background: white;
+  box-shadow: 0 2px 16px rgba(20,40,120,0.03);
+  border-bottom: 1px solid #eaeaea;
+  padding: 0;
+}
+nav.main-navbar {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+nav.main-navbar .nav-logo {
+  font-weight: 700;
+  font-size: 1.8rem;
+  color: #4676fa;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+nav.main-navbar .nav-links {
+  display: flex;
+  gap: 1.5rem;
+}
+nav.main-navbar .nav-links a {
+  color: #353535;
+  text-decoration: none;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-size: 1rem;
+  transition: color 0.2s;
+}
+nav.main-navbar .nav-links a:hover {
+  color: #1460e5;
+}
+.hero-section {
+  text-align: center;
+  padding: 4rem 2rem 2rem 2rem;
+  background: linear-gradient(110deg, #7b8dfa 0%, #71e2f8 60%, #ffffff 100%);
+}
+.hero-section h1 {
+  font-family: "Cormorant", serif;
+  font-size: 3.2rem;
+  color: #222;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+  font-weight: 800;
+}
+.hero-section p {
+  font-size: 1.35rem;
+  max-width: 600px;
+  margin: 0 auto 2.2rem auto;
+  color: #47547a;
+}
+.hero-section .cta-btn {
+  background: linear-gradient(90deg, #4676fa 0%, #13ede2 100%);
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 1.2rem;
+  padding: 1rem 2.6rem;
+  color: #fff;
+  border: none;
+  box-shadow: 0 3px 18px rgba(44,122,255,0.09);
+  transition: background 0.18s;
+  cursor: pointer;
+  margin-top: 1.3rem;
+  text-decoration: none;
+  display: inline-block;
+}
+.hero-section .cta-btn:hover, .hero-section .cta-btn:focus {
+  background: linear-gradient(90deg, #477dfa 0%, #5ed5f2 100%);
+  color: #fff;
+}
+.footer-bottom {
+  background: #ffffff;
+  font-size: 1.05rem;
+  color: #a2a4ac;
+  border-top: 1px solid #ececec;
+  text-align: center;
+  padding: 1.2rem 0 1.6rem 0;
+  margin-top: 5rem;
+}

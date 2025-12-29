@@ -1,0 +1,17 @@
+# Modüller klasörü güvenlik ayarları
+# PHP dosyalarının doğrudan çalıştırılmasını engelle
+
+<FilesMatch "\.php$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Assets klasörüne izin ver
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Dizin listelemeyi kapat
+Options -Indexes
+

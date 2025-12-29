@@ -1,0 +1,38 @@
+{
+    "name": "seo",
+    "title": "SEO Yönetimi",
+    "version": "1.0.0",
+    "description": "Sitemap XML, robots.txt, meta tag şablonları, URL yönlendirmeleri ve Schema.org yapılandırılmış veri yönetimi.",
+    "author": "Codetic",
+    "website": "https://example.com",
+    "requires_php": "7.4",
+    "requires_cms": "1.0",
+    "main_file": "Controller.php",
+    "admin_menu": {
+        "title": "SEO",
+        "icon": "travel_explore",
+        "position": 75
+    },
+    "routes": [
+        {
+            "type": "frontend",
+            "path": "sitemap.xml",
+            "handler": "sitemapXml",
+            "method": "GET"
+        },
+        {
+            "type": "frontend",
+            "path": "robots.txt",
+            "handler": "robotsTxt",
+            "method": "GET"
+        }
+    ],
+    "shortcodes": [],
+    "widgets": [],
+    "settings": true,
+    "hooks": {
+        "actions": ["init", "wp_head"],
+        "filters": ["the_content", "document_title"]
+    }
+}
+

@@ -1,0 +1,510 @@
+/**
+ * Form Builder CSS
+ * Form oluşturucu ve önizleme stilleri
+ */
+
+/* ==================== FORM BUILDER ==================== */
+
+/* Tab styles */
+.tab-btn.active {
+    color: #137fec;
+    border-color: #137fec;
+}
+
+/* Field Type Buttons */
+.field-type-btn {
+    text-align: left;
+}
+
+.field-type-btn:hover {
+    background-color: rgba(19, 127, 236, 0.1);
+}
+
+.field-type-btn:hover .material-symbols-outlined {
+    color: #137fec;
+}
+
+/* Field Items */
+.field-item {
+    transition: all 0.2s ease;
+}
+
+.field-item:hover {
+    border-color: #137fec;
+    background-color: rgba(19, 127, 236, 0.05);
+}
+
+.field-item.sortable-ghost {
+    opacity: 0.4;
+}
+
+.field-item.sortable-drag {
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+.field-item .drag-handle {
+    cursor: grab;
+}
+
+.field-item .drag-handle:active {
+    cursor: grabbing;
+}
+
+/* ==================== FORM PREVIEW STYLES ==================== */
+
+/* Base Form Styles */
+.cms-form {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cms-form .form-description {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.cms-form .form-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* Form Field */
+.cms-form .form-field {
+    flex-basis: 100%;
+}
+
+.cms-form .form-field.field-width-half {
+    flex-basis: calc(50% - 0.5rem);
+}
+
+.cms-form .form-field.field-width-third {
+    flex-basis: calc(33.333% - 0.67rem);
+}
+
+.cms-form .form-field.field-width-quarter {
+    flex-basis: calc(25% - 0.75rem);
+}
+
+@media (max-width: 640px) {
+    .cms-form .form-field.field-width-half,
+    .cms-form .form-field.field-width-third,
+    .cms-form .form-field.field-width-quarter {
+        flex-basis: 100%;
+    }
+}
+
+/* Labels */
+.cms-form .field-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.dark .cms-form .field-label {
+    color: #d1d5db;
+}
+
+.cms-form .required-mark {
+    color: #ef4444;
+    margin-left: 0.25rem;
+}
+
+/* Inputs */
+.cms-form .field-input input[type="text"],
+.cms-form .field-input input[type="email"],
+.cms-form .field-input input[type="tel"],
+.cms-form .field-input input[type="number"],
+.cms-form .field-input input[type="date"],
+.cms-form .field-input input[type="time"],
+.cms-form .field-input input[type="datetime-local"],
+.cms-form .field-input textarea,
+.cms-form .field-input select {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    color: #111827;
+    background-color: white;
+    transition: all 0.2s;
+}
+
+.dark .cms-form .field-input input,
+.dark .cms-form .field-input textarea,
+.dark .cms-form .field-input select {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #f3f4f6;
+}
+
+.cms-form .field-input input:focus,
+.cms-form .field-input textarea:focus,
+.cms-form .field-input select:focus {
+    outline: none;
+    border-color: #137fec;
+    box-shadow: 0 0 0 3px rgba(19, 127, 236, 0.1);
+}
+
+.cms-form .field-input textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.cms-form .field-input input[type="file"] {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Help Text */
+.cms-form .field-help {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.375rem;
+}
+
+/* Checkbox & Radio */
+.cms-form .checkbox-group,
+.cms-form .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.cms-form .checkbox-label,
+.cms-form .radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.dark .cms-form .checkbox-label,
+.dark .cms-form .radio-label {
+    color: #d1d5db;
+}
+
+.cms-form .checkbox-label input,
+.cms-form .radio-label input {
+    width: 1.125rem;
+    height: 1.125rem;
+    accent-color: #137fec;
+}
+
+/* Layout Elements */
+.cms-form .form-heading {
+    flex-basis: 100%;
+    padding: 0.5rem 0;
+}
+
+.cms-form .form-heading h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+.dark .cms-form .form-heading h3 {
+    color: #f3f4f6;
+}
+
+.cms-form .form-paragraph {
+    flex-basis: 100%;
+    color: #6b7280;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.cms-form .form-divider {
+    flex-basis: 100%;
+    padding: 0.5rem 0;
+}
+
+.cms-form .form-divider hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+}
+
+.dark .cms-form .form-divider hr {
+    border-color: #374151;
+}
+
+/* Submit Button */
+.cms-form .form-submit {
+    margin-top: 1rem;
+}
+
+.cms-form .submit-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cms-form .submit-button:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.cms-form .submit-button:active {
+    transform: translateY(0);
+}
+
+/* No Fields Message */
+.cms-form .no-fields-message {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #9ca3af;
+}
+
+/* ==================== FORM STYLE VARIANTS ==================== */
+
+/* Modern Style */
+.form-style-modern .field-input input,
+.form-style-modern .field-input textarea,
+.form-style-modern .field-input select {
+    border-radius: 0.75rem;
+    border-width: 2px;
+}
+
+/* Minimal Style */
+.form-style-minimal .field-input input,
+.form-style-minimal .field-input textarea,
+.form-style-minimal .field-input select {
+    border: none;
+    border-bottom: 2px solid #e5e7eb;
+    border-radius: 0;
+    padding-left: 0;
+    padding-right: 0;
+    background: transparent;
+}
+
+.form-style-minimal .field-input input:focus,
+.form-style-minimal .field-input textarea:focus,
+.form-style-minimal .field-input select:focus {
+    box-shadow: none;
+}
+
+/* Bordered Style */
+.form-style-bordered {
+    border: 2px solid #e5e7eb;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+}
+
+.dark .form-style-bordered {
+    border-color: #374151;
+}
+
+/* ==================== FORM LAYOUT VARIANTS ==================== */
+
+/* Horizontal Layout */
+.form-layout-horizontal .form-field {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.form-layout-horizontal .field-label {
+    flex: 0 0 30%;
+    margin-bottom: 0;
+    text-align: right;
+}
+
+.form-layout-horizontal .field-input {
+    flex: 1;
+}
+
+.form-layout-horizontal .field-help {
+    margin-left: calc(30% + 1rem);
+}
+
+@media (max-width: 640px) {
+    .form-layout-horizontal .form-field {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-layout-horizontal .field-label {
+        flex: none;
+        text-align: left;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-layout-horizontal .field-help {
+        margin-left: 0;
+    }
+}
+
+/* Inline Layout */
+.form-layout-inline .form-fields {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.form-layout-inline .form-field {
+    flex: 1;
+}
+
+.form-layout-inline .form-submit {
+    margin-top: 0;
+}
+
+@media (max-width: 640px) {
+    .form-layout-inline .form-fields {
+        flex-direction: column;
+    }
+    
+    .form-layout-inline .form-field {
+        flex: none;
+    }
+}
+
+/* ==================== FRONTEND FORM ==================== */
+
+/* Form Success Animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.form-success-animation {
+    animation: fadeInUp 0.4s ease-out;
+}
+
+/* Loading State */
+.cms-form.loading .submit-button {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.cms-form.loading .submit-button::after {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-left: 8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error States */
+.cms-form .field-error input,
+.cms-form .field-error textarea,
+.cms-form .field-error select {
+    border-color: #ef4444;
+}
+
+.cms-form .field-error-message {
+    color: #ef4444;
+    font-size: 0.75rem;
+    margin-top: 0.375rem;
+}
+
+/* ==================== RESPONSIVE FIXES ==================== */
+
+@media (max-width: 768px) {
+    .cms-form .form-fields {
+        gap: 0.75rem;
+    }
+    
+    .cms-form .field-input input,
+    .cms-form .field-input textarea,
+    .cms-form .field-input select {
+        padding: 0.5rem 0.75rem;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    /* Form Builder - Mobil uyumluluk */
+    .field-type-btn {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .field-item {
+        padding: 0.75rem;
+    }
+    
+    .field-item .drag-handle {
+        font-size: 1rem;
+    }
+    
+    /* Alan düzenleme paneli mobilde tam genişlik */
+    #field-editor {
+        position: relative !important;
+        top: 0 !important;
+    }
+    
+    /* Tab butonları mobilde küçült */
+    .tab-btn {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .tab-btn .material-symbols-outlined {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 640px) {
+    /* Form Builder - Küçük ekranlar */
+    .field-type-btn {
+        padding: 0.5rem 0.625rem;
+        font-size: 0.8125rem;
+    }
+    
+    .field-item {
+        padding: 0.625rem;
+    }
+    
+    .field-item .material-symbols-outlined {
+        font-size: 1.125rem;
+    }
+    
+    /* Alan düzenleme formu mobilde optimize */
+    #field-editor-content input,
+    #field-editor-content textarea,
+    #field-editor-content select {
+        font-size: 16px; /* iOS zoom önleme */
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Seçenek satırları mobilde dikey */
+    .option-row {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .option-row input {
+        width: 100% !important;
+    }
+    
+    .option-row .remove-option-btn {
+        align-self: flex-end;
+    }
+}
+

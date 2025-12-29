@@ -1,0 +1,516 @@
+/**
+ * Frontend Form CSS
+ * Formların frontend'de görünümü için stiller
+ */
+
+/* Form Wrapper */
+.cms-form-wrapper {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.cms-form-wrapper .form-description {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* Base Form Styles */
+.cms-form {
+    font-family: inherit;
+}
+
+.cms-form .form-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+}
+
+/* Form Field */
+.cms-form .form-field {
+    flex-basis: 100%;
+}
+
+.cms-form .form-field.field-width-half {
+    flex-basis: calc(50% - 0.625rem);
+}
+
+.cms-form .form-field.field-width-third {
+    flex-basis: calc(33.333% - 0.833rem);
+}
+
+.cms-form .form-field.field-width-quarter {
+    flex-basis: calc(25% - 0.9375rem);
+}
+
+@media (max-width: 640px) {
+    .cms-form .form-field.field-width-half,
+    .cms-form .form-field.field-width-third,
+    .cms-form .form-field.field-width-quarter {
+        flex-basis: 100%;
+    }
+}
+
+/* Labels */
+.cms-form .field-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.cms-form .required-mark {
+    color: #ef4444;
+    margin-left: 0.25rem;
+}
+
+/* Inputs */
+.cms-form .field-input input[type="text"],
+.cms-form .field-input input[type="email"],
+.cms-form .field-input input[type="tel"],
+.cms-form .field-input input[type="number"],
+.cms-form .field-input input[type="date"],
+.cms-form .field-input input[type="time"],
+.cms-form .field-input input[type="datetime-local"],
+.cms-form .field-input textarea,
+.cms-form .field-input select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    color: #111827;
+    background-color: white;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.cms-form .field-input input::placeholder,
+.cms-form .field-input textarea::placeholder {
+    color: #9ca3af;
+}
+
+.cms-form .field-input input:focus,
+.cms-form .field-input textarea:focus,
+.cms-form .field-input select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.cms-form .field-input textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.cms-form .field-input input[type="file"] {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+/* Help Text */
+.cms-form .field-help {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.375rem;
+}
+
+/* Checkbox & Radio */
+.cms-form .checkbox-group,
+.cms-form .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.cms-form .checkbox-label,
+.cms-form .radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: #374151;
+}
+
+.cms-form .checkbox-label input,
+.cms-form .radio-label input {
+    width: 1.125rem;
+    height: 1.125rem;
+    accent-color: #3b82f6;
+    cursor: pointer;
+}
+
+/* Layout Elements */
+.cms-form .form-heading {
+    flex-basis: 100%;
+    padding: 0.5rem 0;
+}
+
+.cms-form .form-heading h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+}
+
+.cms-form .form-paragraph {
+    flex-basis: 100%;
+    color: #6b7280;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.cms-form .form-paragraph p {
+    margin: 0;
+}
+
+.cms-form .form-divider {
+    flex-basis: 100%;
+    padding: 0.5rem 0;
+}
+
+.cms-form .form-divider hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 0;
+}
+
+/* Submit Button */
+.cms-form .form-submit {
+    margin-top: 1.5rem;
+}
+
+.cms-form .submit-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.cms-form .submit-button:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.cms-form .submit-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.cms-form .submit-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.cms-form .submit-button .button-loading svg {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error States */
+.cms-form .form-field.field-error .field-input input,
+.cms-form .form-field.field-error .field-input textarea,
+.cms-form .form-field.field-error .field-input select {
+    border-color: #ef4444;
+}
+
+.cms-form .form-field.field-error .field-input input:focus,
+.cms-form .form-field.field-error .field-input textarea:focus,
+.cms-form .form-field.field-error .field-input select:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.cms-form .field-error-message {
+    color: #ef4444;
+    font-size: 0.75rem;
+    margin-top: 0.375rem;
+}
+
+/* General Error Message */
+.cms-form-wrapper .form-error-message {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.cms-form-wrapper .form-error-message p {
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* Success State */
+.cms-form-wrapper .form-success {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: #f0fdf4;
+    border-radius: 0.75rem;
+    border: 1px solid #bbf7d0;
+}
+
+.cms-form-wrapper .form-success .success-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1rem;
+    background: #22c55e;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+.cms-form-wrapper .form-success .success-message {
+    color: #166534;
+    font-size: 1.125rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* Form Error (Not found) */
+.form-error {
+    text-align: center;
+    padding: 2rem;
+    background: #fef2f2;
+    border-radius: 0.5rem;
+    color: #dc2626;
+}
+
+/* ==================== FORM STYLE VARIANTS ==================== */
+
+/* Modern Style */
+.form-style-modern .field-input input,
+.form-style-modern .field-input textarea,
+.form-style-modern .field-input select {
+    border-radius: 0.75rem;
+    border-width: 2px;
+}
+
+.form-style-modern .submit-button {
+    border-radius: 0.75rem;
+}
+
+/* Minimal Style */
+.form-style-minimal .field-input input,
+.form-style-minimal .field-input textarea,
+.form-style-minimal .field-input select {
+    border: none;
+    border-bottom: 2px solid #e5e7eb;
+    border-radius: 0;
+    padding-left: 0;
+    padding-right: 0;
+    background: transparent;
+}
+
+.form-style-minimal .field-input input:focus,
+.form-style-minimal .field-input textarea:focus,
+.form-style-minimal .field-input select:focus {
+    box-shadow: none;
+}
+
+.form-style-minimal .submit-button {
+    border-radius: 0;
+}
+
+/* Bordered Style */
+.form-style-bordered .cms-form {
+    border: 2px solid #e5e7eb;
+    padding: 2rem;
+    border-radius: 0.75rem;
+}
+
+/* ==================== FORM LAYOUT VARIANTS ==================== */
+
+/* Horizontal Layout */
+.form-layout-horizontal .form-field {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.form-layout-horizontal .field-label {
+    flex: 0 0 30%;
+    margin-bottom: 0;
+    padding-top: 0.75rem;
+    text-align: right;
+}
+
+.form-layout-horizontal .field-input {
+    flex: 1;
+}
+
+.form-layout-horizontal .field-help {
+    margin-left: calc(30% + 1rem);
+}
+
+@media (max-width: 640px) {
+    .form-layout-horizontal .form-field {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-layout-horizontal .field-label {
+        flex: none;
+        text-align: left;
+        padding-top: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-layout-horizontal .field-help {
+        margin-left: 0;
+    }
+}
+
+/* Inline Layout */
+.form-layout-inline .cms-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+}
+
+.form-layout-inline .form-fields {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.form-layout-inline .form-field {
+    flex: 1;
+    min-width: 150px;
+}
+
+.form-layout-inline .form-submit {
+    margin-top: 0;
+}
+
+@media (max-width: 640px) {
+    .form-layout-inline .cms-form {
+        flex-direction: column;
+    }
+    
+    .form-layout-inline .form-fields {
+        flex: none;
+        width: 100%;
+    }
+    
+    .form-layout-inline .form-field {
+        flex: none;
+        width: 100%;
+    }
+    
+    .form-layout-inline .form-submit {
+        width: 100%;
+    }
+    
+    .form-layout-inline .submit-button {
+        width: 100%;
+    }
+}
+
+/* ==================== DARK MODE ==================== */
+
+@media (prefers-color-scheme: dark) {
+    .cms-form .field-label {
+        color: #d1d5db;
+    }
+    
+    .cms-form .field-input input,
+    .cms-form .field-input textarea,
+    .cms-form .field-input select {
+        background-color: #1f2937;
+        border-color: #374151;
+        color: #f3f4f6;
+    }
+    
+    .cms-form .field-input input::placeholder,
+    .cms-form .field-input textarea::placeholder {
+        color: #6b7280;
+    }
+    
+    .cms-form .checkbox-label,
+    .cms-form .radio-label {
+        color: #d1d5db;
+    }
+    
+    .cms-form .form-heading h3 {
+        color: #f3f4f6;
+    }
+    
+    .cms-form .form-divider hr {
+        border-color: #374151;
+    }
+    
+    .form-style-bordered .cms-form {
+        border-color: #374151;
+    }
+    
+    .cms-form-wrapper .form-success {
+        background: #052e16;
+        border-color: #166534;
+    }
+    
+    .cms-form-wrapper .form-success .success-message {
+        color: #86efac;
+    }
+    
+    .cms-form-wrapper .form-error-message {
+        background: #450a0a;
+        border-color: #991b1b;
+    }
+    
+    .cms-form-wrapper .form-error-message p {
+        color: #fca5a5;
+    }
+}
+
+/* ==================== RESPONSIVE ==================== */
+
+@media (max-width: 480px) {
+    .cms-form .form-fields {
+        gap: 1rem;
+    }
+    
+    .cms-form .field-input input,
+    .cms-form .field-input textarea,
+    .cms-form .field-input select {
+        padding: 0.625rem 0.875rem;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .cms-form .submit-button {
+        width: 100%;
+        padding: 0.75rem 1.5rem;
+    }
+}
+

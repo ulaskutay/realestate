@@ -1,0 +1,268 @@
+/**
+ * Media Library Styles
+ * İçerik kütüphanesi için özel stiller
+ */
+
+/* Media Item Styles */
+.media-item {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.media-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.15);
+}
+
+.media-item.selected {
+    border-color: #137fec !important;
+    box-shadow: 0 0 0 3px rgba(19, 127, 236, 0.2);
+}
+
+.media-item.selected .selection-checkbox {
+    background-color: #137fec;
+    border-color: #137fec;
+}
+
+.media-item.selected .selection-checkbox span {
+    display: block !important;
+    color: white;
+}
+
+.media-item.selected .selection-checkbox {
+    opacity: 1 !important;
+}
+
+/* Drop Zone Styles */
+#dropZone {
+    transition: all 0.3s ease;
+}
+
+#dropZone.drag-over {
+    border-color: #137fec;
+    background-color: rgba(19, 127, 236, 0.1);
+}
+
+#dropZone.drag-over span {
+    color: #137fec;
+    transform: scale(1.1);
+}
+
+/* Modal Animation */
+#uploadModal:not(.hidden),
+#mediaDetailModal:not(.hidden) {
+    animation: fadeIn 0.2s ease;
+}
+
+#uploadModal:not(.hidden) > div:last-child,
+#mediaDetailModal:not(.hidden) > div:last-child {
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { 
+        opacity: 0;
+        transform: translate(-50%, -45%);
+    }
+    to { 
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* Upload Result Item */
+.upload-result-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 0.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .upload-result-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.upload-result-item.success {
+    border-color: rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.upload-result-item.error {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.upload-result-item .icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.upload-result-item.success .icon {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.upload-result-item.error .icon {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.upload-result-item .filename {
+    flex: 1;
+    font-size: 0.875rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Toast Notification */
+#toast {
+    transition: all 0.3s ease;
+}
+
+#toast:not(.hidden) {
+    animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Responsive Grid Adjustments */
+@media (max-width: 640px) {
+    #mediaGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .media-item .selection-checkbox {
+        opacity: 1 !important;
+    }
+}
+
+/* Custom Scrollbar for Modal */
+#uploadResults,
+#mediaDetailModal .overflow-y-auto {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+#uploadResults::-webkit-scrollbar,
+#mediaDetailModal .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+}
+
+#uploadResults::-webkit-scrollbar-track,
+#mediaDetailModal .overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#uploadResults::-webkit-scrollbar-thumb,
+#mediaDetailModal .overflow-y-auto::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+}
+
+#uploadResults::-webkit-scrollbar-thumb:hover,
+#mediaDetailModal .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.7);
+}
+
+/* Video Preview in Modal */
+#mediaPreview video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+#mediaPreview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Audio Preview */
+#mediaPreview audio {
+    width: 100%;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    display: inline-block;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Hover Effects for Stats Cards */
+.grid > div:has(.material-symbols-outlined) {
+    transition: all 0.2s ease;
+}
+
+.grid > div:has(.material-symbols-outlined):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Image Loading Placeholder */
+.media-item img {
+    background: linear-gradient(90deg, 
+        rgba(200, 200, 200, 0.2) 25%, 
+        rgba(200, 200, 200, 0.3) 50%, 
+        rgba(200, 200, 200, 0.2) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+.media-item img[src] {
+    animation: none;
+    background: transparent;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Selection Mode Styles */
+body.selection-mode .media-item .selection-checkbox {
+    opacity: 1 !important;
+}
+
+body.selection-mode .media-item:not(.selected) {
+    opacity: 0.7;
+}
+
+body.selection-mode .media-item:not(.selected):hover {
+    opacity: 1;
+}
+
