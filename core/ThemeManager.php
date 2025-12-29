@@ -753,8 +753,12 @@ class ThemeManager {
             $content = $sectionData['content'] ?? '';
             $isActive = isset($sectionData['enabled']) ? ($sectionData['enabled'] == '1' ? 1 : 0) : 1;
             
-            // title, subtitle, content, enabled dışındaki alanları settings olarak kaydet
-            $settingsData = array_diff_key($sectionData, array_flip(['title', 'subtitle', 'content', 'enabled']));
+            // Items'ı al (varsa)
+            $items = isset($sectionData['items']) && is_array($sectionData['items']) ? $sectionData['items'] : [];
+            $itemsJson = json_encode($items);
+            
+            // title, subtitle, content, enabled, items dışındaki alanları settings olarak kaydet
+            $settingsData = array_diff_key($sectionData, array_flip(['title', 'subtitle', 'content', 'enabled', 'items']));
             $settingsJson = json_encode($settingsData);
             
             if ($existing) {
@@ -765,18 +769,19 @@ class ThemeManager {
                         subtitle = ?,
                         content = ?,
                         settings = ?,
+                        items = ?,
                         is_active = ?
                     WHERE id = ?
                 ");
-                $stmt->execute([$title, $subtitle, $content, $settingsJson, $isActive, $existing['id']]);
+                $stmt->execute([$title, $subtitle, $content, $settingsJson, $itemsJson, $isActive, $existing['id']]);
             } else {
                 // Yeni ekle
                 $stmt = $this->db->prepare("
-                    INSERT INTO page_sections (theme_id, page_type, section_id, title, subtitle, content, settings, is_active, sort_order)
-                    VALUES (?, 'home', ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO page_sections (theme_id, page_type, section_id, title, subtitle, content, settings, items, is_active, sort_order)
+                    VALUES (?, 'home', ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $sortOrder = $this->getSectionSortOrder($sectionId);
-                $stmt->execute([$themeId, $sectionId, $title, $subtitle, $content, $settingsJson, $isActive, $sortOrder]);
+                $stmt->execute([$themeId, $sectionId, $title, $subtitle, $content, $settingsJson, $itemsJson, $isActive, $sortOrder]);
             }
         }
     }

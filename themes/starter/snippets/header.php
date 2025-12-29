@@ -195,7 +195,7 @@ function renderStarterMobileMenuItem($item, $level = 0) {
             <!-- CTA Button & Search -->
             <div class="hidden md:flex items-center gap-4 <?php echo $isCentered ? 'absolute right-4 sm:right-6 lg:right-8' : ''; ?>">
                 <?php if ($showSearch): ?>
-                    <button class="p-2 hover:opacity-80 transition-opacity" style="color: <?php echo esc_attr($headerTextColor); ?>" aria-label="Ara">
+                    <button id="header-search-btn" class="p-2 hover:opacity-80 transition-opacity" style="color: <?php echo esc_attr($headerTextColor); ?>" aria-label="Ara">
                         <span class="material-symbols-outlined">search</span>
                     </button>
                 <?php endif; ?>
@@ -241,6 +241,31 @@ function renderStarterMobileMenuItem($item, $level = 0) {
 <div class="h-20"></div>
 <?php endif; ?>
 
+<?php if ($showSearch): ?>
+<!-- Search Modal -->
+<div id="search-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center" style="display: none;">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 transform transition-all">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-900">Ara</h3>
+            <button id="search-modal-close" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <span class="material-symbols-outlined text-gray-600">close</span>
+            </button>
+        </div>
+        <form action="/blog" method="GET" class="relative">
+            <input type="text" 
+                   name="q" 
+                   id="search-input"
+                   placeholder="Aradığınız konuyu yazın..." 
+                   class="w-full px-6 py-4 pl-14 rounded-xl bg-gray-50 border-2 border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:bg-white text-lg font-medium transition-all">
+            <span class="material-symbols-outlined absolute left-5 top-1/2 transform -translate-y-1/2 text-gray-400 text-2xl pointer-events-none">search</span>
+            <button type="submit" class="absolute right-3 top-1/2 transform -translate-y-1/2 px-6 py-3 btn-primary rounded-lg font-medium hover:opacity-90 transition-opacity">
+                Ara
+            </button>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
 (function() {
     'use strict';
@@ -258,6 +283,50 @@ function renderStarterMobileMenuItem($item, $level = 0) {
         if (!header) return;
         
         let lastScroll = 0;
+        
+        // Search modal functionality
+        const searchBtn = document.getElementById('header-search-btn');
+        const searchModal = document.getElementById('search-modal');
+        const searchModalClose = document.getElementById('search-modal-close');
+        const searchInput = document.getElementById('search-input');
+        
+        if (searchBtn && searchModal) {
+            // Open modal
+            searchBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                searchModal.classList.remove('hidden');
+                searchModal.style.display = 'flex';
+                // Focus input after animation
+                setTimeout(() => {
+                    if (searchInput) searchInput.focus();
+                }, 100);
+            });
+            
+            // Close modal
+            if (searchModalClose) {
+                searchModalClose.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    searchModal.classList.add('hidden');
+                    searchModal.style.display = 'none';
+                });
+            }
+            
+            // Close on background click
+            searchModal.addEventListener('click', function(e) {
+                if (e.target === searchModal) {
+                    searchModal.classList.add('hidden');
+                    searchModal.style.display = 'none';
+                }
+            });
+            
+            // Close on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && searchModal && !searchModal.classList.contains('hidden')) {
+                    searchModal.classList.add('hidden');
+                    searchModal.style.display = 'none';
+                }
+            });
+        }
         
         window.addEventListener('scroll', () => {
             const currentScroll = window.pageYOffset;

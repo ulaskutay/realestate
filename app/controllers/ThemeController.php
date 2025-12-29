@@ -116,6 +116,13 @@ class ThemeController extends Controller {
                 throw new Exception('Tema slug gerekli');
             }
             
+            // About page verilerini ayır ve kaydet
+            $aboutPageData = $settings['about_page'] ?? null;
+            if ($aboutPageData) {
+                unset($settings['about_page']);
+                $this->saveAboutPageData($aboutPageData);
+            }
+            
             $result = $this->themeManager->saveThemeSettings($settings, $slug);
             
             if ($result) {
@@ -128,6 +135,85 @@ class ThemeController extends Controller {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         exit;
+    }
+    
+    /**
+     * Hakkımızda sayfası verilerini kaydet
+     */
+    private function saveAboutPageData($data) {
+        require_once __DIR__ . '/../models/Page.php';
+        $pageModel = new Page();
+        
+        // Hakkımızda sayfasını bul
+        $aboutPage = $pageModel->findBySlug('about');
+        if (!$aboutPage) {
+            $aboutPage = $pageModel->findBySlug('hakkimizda');
+        }
+        
+        if (!$aboutPage) {
+            error_log('About page not found');
+            return false;
+        }
+        
+        // Custom fields'ları hazırla
+        $customFields = [];
+        
+        // Hero subtitle
+        if (isset($data['hero_subtitle'])) {
+            $customFields['hero_subtitle'] = $data['hero_subtitle'];
+        }
+        
+        // About sections
+        if (isset($data['about_sections']) && is_array($data['about_sections'])) {
+            $customFields['about_sections'] = json_encode($data['about_sections']);
+        }
+        
+        // Core values (service_features olarak kaydet)
+        if (isset($data['core_values']) && is_array($data['core_values'])) {
+            $customFields['service_features'] = json_encode($data['core_values']);
+        }
+        
+        // Team members
+        if (isset($data['team_members']) && is_array($data['team_members'])) {
+            $customFields['team_members'] = json_encode($data['team_members']);
+        }
+        
+        // Stats
+        if (isset($data['stats'])) {
+            if (is_array($data['stats']) && !empty($data['stats'])) {
+                $customFields['stats'] = json_encode($data['stats']);
+            } elseif (is_array($data['stats']) && empty($data['stats'])) {
+                // Boş array ise de kaydet (temizleme için)
+                $customFields['stats'] = json_encode([]);
+            }
+        }
+        
+        // CTA
+        if (isset($data['cta_title'])) {
+            $customFields['cta_title'] = $data['cta_title'];
+        }
+        if (isset($data['cta_description'])) {
+            $customFields['cta_description'] = $data['cta_description'];
+        }
+        if (isset($data['cta_button_text'])) {
+            $customFields['cta_button_text'] = $data['cta_button_text'];
+        }
+        if (isset($data['cta_button_link'])) {
+            $customFields['cta_button_link'] = $data['cta_button_link'];
+        }
+        if (isset($data['cta_button2_text'])) {
+            $customFields['cta_button2_text'] = $data['cta_button2_text'];
+        }
+        if (isset($data['cta_button2_link'])) {
+            $customFields['cta_button2_link'] = $data['cta_button2_link'];
+        }
+        
+        // Custom fields'ları kaydet
+        if (!empty($customFields)) {
+            $pageModel->saveCustomFields($aboutPage['id'], $customFields);
+        }
+        
+        return true;
     }
     
     /**

@@ -71,6 +71,29 @@ if (!empty($customFields['related_services'])) {
         <?php echo $themeLoader->getCssVariablesTag(); ?>
     <?php endif; ?>
     
+    <!-- Preload Material Symbols Font for Faster Icon Loading -->
+    <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/fonts/material-symbols/material-symbols-outlined.woff2'); ?>" as="font" type="font/woff2" crossorigin="anonymous">
+    
+    <!-- Material Symbols Base Styles (Inline for Faster Rendering) -->
+    <style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+    
     <!-- Local Fonts -->
     <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
     

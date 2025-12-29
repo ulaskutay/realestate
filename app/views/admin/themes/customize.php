@@ -34,6 +34,11 @@ if (isset($themeManager)) {
                 $pageSections[$sectionId]['title'] = $section['title'] ?? '';
                 $pageSections[$sectionId]['subtitle'] = $section['subtitle'] ?? '';
                 $pageSections[$sectionId]['content'] = $section['content'] ?? '';
+                // Items'ı da ekle
+                if (isset($section['items'])) {
+                    $items = is_array($section['items']) ? $section['items'] : json_decode($section['items'] ?? '[]', true);
+                    $pageSections[$sectionId]['items'] = is_array($items) ? $items : [];
+                }
             }
         }
     } catch (Exception $e) {
@@ -53,7 +58,21 @@ $currentFavicon = $settings['branding']['site_favicon']['value'] ?? '';
     <title>Tema Özelleştirici - <?php echo esc_html($theme['name'] ?? 'Starter'); ?></title>
     <script src="<?php echo ViewRenderer::assetUrl('assets/js/tailwind-admin.min.js'); ?>"></script>
     <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
-    <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
+    <script>
+        // Font yükleme hatalarını yok say
+        window.addEventListener('error', function(e) {
+            if (e.target && e.target.tagName === 'LINK' && e.target.href && e.target.href.includes('fonts.css')) {
+                console.warn('Font CSS yüklenemedi, fallback kullanılıyor');
+                e.preventDefault();
+                return false;
+            }
+            if (e.message && e.message.includes('Failed to decode downloaded font')) {
+                console.warn('Font dosyası yüklenemedi, sistem fontu kullanılıyor:', e.message);
+                e.preventDefault();
+                return false;
+            }
+        }, true);
+    </script>
     <script>
         tailwind.config = {
             theme: {
@@ -100,6 +119,17 @@ $currentFavicon = $settings['branding']['site_favicon']['value'] ?? '';
             border-color: rgba(99,102,241,0.5) !important; 
             outline: none; 
             box-shadow: 0 0 0 3px rgba(99,102,241,0.1); 
+        }
+        .input-field option {
+            background: #1e293b !important;
+            color: white !important;
+        }
+        select.input-field {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            padding-right: 2.5rem;
         }
         .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
         .btn-primary:hover { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); transform: translateY(-1px); box-shadow: 0 10px 40px -10px rgba(99,102,241,0.5); }
@@ -469,15 +499,86 @@ $currentFavicon = $settings['branding']['site_favicon']['value'] ?? '';
                                 </div>
                                 <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
                             </summary>
-                            <div class="p-4 pt-0 space-y-3 border-t border-white/5">
+                            <div class="p-4 pt-0 space-y-4 border-t border-white/5">
                                 <div>
                                     <label class="block text-xs text-slate-400 mb-1.5">Başlık</label>
                                     <input type="text" name="sections[features][title]" value="<?php echo esc_attr($pageSections['features']['title'] ?? 'Özelliklerimiz'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Alt Başlık</label>
+                                    <input type="text" name="sections[features][subtitle]" value="<?php echo esc_attr($pageSections['features']['subtitle'] ?? 'Müşterilerimize en iyi deneyimi sunmak için çalışıyoruz.'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Kolon Sayısı</label>
+                                    <?php 
+                                    $featuresColumns = isset($pageSections['features']['columns']) ? (string)$pageSections['features']['columns'] : '3';
+                                    ?>
+                                    <select name="sections[features][columns]" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                        <option value="2" <?php echo $featuresColumns === '2' ? 'selected' : ''; ?>>2 Kolon</option>
+                                        <option value="3" <?php echo $featuresColumns === '3' ? 'selected' : ''; ?>>3 Kolon</option>
+                                        <option value="4" <?php echo $featuresColumns === '4' ? 'selected' : ''; ?>>4 Kolon</option>
+                                    </select>
                                 </div>
                                 <label class="flex items-center gap-3 cursor-pointer">
                                     <input type="checkbox" name="sections[features][enabled]" value="1" <?php echo ($pageSections['features']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
                                     <span class="text-xs text-slate-400">Bu bölümü göster</span>
                                 </label>
+                                
+                                <!-- Features Items -->
+                                <div class="border-t border-white/5 pt-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <label class="block text-xs font-medium text-slate-300">Özellik Öğeleri</label>
+                                        <button type="button" onclick="addFeatureItem()" class="px-3 py-1.5 text-xs font-medium bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">add</span>
+                                            Ekle
+                                        </button>
+                                    </div>
+                                    <div id="features-items" class="space-y-3">
+                                        <?php 
+                                        $featuresItems = $pageSections['features']['items'] ?? [
+                                            ['icon' => 'rocket_launch', 'title' => 'Hızlı Performans', 'description' => 'Optimize edilmiş kod yapısı ile yüksek performans.'],
+                                            ['icon' => 'palette', 'title' => 'Modern Tasarım', 'description' => 'Güncel trendlere uygun şık ve modern görünüm.'],
+                                            ['icon' => 'devices', 'title' => 'Responsive', 'description' => 'Tüm cihazlarda mükemmel görünüm.']
+                                        ];
+                                        foreach ($featuresItems as $index => $item): 
+                                        ?>
+                                        <div class="feature-item glass rounded-lg p-4 space-y-3">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-xs font-medium text-slate-300">Öğe #<?php echo $index + 1; ?></span>
+                                                <button type="button" onclick="removeFeatureItem(this)" class="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors">
+                                                    <span class="material-symbols-outlined text-sm">delete</span>
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">İkon (Material Symbols)</label>
+                                                <div class="flex gap-2">
+                                                    <input type="text" name="sections[features][items][<?php echo $index; ?>][icon]" value="<?php echo esc_attr($item['icon'] ?? 'star'); ?>" placeholder="rocket_launch" class="flex-1 px-4 py-2 input-field rounded-lg text-sm icon-input" data-icon-index="<?php echo $index; ?>">
+                                                    <button type="button" onclick="openIconPicker(<?php echo $index; ?>)" class="px-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center gap-2 text-sm">
+                                                        <span class="material-symbols-outlined text-lg">palette</span>
+                                                        Seç
+                                                    </button>
+                                                </div>
+                                                <div class="mt-2 flex items-center gap-2">
+                                                    <span class="material-symbols-outlined text-xl text-slate-400 icon-preview-<?php echo $index; ?>"><?php echo esc_html($item['icon'] ?? 'star'); ?></span>
+                                                    <span class="text-[10px] text-slate-500">Önizleme</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Başlık</label>
+                                                <input type="text" name="sections[features][items][<?php echo $index; ?>][title]" value="<?php echo esc_attr($item['title'] ?? ''); ?>" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Açıklama</label>
+                                                <textarea name="sections[features][items][<?php echo $index; ?>][description]" rows="2" class="w-full px-4 py-2 input-field rounded-lg text-sm resize-none"><?php echo esc_html($item['description'] ?? ''); ?></textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Link (Opsiyonel)</label>
+                                                <input type="text" name="sections[features][items][<?php echo $index; ?>][link]" value="<?php echo esc_attr($item['link'] ?? ''); ?>" placeholder="/services" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
                             </div>
                         </details>
                         
@@ -515,15 +616,128 @@ $currentFavicon = $settings['branding']['site_favicon']['value'] ?? '';
                                 </div>
                                 <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
                             </summary>
-                            <div class="p-4 pt-0 space-y-3 border-t border-white/5">
+                            <div class="p-4 pt-0 space-y-4 border-t border-white/5">
                                 <div>
                                     <label class="block text-xs text-slate-400 mb-1.5">Başlık</label>
-                                    <input type="text" name="sections[testimonials][title]" value="<?php echo esc_attr($pageSections['testimonials']['title'] ?? 'Müşteri Yorumları'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                    <input type="text" name="sections[testimonials][title]" value="<?php echo esc_attr($pageSections['testimonials']['title'] ?? 'Müşterilerimiz Ne Diyor?'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Alt Başlık</label>
+                                    <input type="text" name="sections[testimonials][subtitle]" value="<?php echo esc_attr($pageSections['testimonials']['subtitle'] ?? 'Birlikte çalıştığımız müşterilerimizden geri bildirimler.'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Kolon Sayısı</label>
+                                    <?php 
+                                    $testimonialsColumns = isset($pageSections['testimonials']['columns']) ? (string)$pageSections['testimonials']['columns'] : '3';
+                                    ?>
+                                    <select name="sections[testimonials][columns]" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                        <option value="2" <?php echo $testimonialsColumns === '2' ? 'selected' : ''; ?>>2 Kolon</option>
+                                        <option value="3" <?php echo $testimonialsColumns === '3' ? 'selected' : ''; ?>>3 Kolon</option>
+                                        <option value="4" <?php echo $testimonialsColumns === '4' ? 'selected' : ''; ?>>4 Kolon</option>
+                                    </select>
                                 </div>
                                 <label class="flex items-center gap-3 cursor-pointer">
                                     <input type="checkbox" name="sections[testimonials][enabled]" value="1" <?php echo ($pageSections['testimonials']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
                                     <span class="text-xs text-slate-400">Bu bölümü göster</span>
                                 </label>
+                                
+                                <!-- Testimonials Items -->
+                                <div class="border-t border-white/5 pt-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <label class="block text-xs font-medium text-slate-300">Müşteri Yorumları</label>
+                                        <button type="button" onclick="addTestimonialItem()" class="px-3 py-1.5 text-xs font-medium bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">add</span>
+                                            Ekle
+                                        </button>
+                                    </div>
+                                    <div id="testimonials-items" class="space-y-3">
+                                        <?php 
+                                        $testimonialsItems = $pageSections['testimonials']['items'] ?? [
+                                            [
+                                                'name' => 'Ahmet Yılmaz',
+                                                'role' => 'CEO, TechCorp',
+                                                'content' => 'Harika bir deneyimdi. Profesyonel yaklaşımları ve kaliteli işleri ile beklentilerimizi aştılar.',
+                                                'rating' => 5,
+                                                'avatar' => ''
+                                            ],
+                                            [
+                                                'name' => 'Elif Demir',
+                                                'role' => 'Marketing Manager',
+                                                'content' => 'Projemiz zamanında ve bütçe dahilinde tamamlandı. Kesinlikle tekrar çalışmak isteriz.',
+                                                'rating' => 5,
+                                                'avatar' => ''
+                                            ],
+                                            [
+                                                'name' => 'Mehmet Kara',
+                                                'role' => 'Founder, StartupX',
+                                                'content' => 'İletişimleri çok güçlü. Her adımda bilgilendirildik ve sonuç mükemmel oldu.',
+                                                'rating' => 5,
+                                                'avatar' => ''
+                                            ]
+                                        ];
+                                        foreach ($testimonialsItems as $index => $item): 
+                                        ?>
+                                        <div class="testimonial-item glass rounded-lg p-4 space-y-3">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-xs font-medium text-slate-300">Yorum #<?php echo $index + 1; ?></span>
+                                                <button type="button" onclick="removeTestimonialItem(this)" class="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors">
+                                                    <span class="material-symbols-outlined text-sm">delete</span>
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Müşteri Adı</label>
+                                                <input type="text" name="sections[testimonials][items][<?php echo $index; ?>][name]" value="<?php echo esc_attr($item['name'] ?? ''); ?>" placeholder="Ahmet Yılmaz" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Ünvan/Pozisyon</label>
+                                                <input type="text" name="sections[testimonials][items][<?php echo $index; ?>][role]" value="<?php echo esc_attr($item['role'] ?? ''); ?>" placeholder="CEO, TechCorp" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Yorum İçeriği</label>
+                                                <textarea name="sections[testimonials][items][<?php echo $index; ?>][content]" rows="3" class="w-full px-4 py-2 input-field rounded-lg text-sm resize-none" placeholder="Müşteri yorumu..."><?php echo esc_html($item['content'] ?? ''); ?></textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Değerlendirme (Yıldız)</label>
+                                                <div class="flex items-center gap-2">
+                                                    <?php 
+                                                    $currentRating = isset($item['rating']) ? (int)$item['rating'] : 5;
+                                                    for ($star = 1; $star <= 5; $star++): 
+                                                    ?>
+                                                    <button type="button" onclick="setTestimonialRating(this, <?php echo $index; ?>, <?php echo $star; ?>)" class="testimonial-rating-btn p-1 transition-all <?php echo $star <= $currentRating ? 'text-yellow-400' : 'text-slate-500'; ?>" data-rating="<?php echo $star; ?>">
+                                                        <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' <?php echo $star <= $currentRating ? 1 : 0; ?>;">star</span>
+                                                    </button>
+                                                    <?php endfor; ?>
+                                                    <input type="hidden" name="sections[testimonials][items][<?php echo $index; ?>][rating]" value="<?php echo $currentRating; ?>" class="testimonial-rating-input">
+                                                    <span class="text-xs text-slate-500 ml-2"><?php echo $currentRating; ?>/5</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Avatar Fotoğrafı (Opsiyonel)</label>
+                                                <div class="flex items-center gap-4">
+                                                    <div class="testimonial-avatar-preview w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-slate-600 flex items-center justify-center overflow-hidden hover:border-indigo-500/50 transition-colors cursor-pointer" onclick="selectTestimonialAvatar(<?php echo $index; ?>)" data-index="<?php echo $index; ?>">
+                                                        <?php if (!empty($item['avatar'])): ?>
+                                                        <img src="<?php echo esc_url($item['avatar']); ?>" class="w-full h-full object-cover">
+                                                        <?php else: ?>
+                                                        <span class="text-white font-semibold text-xl">
+                                                            <?php echo strtoupper(substr($item['name'] ?? 'A', 0, 1)); ?>
+                                                        </span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <div class="flex-1 space-y-2">
+                                                        <button type="button" onclick="selectTestimonialAvatar(<?php echo $index; ?>)" class="w-full px-4 py-2 text-xs font-medium bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors">
+                                                            Fotoğraf Seç
+                                                        </button>
+                                                        <button type="button" onclick="removeTestimonialAvatar(<?php echo $index; ?>)" class="w-full px-4 py-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                                            Kaldır
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <input type="hidden" name="sections[testimonials][items][<?php echo $index; ?>][avatar]" value="<?php echo esc_attr($item['avatar'] ?? ''); ?>" class="testimonial-avatar-input" data-index="<?php echo $index; ?>">
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
                             </div>
                         </details>
                         
@@ -780,10 +994,43 @@ function collectSettings() {
     
     // Sections
     document.querySelectorAll('[name^="sections["]').forEach(input => {
+        // Features items için özel işleme
+        const itemMatch = input.name.match(/sections\[([^\]]+)\]\[items\]\[(\d+)\]\[([^\]]+)\]/);
+        if (itemMatch) {
+            const [, sectionId, itemIndex, itemKey] = itemMatch;
+            if (!settings.sections[sectionId]) settings.sections[sectionId] = {};
+            if (!settings.sections[sectionId].items) settings.sections[sectionId].items = {};
+            if (!settings.sections[sectionId].items[itemIndex]) settings.sections[sectionId].items[itemIndex] = {};
+            settings.sections[sectionId].items[itemIndex][itemKey] = input.value;
+            return;
+        }
+        
+        // Normal section ayarları
         const m = input.name.match(/sections\[([^\]]+)\]\[([^\]]+)\]/);
         if (m) {
             if (!settings.sections[m[1]]) settings.sections[m[1]] = {};
             settings.sections[m[1]][m[2]] = input.type === 'checkbox' ? (input.checked ? '1' : '0') : input.value;
+        }
+    });
+    
+    // Items'ları array'e çevir ve boş olanları filtrele
+    Object.keys(settings.sections).forEach(sectionId => {
+        if (settings.sections[sectionId].items && typeof settings.sections[sectionId].items === 'object') {
+            // Object'i array'e çevir
+            const itemsArray = Object.keys(settings.sections[sectionId].items)
+                .sort((a, b) => parseInt(a) - parseInt(b))
+                .map(key => settings.sections[sectionId].items[key]);
+            
+            // Filtreleme - section tipine göre
+            if (sectionId === 'testimonials') {
+                // Testimonials için name veya content olanları al
+                const filtered = itemsArray.filter(item => item && (item.name || item.content));
+                settings.sections[sectionId].items = filtered;
+            } else {
+                // Diğerleri için title veya description olanları al
+                const filtered = itemsArray.filter(item => item && (item.title || item.description));
+                settings.sections[sectionId].items = filtered;
+            }
         }
     });
     
@@ -828,10 +1075,538 @@ function saveSettings() {
     });
 }
 
-// Init
+// Feature Item Management
+let featureItemIndex = <?php echo isset($pageSections['features']['items']) ? count($pageSections['features']['items']) : 3; ?>;
+
+function addFeatureItem() {
+    const container = document.getElementById('features-items');
+    const itemHtml = `
+        <div class="feature-item glass rounded-lg p-4 space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-300">Öğe #${featureItemIndex + 1}</span>
+                <button type="button" onclick="removeFeatureItem(this)" class="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">İkon (Material Symbols)</label>
+                <div class="flex gap-2">
+                    <input type="text" name="sections[features][items][${featureItemIndex}][icon]" value="star" placeholder="rocket_launch" class="flex-1 px-4 py-2 input-field rounded-lg text-sm icon-input" data-icon-index="${featureItemIndex}">
+                    <button type="button" onclick="openIconPicker(${featureItemIndex})" class="px-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center gap-2 text-sm">
+                        <span class="material-symbols-outlined text-lg">palette</span>
+                        Seç
+                    </button>
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-xl text-slate-400 icon-preview-${featureItemIndex}">star</span>
+                    <span class="text-[10px] text-slate-500">Önizleme</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Başlık</label>
+                <input type="text" name="sections[features][items][${featureItemIndex}][title]" value="" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Açıklama</label>
+                <textarea name="sections[features][items][${featureItemIndex}][description]" rows="2" class="w-full px-4 py-2 input-field rounded-lg text-sm resize-none"></textarea>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Link (Opsiyonel)</label>
+                <input type="text" name="sections[features][items][${featureItemIndex}][link]" value="" placeholder="/services" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', itemHtml);
+    featureItemIndex++;
+}
+
+function removeFeatureItem(btn) {
+    if (confirm('Bu öğeyi silmek istediğinize emin misiniz?')) {
+        btn.closest('.feature-item').remove();
+        // Index'leri yeniden numaralandır
+        const items = document.querySelectorAll('#features-items .feature-item');
+        items.forEach((item, index) => {
+            const numberSpan = item.querySelector('.text-slate-300');
+            if (numberSpan) numberSpan.textContent = `Öğe #${index + 1}`;
+            
+            // Input name'lerini güncelle
+            item.querySelectorAll('input, textarea').forEach(input => {
+                const name = input.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/\[items\]\[\d+\]/, `[items][${index}]`);
+                    input.setAttribute('name', newName);
+                }
+                // Icon input için data-icon-index'i güncelle
+                if (input.classList.contains('icon-input')) {
+                    input.setAttribute('data-icon-index', index);
+                }
+            });
+            
+            // Icon preview class'ını güncelle
+            const iconPreview = item.querySelector('[class*="icon-preview-"]');
+            if (iconPreview) {
+                const oldClass = Array.from(iconPreview.classList).find(c => c.startsWith('icon-preview-'));
+                if (oldClass) {
+                    iconPreview.classList.remove(oldClass);
+                    iconPreview.classList.add(`icon-preview-${index}`);
+                }
+            }
+            
+            // Icon picker button onclick'ini güncelle
+            const iconButton = item.querySelector('button[onclick*="openIconPicker"]');
+            if (iconButton) {
+                iconButton.setAttribute('onclick', `openIconPicker(${index})`);
+            }
+        });
+    }
+}
+
+// Testimonial Item Management
+let testimonialItemIndex = <?php echo isset($pageSections['testimonials']['items']) ? count($pageSections['testimonials']['items']) : 3; ?>;
+
+function addTestimonialItem() {
+    const container = document.getElementById('testimonials-items');
+    const itemHtml = `
+        <div class="testimonial-item glass rounded-lg p-4 space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-300">Yorum #${testimonialItemIndex + 1}</span>
+                <button type="button" onclick="removeTestimonialItem(this)" class="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Müşteri Adı</label>
+                <input type="text" name="sections[testimonials][items][${testimonialItemIndex}][name]" value="" placeholder="Ahmet Yılmaz" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Ünvan/Pozisyon</label>
+                <input type="text" name="sections[testimonials][items][${testimonialItemIndex}][role]" value="" placeholder="CEO, TechCorp" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Yorum İçeriği</label>
+                <textarea name="sections[testimonials][items][${testimonialItemIndex}][content]" rows="3" class="w-full px-4 py-2 input-field rounded-lg text-sm resize-none" placeholder="Müşteri yorumu..."></textarea>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Değerlendirme (Yıldız)</label>
+                <div class="flex items-center gap-2">
+                    ${Array.from({length: 5}, (_, i) => {
+                        const star = i + 1;
+                        return `<button type="button" onclick="setTestimonialRating(this, ${testimonialItemIndex}, ${star})" class="testimonial-rating-btn p-1 transition-all text-slate-500" data-rating="${star}">
+                            <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 0;">star</span>
+                        </button>`;
+                    }).join('')}
+                    <input type="hidden" name="sections[testimonials][items][${testimonialItemIndex}][rating]" value="5" class="testimonial-rating-input">
+                    <span class="text-xs text-slate-500 ml-2 rating-display-${testimonialItemIndex}">5/5</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Avatar Fotoğrafı (Opsiyonel)</label>
+                <div class="flex items-center gap-4">
+                    <div class="testimonial-avatar-preview w-16 h-16 rounded-full bg-slate-800/50 border-2 border-dashed border-slate-600 flex items-center justify-center overflow-hidden hover:border-indigo-500/50 transition-colors cursor-pointer" onclick="selectTestimonialAvatar(${testimonialItemIndex})" data-index="${testimonialItemIndex}">
+                        <span class="text-white font-semibold text-xl">A</span>
+                    </div>
+                    <div class="flex-1 space-y-2">
+                        <button type="button" onclick="selectTestimonialAvatar(${testimonialItemIndex})" class="w-full px-4 py-2 text-xs font-medium bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors">
+                            Fotoğraf Seç
+                        </button>
+                        <button type="button" onclick="removeTestimonialAvatar(${testimonialItemIndex})" class="w-full px-4 py-2 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                            Kaldır
+                        </button>
+                    </div>
+                </div>
+                <input type="hidden" name="sections[testimonials][items][${testimonialItemIndex}][avatar]" value="" class="testimonial-avatar-input" data-index="${testimonialItemIndex}">
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', itemHtml);
+    testimonialItemIndex++;
+    // İlk yüklemede 5 yıldız seçili olsun
+    const newItem = container.lastElementChild;
+    const ratingButtons = newItem.querySelectorAll('.testimonial-rating-btn');
+    ratingButtons.forEach((btn, idx) => {
+        if (idx < 5) {
+            btn.classList.remove('text-slate-500');
+            btn.classList.add('text-yellow-400');
+            const icon = btn.querySelector('.material-symbols-outlined');
+            if (icon) icon.style.fontVariationSettings = "'FILL' 1";
+        }
+    });
+}
+
+function removeTestimonialItem(btn) {
+    if (confirm('Bu yorumu silmek istediğinize emin misiniz?')) {
+        btn.closest('.testimonial-item').remove();
+        // Index'leri yeniden numaralandır
+        const items = document.querySelectorAll('#testimonials-items .testimonial-item');
+        items.forEach((item, index) => {
+            const numberSpan = item.querySelector('.text-slate-300');
+            if (numberSpan) numberSpan.textContent = `Yorum #${index + 1}`;
+            
+            // Input name'lerini güncelle
+            item.querySelectorAll('input, textarea').forEach(input => {
+                const name = input.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/\[items\]\[\d+\]/, `[items][${index}]`);
+                    input.setAttribute('name', newName);
+                }
+                // Avatar input için data-index'i güncelle
+                if (input.classList.contains('testimonial-avatar-input')) {
+                    input.setAttribute('data-index', index);
+                }
+                // Rating input için
+                if (input.classList.contains('testimonial-rating-input')) {
+                    // Rating display'i güncelle
+                    const ratingValue = input.value || 5;
+                    const displaySpan = item.querySelector(`.rating-display-${index}`);
+                    if (!displaySpan) {
+                        // Eğer display yoksa, index'i bulalım
+                        const ratingContainer = item.querySelector('.testimonial-rating-input').parentElement;
+                        const existingDisplay = ratingContainer.querySelector('span[class*="rating-display-"]');
+                        if (existingDisplay) {
+                            existingDisplay.className = `text-xs text-slate-500 ml-2 rating-display-${index}`;
+                            existingDisplay.textContent = `${ratingValue}/5`;
+                        }
+                    }
+                }
+            });
+            
+            // Avatar preview data-index'i güncelle
+            const avatarPreview = item.querySelector('.testimonial-avatar-preview');
+            if (avatarPreview) {
+                avatarPreview.setAttribute('data-index', index);
+                avatarPreview.setAttribute('onclick', `selectTestimonialAvatar(${index})`);
+            }
+            
+            // Avatar butonlarını güncelle
+            const avatarButtons = item.querySelectorAll('button[onclick*="selectTestimonialAvatar"], button[onclick*="removeTestimonialAvatar"]');
+            avatarButtons.forEach(button => {
+                const onclick = button.getAttribute('onclick');
+                if (onclick) {
+                    button.setAttribute('onclick', onclick.replace(/\d+/, index));
+                }
+            });
+            
+            // Rating butonlarını güncelle
+            const ratingButtons = item.querySelectorAll('.testimonial-rating-btn');
+            ratingButtons.forEach((btn, btnIdx) => {
+                const star = btnIdx + 1;
+                btn.setAttribute('onclick', `setTestimonialRating(this, ${index}, ${star})`);
+            });
+            
+            // Rating display class'ını güncelle
+            const ratingDisplays = item.querySelectorAll('[class*="rating-display-"]');
+            ratingDisplays.forEach(display => {
+                const oldClass = Array.from(display.classList).find(c => c.startsWith('rating-display-'));
+                if (oldClass) {
+                    display.classList.remove(oldClass);
+                    display.classList.add(`rating-display-${index}`);
+                }
+            });
+        });
+    }
+}
+
+function setTestimonialRating(btn, itemIndex, rating) {
+    const item = btn.closest('.testimonial-item');
+    const ratingInput = item.querySelector('.testimonial-rating-input');
+    const ratingButtons = item.querySelectorAll('.testimonial-rating-btn');
+    const ratingDisplay = item.querySelector(`.rating-display-${itemIndex}`);
+    
+    // Rating değerini güncelle
+    ratingInput.value = rating;
+    if (ratingDisplay) {
+        ratingDisplay.textContent = `${rating}/5`;
+    }
+    
+    // Tüm yıldızları güncelle
+    ratingButtons.forEach((starBtn, idx) => {
+        const starNum = idx + 1;
+        const icon = starBtn.querySelector('.material-symbols-outlined');
+        if (starNum <= rating) {
+            starBtn.classList.remove('text-slate-500');
+            starBtn.classList.add('text-yellow-400');
+            if (icon) icon.style.fontVariationSettings = "'FILL' 1";
+        } else {
+            starBtn.classList.remove('text-yellow-400');
+            starBtn.classList.add('text-slate-500');
+            if (icon) icon.style.fontVariationSettings = "'FILL' 0";
+        }
+    });
+}
+
+let currentTestimonialAvatarIndex = null;
+
+function selectTestimonialAvatar(index) {
+    currentTestimonialAvatarIndex = index;
+    if (typeof openMediaPicker === 'function') {
+        openMediaPicker({
+            type: 'image',
+            onSelect: (media) => {
+                const input = document.querySelector(`.testimonial-avatar-input[data-index="${index}"]`);
+                const preview = document.querySelector(`.testimonial-avatar-preview[data-index="${index}"]`);
+                if (input) {
+                    input.value = media.file_url;
+                }
+                if (preview) {
+                    preview.innerHTML = `<img src="${media.file_url}" class="w-full h-full object-cover">`;
+                }
+            }
+        });
+    }
+}
+
+function removeTestimonialAvatar(index) {
+    const input = document.querySelector(`.testimonial-avatar-input[data-index="${index}"]`);
+    const preview = document.querySelector(`.testimonial-avatar-preview[data-index="${index}"]`);
+    const nameInput = document.querySelector(`input[name="sections[testimonials][items][${index}][name]"]`);
+    
+    if (input) {
+        input.value = '';
+    }
+    if (preview) {
+        const initial = nameInput ? (nameInput.value || 'A').charAt(0).toUpperCase() : 'A';
+        preview.innerHTML = `<span class="text-white font-semibold text-xl">${initial}</span>`;
+    }
+}
+
+// Name input değiştiğinde avatar initial'ini güncelle
+document.addEventListener('DOMContentLoaded', () => {
+    // Testimonial name input değişikliklerini dinle
+    document.addEventListener('input', (e) => {
+        if (e.target.name && e.target.name.includes('sections[testimonials][items]') && e.target.name.includes('[name]')) {
+            const match = e.target.name.match(/\[items\]\[(\d+)\]/);
+            if (match) {
+                const index = match[1];
+                const preview = document.querySelector(`.testimonial-avatar-preview[data-index="${index}"]`);
+                const avatarInput = document.querySelector(`.testimonial-avatar-input[data-index="${index}"]`);
+                // Eğer avatar yoksa, initial göster
+                if (preview && avatarInput && !avatarInput.value) {
+                    const initial = (e.target.value || 'A').charAt(0).toUpperCase();
+                    preview.innerHTML = `<span class="text-white font-semibold text-xl">${initial}</span>`;
+                }
+            }
+        }
+    });
+});
+
+// Icon Picker
+let currentIconIndex = null;
+const popularIcons = [
+    'rocket_launch', 'palette', 'devices', 'security', 'support_agent', 'settings',
+    'star', 'favorite', 'home', 'menu', 'search', 'close', 'add', 'delete', 'edit',
+    'check_circle', 'error', 'warning', 'info', 'arrow_forward', 'arrow_back',
+    'expand_more', 'expand_less', 'keyboard_arrow_up', 'keyboard_arrow_down',
+    'email', 'phone', 'location_on', 'person', 'group', 'business', 'work', 'school',
+    'shopping_cart', 'payment', 'credit_card', 'lock', 'visibility', 'visibility_off',
+    'cloud_upload', 'download', 'share', 'link', 'code', 'dashboard', 'analytics',
+    'notifications', 'message', 'forum', 'chat', 'video_call', 'call',
+    'camera', 'image', 'photo', 'folder', 'file', 'description', 'article', 'note',
+    'calendar_today', 'schedule', 'event', 'alarm', 'timer', 'access_time',
+    'refresh', 'sync', 'autorenew', 'build', 'construction', 'handyman',
+    'lightbulb', 'idea', 'psychology', 'science', 'biotech', 'medical_services',
+    'fitness_center', 'sports', 'music_note', 'movie', 'book', 'library_books',
+    'school', 'local_library', 'translate', 'language', 'public', 'globe'
+];
+
+function openIconPicker(index) {
+    currentIconIndex = index;
+    const modal = document.getElementById('icon-picker-modal');
+    if (!modal) {
+        createIconPickerModal();
+    }
+    document.getElementById('icon-picker-modal').classList.remove('hidden');
+    document.getElementById('icon-picker-search').value = '';
+    filterIcons('');
+    
+    // Mevcut ikonu işaretle
+    const currentIcon = document.querySelector(`input[data-icon-index="${index}"]`)?.value || '';
+    setTimeout(() => {
+        const iconButtons = document.querySelectorAll('#icon-picker-grid button');
+        iconButtons.forEach(btn => {
+            if (btn.dataset.icon === currentIcon) {
+                btn.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-500/20');
+            }
+        });
+    }, 100);
+}
+
+function createIconPickerModal() {
+    const modalHTML = `
+        <div id="icon-picker-modal" class="fixed inset-0 z-[999999] hidden">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeIconPicker()"></div>
+            <div class="absolute inset-4 md:inset-8 lg:inset-12 bg-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="max-height: calc(100vh - 2rem);">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-slate-700/50">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-indigo-400 text-2xl">palette</span>
+                        <h3 class="text-lg font-semibold text-white">İkon Seç</h3>
+                    </div>
+                    <button onclick="closeIconPicker()" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                        <span class="material-symbols-outlined text-slate-400">close</span>
+                    </button>
+                </div>
+                
+                <!-- Search -->
+                <div class="px-6 py-4 border-b border-white/10">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                        <input 
+                            type="text" 
+                            id="icon-picker-search"
+                            placeholder="İkon ara..." 
+                            class="w-full pl-10 pr-4 py-2.5 input-field rounded-lg text-sm"
+                            oninput="filterIcons(this.value)"
+                        >
+                    </div>
+                </div>
+                
+                <!-- Icons Grid -->
+                <div class="flex-1 overflow-y-auto p-6 scrollbar-thin">
+                    <div id="icon-picker-grid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+                        ${popularIcons.map(icon => `
+                            <button 
+                                type="button"
+                                onclick="selectIcon('${icon}')"
+                                data-icon="${icon}"
+                                class="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-700/50 hover:bg-indigo-500/20 border border-slate-600 hover:border-indigo-500/50 transition-all group"
+                                title="${icon}"
+                            >
+                                <span class="material-symbols-outlined text-2xl text-slate-300 group-hover:text-indigo-400">${icon}</span>
+                                <span class="text-[10px] text-slate-400 mt-1 truncate w-full text-center">${icon.split('_')[0]}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div class="flex items-center justify-between px-6 py-4 border-t border-white/10 bg-slate-700/50">
+                    <span class="text-xs text-slate-400">Material Symbols ikonları</span>
+                    <button type="button" onclick="closeIconPicker()" class="px-4 py-2 border border-white/10 text-slate-300 rounded-lg hover:bg-white/5 transition-colors text-sm">
+                        İptal
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function filterIcons(searchTerm) {
+    const grid = document.getElementById('icon-picker-grid');
+    const buttons = grid.querySelectorAll('button');
+    const term = searchTerm.toLowerCase();
+    
+    buttons.forEach(btn => {
+        const iconName = btn.dataset.icon.toLowerCase();
+        if (iconName.includes(term)) {
+            btn.style.display = 'flex';
+        } else {
+            btn.style.display = 'none';
+        }
+    });
+}
+
+function selectIcon(iconName) {
+    if (currentIconIndex === null) return;
+    
+    const input = document.querySelector(`input[data-icon-index="${currentIconIndex}"]`);
+    const preview = document.querySelector(`.icon-preview-${currentIconIndex}`);
+    
+    if (input) {
+        input.value = iconName;
+    }
+    if (preview) {
+        preview.textContent = iconName;
+    }
+    
+    closeIconPicker();
+}
+
+function closeIconPicker() {
+    document.getElementById('icon-picker-modal')?.classList.add('hidden');
+    currentIconIndex = null;
+}
+
+// Icon input değiştiğinde preview'ı güncelle
 document.addEventListener('DOMContentLoaded', () => {
     setDevice('desktop');
+    
+    // Icon input değişikliklerini dinle
+    document.addEventListener('input', (e) => {
+        if (e.target.classList.contains('icon-input')) {
+            const index = e.target.dataset.iconIndex;
+            const preview = document.querySelector(`.icon-preview-${index}`);
+            if (preview) {
+                preview.textContent = e.target.value || 'star';
+            }
+        }
+        if (e.target.classList.contains('core-value-icon-input')) {
+            const index = e.target.dataset.iconIndex;
+            const preview = document.querySelector(`.core-value-icon-preview-${index}`);
+            if (preview) {
+                preview.textContent = e.target.value || 'star';
+            }
+        }
+    });
 });
+
+// Icon picker için core-value desteği
+let currentIconType = 'feature';
+
+// openIconPicker fonksiyonunu override et
+const originalOpenIconPicker = window.openIconPicker;
+window.openIconPicker = function(index, type = 'feature') {
+    currentIconIndex = index;
+    currentIconType = type || 'feature';
+    if (typeof originalOpenIconPicker === 'function') {
+        originalOpenIconPicker(index);
+    } else {
+        // Fallback
+        const modal = document.getElementById('icon-picker-modal');
+        if (!modal) {
+            createIconPickerModal();
+        }
+        document.getElementById('icon-picker-modal').classList.remove('hidden');
+        document.getElementById('icon-picker-search').value = '';
+        filterIcons('');
+        
+        const currentIcon = type === 'core-value' 
+            ? document.querySelector(`input.core-value-icon-input[data-icon-index="${index}"]`)?.value || ''
+            : document.querySelector(`input[data-icon-index="${index}"]`)?.value || '';
+        setTimeout(() => {
+            const iconButtons = document.querySelectorAll('#icon-picker-grid button');
+            iconButtons.forEach(btn => {
+                if (btn.dataset.icon === currentIcon) {
+                    btn.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-500/20');
+                }
+            });
+        }, 100);
+    }
+};
+
+// selectIcon fonksiyonunu override et
+const originalSelectIcon = window.selectIcon;
+window.selectIcon = function(iconName) {
+    if (currentIconType === 'core-value' && currentIconIndex !== null) {
+        const input = document.querySelector(`input.core-value-icon-input[data-icon-index="${currentIconIndex}"]`);
+        const preview = document.querySelector(`.core-value-icon-preview-${currentIconIndex}`);
+        if (input) input.value = iconName;
+        if (preview) preview.textContent = iconName;
+        closeIconPicker();
+        return;
+    }
+    if (typeof originalSelectIcon === 'function') {
+        originalSelectIcon(iconName);
+    } else {
+        // Fallback
+        if (currentIconIndex === null) return;
+        const input = document.querySelector(`input[data-icon-index="${currentIconIndex}"]`);
+        const preview = document.querySelector(`.icon-preview-${currentIconIndex}`);
+        if (input) input.value = iconName;
+        if (preview) preview.textContent = iconName;
+        closeIconPicker();
+    }
+};
 </script>
 
 </body>

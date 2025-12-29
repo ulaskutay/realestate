@@ -38,8 +38,8 @@ $ctaTitle = $customFields['cta_title'] ?? 'Want to be part of our story?';
 $ctaDescription = $customFields['cta_description'] ?? 'Whether you are a potential client or a future team member, we would love to hear from you.';
 $ctaButton1Text = $customFields['cta_button_text'] ?? 'Contact Us';
 $ctaButton1Link = $customFields['cta_button_link'] ?? '/contact';
-$ctaButton2Text = 'Join the Team';
-$ctaButton2Link = '/careers';
+$ctaButton2Text = $customFields['cta_button2_text'] ?? 'Join the Team';
+$ctaButton2Link = $customFields['cta_button2_link'] ?? '/careers';
 
 // SEO
 $metaTitle = $page['meta_title'] ?: $heroTitle;
@@ -69,6 +69,29 @@ $metaKeywords = $page['meta_keywords'] ?? '';
     <link rel="shortcut icon" href="<?php echo esc_url($favicon); ?>">
     <link rel="apple-touch-icon" href="<?php echo esc_url($favicon); ?>">
     <?php endif; ?>
+    
+    <!-- Preload Material Symbols Font for Faster Icon Loading -->
+    <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/fonts/material-symbols/material-symbols-outlined.woff2'); ?>" as="font" type="font/woff2" crossorigin="anonymous">
+    
+    <!-- Material Symbols Base Styles (Inline for Faster Rendering) -->
+    <style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
     
     <!-- Local Fonts -->
     <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>" as="style">

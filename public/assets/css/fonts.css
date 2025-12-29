@@ -102,7 +102,7 @@
   src: url('../fonts/material-symbols/material-symbols-outlined.woff2') format('woff2');
   font-weight: 100 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* Material Symbols Base Styles */
