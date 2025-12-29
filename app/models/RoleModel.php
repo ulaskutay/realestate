@@ -106,13 +106,22 @@ class RoleModel extends Model {
         // Yeni yetkileri ekle
         if (!empty($permissions) && is_array($permissions)) {
             foreach ($permissions as $permission) {
-                // Permission'dan modül adını çıkar (örn: users.view -> users)
-                $module = explode('.', $permission)[0];
-                
-                $this->db->query(
-                    "INSERT INTO role_permissions (role_id, permission, module) VALUES (?, ?, ?)",
-                    [$roleId, $permission, $module]
-                );
+                // Permission boş değilse ekle
+                if (!empty($permission)) {
+                    // Permission'dan modül adını çıkar (örn: users.view -> users)
+                    $parts = explode('.', $permission);
+                    $module = $parts[0] ?? 'system';
+                    
+                    try {
+                        $this->db->query(
+                            "INSERT INTO role_permissions (role_id, permission, module) VALUES (?, ?, ?)",
+                            [$roleId, $permission, $module]
+                        );
+                    } catch (Exception $e) {
+                        // Duplicate key hatası olabilir, sessizce devam et
+                        error_log('Role permission insert error: ' . $e->getMessage());
+                    }
+                }
             }
         }
     }

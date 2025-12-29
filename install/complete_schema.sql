@@ -784,7 +784,78 @@ INSERT IGNORE INTO `modules` (`id`, `name`, `slug`, `label`, `description`, `ico
 (7, 'design', 'design', 'Tasarım', 'Frontend tasarım düzenleme', 'palette', 1, 1, 1, 70, NOW(), NOW()),
 (8, 'settings', 'settings', 'Ayarlar', 'Sistem ayarları', 'settings', 1, 1, 1, 100, NOW(), NOW()),
 (9, 'seo', 'seo', 'SEO', 'Arama motoru optimizasyonu', 'search', 1, 0, 1, 80, NOW(), NOW()),
-(10, 'cache', 'cache', 'Önbellek', 'Sistem önbellek yönetimi', 'cached', 1, 0, 1, 90, NOW(), NOW());
+(10, 'cache', 'cache', 'Önbellek', 'Sistem önbellek yönetimi', 'cached', 1, 0, 1, 90, NOW(), NOW()),
+(11, 'pages', 'pages', 'Sayfalar', 'Sayfa yönetimi', 'description', 1, 1, 1, 15, NOW(), NOW()),
+(12, 'agreements', 'agreements', 'Sözleşmeler', 'Sözleşme ve politika yönetimi', 'gavel', 1, 1, 1, 45, NOW(), NOW()),
+(13, 'roles', 'roles', 'Roller', 'Kullanıcı rol yönetimi', 'admin_panel_settings', 1, 1, 1, 65, NOW(), NOW()),
+(14, 'themes', 'themes', 'Temalar', 'Tema yönetimi', 'brush', 1, 1, 1, 75, NOW(), NOW());
+
+-- Modül Yetkileri (module_permissions)
+INSERT IGNORE INTO `module_permissions` (`module_id`, `permission`, `label`, `description`, `sort_order`) VALUES
+-- Yazılar (module_id: 1)
+(1, 'posts.view', 'Yazıları Görüntüle', 'Yazı listesini görüntüleme', 1),
+(1, 'posts.create', 'Yazı Oluştur', 'Yeni yazı oluşturma', 2),
+(1, 'posts.edit', 'Yazı Düzenle', 'Mevcut yazıları düzenleme', 3),
+(1, 'posts.delete', 'Yazı Sil', 'Yazıları silme', 4),
+(1, 'posts.publish', 'Yazı Yayınla', 'Yazıları yayınlama', 5),
+-- Sliderlar (module_id: 2)
+(2, 'sliders.view', 'Sliderları Görüntüle', 'Slider listesini görüntüleme', 1),
+(2, 'sliders.create', 'Slider Oluştur', 'Yeni slider oluşturma', 2),
+(2, 'sliders.edit', 'Slider Düzenle', 'Mevcut sliderları düzenleme', 3),
+(2, 'sliders.delete', 'Slider Sil', 'Sliderları silme', 4),
+-- Menüler (module_id: 3)
+(3, 'menus.view', 'Menüleri Görüntüle', 'Menü listesini görüntüleme', 1),
+(3, 'menus.create', 'Menü Oluştur', 'Yeni menü oluşturma', 2),
+(3, 'menus.edit', 'Menü Düzenle', 'Mevcut menüleri düzenleme', 3),
+(3, 'menus.delete', 'Menü Sil', 'Menüleri silme', 4),
+-- Formlar (module_id: 4)
+(4, 'forms.view', 'Formları Görüntüle', 'Form listesini görüntüleme', 1),
+(4, 'forms.create', 'Form Oluştur', 'Yeni form oluşturma', 2),
+(4, 'forms.edit', 'Form Düzenle', 'Mevcut formları düzenleme', 3),
+(4, 'forms.delete', 'Form Sil', 'Formları silme', 4),
+(4, 'forms.submissions', 'Form Gönderimlerini Görüntüle', 'Form gönderimlerini görüntüleme', 5),
+-- Medya (module_id: 5)
+(5, 'media.view', 'Medya Görüntüle', 'Medya kütüphanesini görüntüleme', 1),
+(5, 'media.upload', 'Medya Yükle', 'Yeni dosya yükleme', 2),
+(5, 'media.edit', 'Medya Düzenle', 'Mevcut dosyaları düzenleme', 3),
+(5, 'media.delete', 'Medya Sil', 'Dosyaları silme', 4),
+-- Kullanıcılar (module_id: 6)
+(6, 'users.view', 'Kullanıcıları Görüntüle', 'Kullanıcı listesini görüntüleme', 1),
+(6, 'users.create', 'Kullanıcı Oluştur', 'Yeni kullanıcı oluşturma', 2),
+(6, 'users.edit', 'Kullanıcı Düzenle', 'Mevcut kullanıcıları düzenleme', 3),
+(6, 'users.delete', 'Kullanıcı Sil', 'Kullanıcıları silme', 4),
+-- Tasarım (module_id: 7)
+(7, 'design.view', 'Tasarımı Görüntüle', 'Tasarım sayfasını görüntüleme', 1),
+(7, 'design.edit', 'Tasarımı Düzenle', 'Tasarım değişiklikleri yapma', 2),
+-- Ayarlar (module_id: 8)
+(8, 'settings.view', 'Ayarları Görüntüle', 'Ayarlar sayfasını görüntüleme', 1),
+(8, 'settings.edit', 'Ayarları Düzenle', 'Sistem ayarlarını değiştirme', 2),
+-- SEO (module_id: 9)
+(9, 'seo.view', 'SEO Görüntüle', 'SEO ayarlarını görüntüleme', 1),
+(9, 'seo.edit', 'SEO Düzenle', 'SEO ayarlarını değiştirme', 2),
+-- Önbellek (module_id: 10)
+(10, 'cache.view', 'Önbellek Görüntüle', 'Önbellek ayarlarını görüntüleme', 1),
+(10, 'cache.manage', 'Önbellek Yönet', 'Önbelleği temizleme ve yönetme', 2),
+-- Sayfalar (module_id: 11)
+(11, 'pages.view', 'Sayfaları Görüntüle', 'Sayfa listesini görüntüleme', 1),
+(11, 'pages.create', 'Sayfa Oluştur', 'Yeni sayfa oluşturma', 2),
+(11, 'pages.edit', 'Sayfa Düzenle', 'Mevcut sayfaları düzenleme', 3),
+(11, 'pages.delete', 'Sayfa Sil', 'Sayfaları silme', 4),
+(11, 'pages.publish', 'Sayfa Yayınla', 'Sayfaları yayınlama', 5),
+-- Sözleşmeler (module_id: 12)
+(12, 'agreements.view', 'Sözleşmeleri Görüntüle', 'Sözleşme listesini görüntüleme', 1),
+(12, 'agreements.create', 'Sözleşme Oluştur', 'Yeni sözleşme oluşturma', 2),
+(12, 'agreements.edit', 'Sözleşme Düzenle', 'Mevcut sözleşmeleri düzenleme', 3),
+(12, 'agreements.delete', 'Sözleşme Sil', 'Sözleşmeleri silme', 4),
+-- Roller (module_id: 13)
+(13, 'roles.view', 'Rolleri Görüntüle', 'Rol listesini görüntüleme', 1),
+(13, 'roles.create', 'Rol Oluştur', 'Yeni rol oluşturma', 2),
+(13, 'roles.edit', 'Rol Düzenle', 'Mevcut rolleri düzenleme', 3),
+(13, 'roles.delete', 'Rol Sil', 'Rolleri silme', 4),
+-- Temalar (module_id: 14)
+(14, 'themes.view', 'Temaları Görüntüle', 'Tema listesini görüntüleme', 1),
+(14, 'themes.edit', 'Tema Düzenle', 'Tema ayarlarını düzenleme', 2),
+(14, 'themes.edit_code', 'Tema Kodunu Düzenle', 'Tema dosyalarını düzenleme', 3);
 
 -- Varsayılan kategori
 INSERT IGNORE INTO `post_categories` (`id`, `name`, `slug`, `description`, `status`) VALUES

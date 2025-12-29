@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo isset($title) ? ViewRenderer::escHtml($title) : 'CMS - Ana Sayfa'; ?></title>
     
-    <!-- Google Fonts - Preconnect for faster loading -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <!-- Local Fonts -->
+    <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
     
     <?php 
     // Tema fontlarını yükle
@@ -17,17 +14,10 @@
     $themeLoader = $renderer->getThemeLoader();
     $headingFont = $themeLoader && $renderer->hasActiveTheme() ? $themeLoader->getFont('heading', 'Inter') : 'Inter';
     $bodyFont = $themeLoader && $renderer->hasActiveTheme() ? $themeLoader->getFont('body', 'Inter') : 'Inter';
-    $fonts = array_unique([$headingFont, $bodyFont, 'Inter']);
-    $fontQuery = implode('&family=', array_map(fn($f) => urlencode($f) . ':wght@300;400;500;600;700', $fonts));
     ?>
-    <link href="https://fonts.googleapis.com/css2?family=<?php echo $fontQuery; ?>&display=swap" rel="stylesheet">
-    
-    <!-- Material Symbols - Preload for faster icon rendering -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" as="style">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
     
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="<?php echo ViewRenderer::assetUrl('assets/js/tailwind.min.js'); ?>"></script>
     
     <?php if ($renderer->hasActiveTheme()): ?>
     <!-- Tema CSS Değişkenleri -->

@@ -734,7 +734,6 @@ function updateImageField(fieldKey, value) {
     document.getElementById('field-' + fieldKey).value = value;
 }
 
-
 // Form submission - convert repeater arrays to JSON
 document.getElementById('page-form').addEventListener('submit', function(e) {
     const repeaterFields = ['service_features', 'process_steps', 'advantages', 'faqs', 'related_services', 'about_sections', 'team_members', 'stats'];

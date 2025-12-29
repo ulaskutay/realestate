@@ -168,6 +168,15 @@
             
             if (checkbox.checked) {
                 permissionsDiv.style.display = 'block';
+                // Switcher açıldığında, eğer hiçbir yetki seçilmemişse tümünü seç
+                const permissionCheckboxes = permissionsDiv.querySelectorAll('input[type="checkbox"]');
+                const hasChecked = Array.from(permissionCheckboxes).some(perm => perm.checked);
+                if (!hasChecked) {
+                    // Hiçbir yetki seçilmemişse tümünü seç
+                    permissionCheckboxes.forEach(perm => {
+                        perm.checked = true;
+                    });
+                }
             } else {
                 permissionsDiv.style.display = 'none';
                 // Tüm yetkileri kaldır
@@ -177,6 +186,27 @@
                 });
             }
         }
+        
+        // Form submit edilmeden önce switcher durumuna göre yetkileri kontrol et
+        document.querySelector('form').addEventListener('submit', function(e) {
+            // Tüm modül switcher'larını kontrol et
+            document.querySelectorAll('.module-toggle').forEach(function(switcher) {
+                const moduleSlug = switcher.getAttribute('data-module');
+                const permissionsDiv = document.getElementById('permissions-' + moduleSlug);
+                
+                if (!permissionsDiv) {
+                    return;
+                }
+                
+                // Switcher kapalıysa, tüm yetkileri unchecked yap (zaten yapılmış olabilir ama emin olmak için)
+                if (!switcher.checked) {
+                    const permissionCheckboxes = permissionsDiv.querySelectorAll('input[type="checkbox"]');
+                    permissionCheckboxes.forEach(perm => {
+                        perm.checked = false;
+                    });
+                }
+            });
+        });
     </script>
 </body>
 </html>

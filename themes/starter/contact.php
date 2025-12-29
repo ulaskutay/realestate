@@ -53,9 +53,11 @@ $primaryColor = $themeLoader->getColor('primary', '#137fec');
     <?php if (!empty($meta_description)): ?>
     <meta name="description" content="<?php echo esc_attr($meta_description); ?>">
     <?php endif; ?>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <!-- Local Fonts -->
+    <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
+    
+    <!-- Tailwind CSS -->
+    <script src="<?php echo ViewRenderer::assetUrl('assets/js/tailwind.min.js'); ?>"></script>
     <style>
         /* Form CSS - Inline */
         .cms-form-wrapper { max-width: 600px; margin: 0 auto; }

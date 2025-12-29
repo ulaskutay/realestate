@@ -12,23 +12,11 @@ $pageTitle = $title ?? 'Admin Panel';
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title><?php echo esc_html($pageTitle); ?></title>
     
-    <!-- DNS Prefetch ve Preconnect - Performans optimizasyonu -->
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com"/>
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com"/>
-    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com"/>
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <!-- Local Fonts -->
+    <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
     
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    
-    <!-- Google Fonts - Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/></noscript>
-    
-    <!-- Material Icons - Optimize edilmiş hızlı yükleme -->
-    <link rel="preload" href="https://fonts.gstatic.com/s/materialsymbolsoutlined/v302/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2" as="font" type="font/woff2" crossorigin/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"/>
+    <script src="<?php echo ViewRenderer::assetUrl('assets/js/tailwind-admin.min.js'); ?>"></script>
     
     <!-- Dark Mode - Sayfa yüklenmeden önce çalışmalı (FOUC önleme) -->
     <script>
@@ -110,14 +98,7 @@ $pageTitle = $title ?? 'Admin Panel';
             transition: opacity 0.2s ease-in-out;
         }
         
-        /* Font yüklendiğinde smooth geçiş için */
-        @font-face {
-            font-family: 'Material Symbols Outlined';
-            font-style: normal;
-            font-weight: 100 700;
-            src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v302/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2');
-            font-display: block; /* block = font yüklenene kadar metin gizli, sonra göster (swap'tan daha hızlı) */
-        }
+        /* Font yüklendiğinde smooth geçiş için - fonts.css'den yükleniyor */
         
         /* Font yüklendiğinde opacity artışı */
         body.fonts-loaded .material-symbols-outlined {

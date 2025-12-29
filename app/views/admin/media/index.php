@@ -33,23 +33,19 @@
         })();
     </script>
     
-    <!-- DNS Prefetch ve Preconnect - Performans optimizasyonu -->
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com"/>
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com"/>
-    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com"/>
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    
+    
     
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="<?php echo ViewRenderer::assetUrl('assets/js/tailwind-admin.min.js'); ?>"></script>
     
     <!-- Google Fonts - Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/></noscript>
+    <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
+    <noscript><link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>"></noscript>
     
     <!-- Material Icons - Font preload ve hızlı yükleme -->
-    <link rel="preload" href="https://fonts.gstatic.com/s/materialsymbolsoutlined/v302/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2" as="font" type="font/woff2" crossorigin/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"/>
+    
+    <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
     
     <!-- İkonların hemen görünmesi için inline CSS -->
     <style>
@@ -72,13 +68,7 @@
         }
         
         /* Font yüklendiğinde smooth geçiş */
-        @font-face {
-            font-family: 'Material Symbols Outlined';
-            font-style: normal;
-            font-weight: 100 700;
-            src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v302/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2');
-            font-display: block;
-        }
+        
     </style>
     
     <!-- Custom CSS -->

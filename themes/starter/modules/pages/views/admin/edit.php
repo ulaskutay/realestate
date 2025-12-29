@@ -702,7 +702,6 @@ function clearImageField(fieldKey) {
     }
 }
 
-
 // Form submission - convert repeater arrays to JSON
 document.getElementById('page-form').addEventListener('submit', function(e) {
     // Convert repeater fields to JSON
