@@ -270,6 +270,14 @@ class ModuleController extends Controller {
             return;
         }
         
+        // Modülün kendi admin index sayfası varsa oraya yönlendir
+        // (SEO gibi modüller için daha iyi UX)
+        $adminIndexView = $module['path'] . '/views/admin/index.php';
+        if (file_exists($adminIndexView)) {
+            $this->redirect(admin_url('module/' . $name));
+            return;
+        }
+        
         // POST işlemi
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $settings = $_POST['settings'] ?? [];

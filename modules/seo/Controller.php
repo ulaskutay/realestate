@@ -405,6 +405,9 @@ class SeoModuleController {
      * Admin ana sayfa (Dashboard)
      */
     public function admin_index() {
+        // Model ve ayarların yüklendiğinden emin ol
+        $this->ensureInitialized();
+        
         $stats = $this->model->getStats();
         $redirectStats = $this->model->getRedirectStats();
         
@@ -417,9 +420,26 @@ class SeoModuleController {
     }
     
     /**
+     * Model ve ayarların yüklendiğinden emin ol
+     */
+    private function ensureInitialized() {
+        if (!$this->db && class_exists('Database')) {
+            $this->db = Database::getInstance();
+        }
+        if (!$this->model) {
+            $this->model = new SeoModel();
+        }
+        if (empty($this->settings)) {
+            $this->loadSettings();
+        }
+    }
+    
+    /**
      * Sitemap ayarları
      */
     public function admin_sitemap() {
+        $this->ensureInitialized();
+        
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->saveSitemapSettings();
             $_SESSION['flash_message'] = 'Sitemap ayarları kaydedildi';
@@ -462,6 +482,8 @@ class SeoModuleController {
      * Robots.txt ayarları
      */
     public function admin_robots() {
+        $this->ensureInitialized();
+        
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->settings['robots_enabled'] = isset($_POST['robots_enabled']);
             $this->settings['robots_content'] = $_POST['robots_content'] ?? '';
@@ -485,6 +507,8 @@ class SeoModuleController {
      * Meta tag ayarları
      */
     public function admin_meta() {
+        $this->ensureInitialized();
+        
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->settings['meta_title_home'] = $_POST['meta_title_home'] ?? '{site_name}';
             $this->settings['meta_title_post'] = $_POST['meta_title_post'] ?? '{post_title} - {site_name}';
@@ -511,6 +535,8 @@ class SeoModuleController {
      * Yönlendirme listesi
      */
     public function admin_redirects() {
+        $this->ensureInitialized();
+        
         $redirects = $this->model->getRedirects();
         $stats = $this->model->getRedirectStats();
         
@@ -525,6 +551,8 @@ class SeoModuleController {
      * Yeni yönlendirme formu
      */
     public function admin_redirect_create() {
+        $this->ensureInitialized();
+        
         $this->adminView('redirect-form', [
             'title' => 'Yeni Yönlendirme',
             'redirect' => null,
@@ -536,6 +564,8 @@ class SeoModuleController {
      * Yönlendirme kaydet
      */
     public function admin_redirect_store() {
+        $this->ensureInitialized();
+        
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('redirects');
             return;
@@ -573,6 +603,8 @@ class SeoModuleController {
      * Yönlendirme düzenle
      */
     public function admin_redirect_edit($id) {
+        $this->ensureInitialized();
+        
         $redirect = $this->model->getRedirect($id);
         
         if (!$redirect) {
@@ -593,6 +625,8 @@ class SeoModuleController {
      * Yönlendirme güncelle
      */
     public function admin_redirect_update($id) {
+        $this->ensureInitialized();
+        
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('redirect_edit/' . $id);
             return;
@@ -623,6 +657,8 @@ class SeoModuleController {
      * Yönlendirme sil
      */
     public function admin_redirect_delete($id) {
+        $this->ensureInitialized();
+        
         $result = $this->model->deleteRedirect($id);
         
         if ($result) {
@@ -640,6 +676,8 @@ class SeoModuleController {
      * Schema.org ayarları
      */
     public function admin_schema() {
+        $this->ensureInitialized();
+        
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->settings['schema_enabled'] = isset($_POST['schema_enabled']);
             $this->settings['schema_organization_name'] = $_POST['schema_organization_name'] ?? '';
@@ -698,6 +736,7 @@ class SeoModuleController {
      */
     private function adminView($view, $data = []) {
         $viewPath = __DIR__ . '/views/admin/' . $view . '.php';
+        $basePath = dirname(dirname(__DIR__));
         
         if (!file_exists($viewPath)) {
             echo "View not found: " . $view;
@@ -707,17 +746,17 @@ class SeoModuleController {
         extract($data);
         $currentPage = 'module/seo';
         
-        include dirname(dirname(__DIR__)) . '/app/views/admin/snippets/header.php';
+        include $basePath . '/app/views/admin/snippets/header.php';
         ?>
         <div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
             <div class="flex min-h-screen">
                 <!-- SideNavBar -->
-                <?php include dirname(dirname(__DIR__)) . '/app/views/admin/snippets/sidebar.php'; ?>
+                <?php include $basePath . '/app/views/admin/snippets/sidebar.php'; ?>
 
                 <!-- Content Area with Header -->
                 <div class="flex-1 flex flex-col lg:ml-64">
                     <!-- Top Header -->
-                    <?php include dirname(dirname(__DIR__)) . '/app/views/admin/snippets/top-header.php'; ?>
+                    <?php include $basePath . '/app/views/admin/snippets/top-header.php'; ?>
 
                     <!-- Main Content -->
                     <main class="flex-1 p-4 sm:p-6 lg:p-10 bg-gray-50 dark:bg-[#15202b] overflow-y-auto">
@@ -729,7 +768,7 @@ class SeoModuleController {
             </div>
         </div>
         <?php
-        include dirname(dirname(__DIR__)) . '/app/views/admin/snippets/footer.php';
+        include $basePath . '/app/views/admin/snippets/footer.php';
     }
     
     /**

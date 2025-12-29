@@ -200,36 +200,42 @@ class SeoModel {
      * Yönlendirme istatistikleri
      */
     public function getRedirectStats() {
+        $stats = [
+            'total' => 0,
+            'active' => 0,
+            'inactive' => 0,
+            'total_hits' => 0
+        ];
+        
         try {
-            $stats = [
-                'total' => 0,
-                'active' => 0,
-                'inactive' => 0,
-                'total_hits' => 0
-            ];
+            // Önce tablo var mı kontrol et
+            $tableCheck = $this->db->fetch("SHOW TABLES LIKE 'seo_redirects'");
+            if (!$tableCheck) {
+                return $stats;
+            }
             
             $result = $this->db->fetch(
                 "SELECT 
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
                     SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as inactive,
-                    SUM(hits) as total_hits
+                    COALESCE(SUM(hits), 0) as total_hits
                  FROM seo_redirects"
             );
             
             if ($result) {
                 $stats = [
-                    'total' => (int)$result['total'],
-                    'active' => (int)$result['active'],
-                    'inactive' => (int)$result['inactive'],
-                    'total_hits' => (int)$result['total_hits']
+                    'total' => (int)($result['total'] ?? 0),
+                    'active' => (int)($result['active'] ?? 0),
+                    'inactive' => (int)($result['inactive'] ?? 0),
+                    'total_hits' => (int)($result['total_hits'] ?? 0)
                 ];
             }
-            
-            return $stats;
         } catch (Exception $e) {
-            return ['total' => 0, 'active' => 0, 'inactive' => 0, 'total_hits' => 0];
+            // Tablo yoksa varsayılan değerler döner
         }
+        
+        return $stats;
     }
     
     // ==================== SİTEMAP İÇERİKLERİ ====================
@@ -310,25 +316,36 @@ class SeoModel {
             'redirects_count' => 0
         ];
         
+        // Yayınlanmış yazı sayısı
         try {
-            // Yayınlanmış yazı sayısı
             $result = $this->db->fetch("SELECT COUNT(*) as cnt FROM posts WHERE status = 'published'");
             $stats['posts_count'] = $result ? (int)$result['cnt'] : 0;
-            
-            // Aktif kategori sayısı
+        } catch (Exception $e) {
+            // Tablo yoksa 0 döner
+        }
+        
+        // Aktif kategori sayısı
+        try {
             $result = $this->db->fetch("SELECT COUNT(*) as cnt FROM post_categories WHERE status = 'active'");
             $stats['categories_count'] = $result ? (int)$result['cnt'] : 0;
-            
-            // Etiket sayısı
+        } catch (Exception $e) {
+            // Tablo yoksa 0 döner
+        }
+        
+        // Etiket sayısı
+        try {
             $result = $this->db->fetch("SELECT COUNT(*) as cnt FROM post_tags");
             $stats['tags_count'] = $result ? (int)$result['cnt'] : 0;
-            
-            // Yönlendirme sayısı
+        } catch (Exception $e) {
+            // Tablo yoksa 0 döner
+        }
+        
+        // Yönlendirme sayısı
+        try {
             $result = $this->db->fetch("SELECT COUNT(*) as cnt FROM seo_redirects WHERE status = 'active'");
             $stats['redirects_count'] = $result ? (int)$result['cnt'] : 0;
-            
         } catch (Exception $e) {
-            // Hata durumunda varsayılan değerler döner
+            // Tablo yoksa 0 döner
         }
         
         return $stats;

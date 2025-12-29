@@ -624,17 +624,20 @@ class ModuleLoader {
                 [$name]
             );
             
+            // module.json'da is_system belirtilmiş mi kontrol et (varsayılan: 0)
+            $isSystem = isset($module['is_system']) ? (int)$module['is_system'] : 0;
+            
             if ($existing) {
-                // Güncelle
+                // Güncelle - is_system değerini de güncelle
                 $this->db->query(
-                    "UPDATE modules SET is_active = 1, updated_at = NOW() WHERE slug = ?",
-                    [$name]
+                    "UPDATE modules SET is_active = 1, is_system = ?, updated_at = NOW() WHERE slug = ?",
+                    [$isSystem, $name]
                 );
             } else {
                 // Yeni kayıt ekle
                 $this->db->query(
-                    "INSERT INTO modules (name, slug, label, description, icon, version, author, path, is_active, installed_at, created_at) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())",
+                    "INSERT INTO modules (name, slug, label, description, icon, version, author, path, is_active, is_system, installed_at, created_at) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())",
                     [
                         $module['name'],
                         $module['name'],
@@ -643,7 +646,8 @@ class ModuleLoader {
                         $module['admin_menu']['icon'] ?? 'extension',
                         $module['version'],
                         $module['author'] ?? '',
-                        $module['path']
+                        $module['path'],
+                        $isSystem
                     ]
                 );
             }
@@ -922,6 +926,16 @@ class ModuleLoader {
         // Modül yüklü mü kontrol et
         $controller = $this->getModuleController($module_name);
         
+        // Controller yoksa, modülü yüklemeyi dene (aktifse)
+        if (!$controller) {
+            $module = $this->getModule($module_name);
+            if ($module && $this->isModuleActiveInDB($module_name)) {
+                // Modülü yükle
+                $this->loadModule($module);
+                $controller = $this->getModuleController($module_name);
+            }
+        }
+        
         if (!$controller) {
             return false;
         }
@@ -947,8 +961,26 @@ class ModuleLoader {
      * Frontend modül route'unu işler
      */
     public function handleFrontendRoute($path) {
+        // Path'i normalize et (baştaki ve sondaki slash'leri kaldır)
+        $path = trim($path, '/');
+        
         foreach ($this->routes['frontend'] as $route) {
-            $pattern = $this->routeToPattern($route['path']);
+            // Route path'ini normalize et
+            $routePath = trim($route['path'], '/');
+            
+            // Tam eşleşme kontrolü (parametreli route'lar için)
+            if ($routePath === $path) {
+                $controller = $route['controller'];
+                $handler = $route['handler'];
+                
+                if (method_exists($controller, $handler)) {
+                    call_user_func([$controller, $handler]);
+                    return true;
+                }
+            }
+            
+            // Pattern eşleştirme (parametreli route'lar için)
+            $pattern = $this->routeToPattern($routePath);
             
             if (preg_match($pattern, $path, $matches)) {
                 $controller = $route['controller'];
@@ -969,6 +1001,11 @@ class ModuleLoader {
      * Route pattern'ını regex'e çevirir
      */
     private function routeToPattern($route) {
+        // Eğer route'da parametre yoksa, direkt eşleşme için escape et
+        if (strpos($route, '{') === false) {
+            return '#^' . preg_quote($route, '#') . '$#';
+        }
+        
         $pattern = preg_replace('/\{(\w+)\}/', '([^/]+)', $route);
         return '#^' . $pattern . '$#';
     }

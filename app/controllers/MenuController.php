@@ -301,7 +301,7 @@ class MenuController extends Controller {
      */
     private function getPages() {
         try {
-            $stmt = $this->db->query("SELECT id, title, slug FROM posts WHERE status = 'publish' AND type = 'page' ORDER BY title ASC LIMIT 50");
+            $stmt = $this->db->query("SELECT id, title, slug FROM posts WHERE status = 'published' AND type = 'page' ORDER BY title ASC LIMIT 50");
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             return [];
@@ -313,7 +313,7 @@ class MenuController extends Controller {
      */
     private function getPosts() {
         try {
-            $stmt = $this->db->query("SELECT id, title, slug FROM posts WHERE status = 'publish' AND (type = 'post' OR type IS NULL) ORDER BY created_at DESC LIMIT 30");
+            $stmt = $this->db->query("SELECT id, title, slug FROM posts WHERE status = 'published' AND (type = 'post' OR type IS NULL) ORDER BY created_at DESC LIMIT 30");
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             return [];

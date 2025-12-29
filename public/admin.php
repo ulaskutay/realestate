@@ -85,6 +85,7 @@ require_once __DIR__ . '/../core/Router.php';
 require_once __DIR__ . '/../core/Controller.php';
 require_once __DIR__ . '/../core/Model.php';
 require_once __DIR__ . '/../core/Role.php';
+require_once __DIR__ . '/../core/ViewRenderer.php';
 
 // Hook Sistemi ve Modül Yükleyiciyi yükle
 require_once __DIR__ . '/../core/HookSystem.php';
@@ -802,6 +803,9 @@ if (strpos($page, 'modules') === 0) {
         if (count($parts) === 1 && $parts[0] === 'modules') {
             // Modül listesi
             $controller->index();
+        } else if (count($parts) === 3 && $parts[0] === 'modules' && $parts[1] === 'install') {
+            // Modül kur ve aktif et
+            $controller->install($parts[2]);
         } else if (count($parts) === 3 && $parts[0] === 'modules' && $parts[1] === 'activate') {
             // Modül aktif et
             $controller->activate($parts[2]);

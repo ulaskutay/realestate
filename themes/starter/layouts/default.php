@@ -3,7 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $title ?? 'Starter Theme'; ?></title>
+    <?php 
+    // SEO Ayarları
+    $seoTitle = get_option('seo_title', '');
+    $seoDescription = get_option('seo_description', '');
+    $seoAuthor = get_option('seo_author', '');
+    
+    // Title: Önce sayfa title'ı, yoksa SEO title, yoksa varsayılan
+    $pageTitle = $title ?? ($seoTitle ?: 'Starter Theme');
+    ?>
+    <title><?php echo esc_html($pageTitle); ?></title>
+    
+    <?php 
+    // Meta Description: Önce sayfa meta description'ı, yoksa SEO description
+    $metaDesc = $meta_description ?? $seoDescription;
+    if (!empty($metaDesc)): ?>
+    <meta name="description" content="<?php echo esc_attr($metaDesc); ?>">
+    <?php endif;
+    
+    // Meta Author: SEO author
+    if (!empty($seoAuthor)): ?>
+    <meta name="author" content="<?php echo esc_attr($seoAuthor); ?>">
+    <?php endif; ?>
     
     <!-- Favicon -->
     <?php 
@@ -111,8 +132,53 @@
         <?php echo $themeLoader->getCustomCss(); ?>
     </style>
     <?php endif; ?>
+    
+    <?php 
+    // Google Analytics, Tag Manager ve Ads kodları
+    $googleAnalytics = get_option('google_analytics', '');
+    $googleTagManager = get_option('google_tag_manager', '');
+    $googleAds = get_option('google_ads', '');
+    
+    // Google Tag Manager - Head (hemen açılış tag'inden sonra)
+    if (!empty($googleTagManager)): ?>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','<?php echo esc_js($googleTagManager); ?>');</script>
+    <!-- End Google Tag Manager -->
+    <?php endif;
+    
+    // Google Analytics
+    if (!empty($googleAnalytics)): ?>
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=<?php echo esc_js($googleAnalytics); ?>"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '<?php echo esc_js($googleAnalytics); ?>');
+    </script>
+    <!-- End Google Analytics -->
+    <?php endif;
+    
+    // Google Ads
+    if (!empty($googleAds)): ?>
+    <!-- Google Ads -->
+    <?php echo $googleAds; ?>
+    <!-- End Google Ads -->
+    <?php endif; ?>
 </head>
 <body class="antialiased">
+    <?php 
+    // Google Tag Manager - Body (hemen body açılış tag'inden sonra)
+    if (!empty($googleTagManager)): ?>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=<?php echo esc_attr($googleTagManager); ?>"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    <?php endif; ?>
     
     <?php 
     // Header

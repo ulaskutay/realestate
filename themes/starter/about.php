@@ -70,17 +70,20 @@ $metaKeywords = $page['meta_keywords'] ?? '';
     <link rel="apple-touch-icon" href="<?php echo esc_url($favicon); ?>">
     <?php endif; ?>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
     <!-- Local Fonts -->
+    <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>" as="style">
     <link rel="stylesheet" href="<?php echo ViewRenderer::assetUrl('assets/css/fonts.css'); ?>">
+    
+    <!-- Tailwind CSS -->
+    <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/js/tailwind.min.js'); ?>" as="script">
+    <script src="<?php echo ViewRenderer::assetUrl('assets/js/tailwind.min.js'); ?>"></script>
     
     <!-- Theme CSS Variables -->
     <?php echo $themeLoader->getCssVariablesTag(); ?>
     
     <!-- Theme CSS -->
     <?php if (file_exists($themeLoader->getThemePath() . '/assets/css/theme.css')): ?>
+    <link rel="preload" href="<?php echo $themeLoader->getCssUrl(); ?>" as="style">
     <link rel="stylesheet" href="<?php echo $themeLoader->getCssUrl(); ?>">
     <?php endif; ?>
     
@@ -381,10 +384,11 @@ $metaKeywords = $page['meta_keywords'] ?? '';
     
     <!-- Theme JS -->
     <?php if (file_exists($themeLoader->getThemePath() . '/assets/js/theme.js')): ?>
-    <script src="<?php echo $themeLoader->getJsUrl(); ?>"></script>
+    <link rel="preload" href="<?php echo $themeLoader->getJsUrl(); ?>" as="script">
+    <script src="<?php echo $themeLoader->getJsUrl(); ?>" defer></script>
     <?php endif; ?>
     
-    <script>
+    <script defer>
         // Smooth scroll
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
