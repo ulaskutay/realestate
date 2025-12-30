@@ -1,0 +1,37 @@
+# Codetic CMS - URL Rewrite Kuralları
+
+# Apache mod_rewrite'ı etkinleştir
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Mevcut dosya ve klasörleri olduğu gibi sun
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # Install sayfasını olduğu gibi sun
+    RewriteRule ^install\.php$ install.php [L]
+    
+    # Admin isteklerini admin.php'ye yönlendir
+    RewriteRule ^admin/?$ public/admin.php?page=dashboard [L,QSA]
+    RewriteRule ^admin/(.*)$ public/admin.php?page=$1 [L,QSA]
+    
+    # Diğer tüm istekleri index.php'ye yönlendir
+    RewriteRule ^(.*)$ index.php [L,QSA]
+</IfModule>
+
+# mod_rewrite yoksa hata göster
+<IfModule !mod_rewrite.c>
+    ErrorDocument 500 "mod_rewrite modülü aktif değil. Lütfen hosting sağlayıcınızla iletişime geçin."
+</IfModule>
+
+# Güvenlik ayarları
+<IfModule mod_headers.c>
+    Header set X-XSS-Protection "1; mode=block"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
+
+# Dizin listelemesini kapat
+Options -Indexes
