@@ -1,0 +1,196 @@
+{
+  "name": "Starter Theme",
+  "slug": "starter",
+  "version": "1.0.0",
+  "author": "CMS",
+  "author_url": "",
+  "description": "Modern ve minimal başlangıç teması. Tailwind CSS tabanlı, tamamen özelleştirilebilir.",
+  "screenshot": "screenshot.svg",
+  "settings": {
+    "colors": {
+      "primary": {
+        "label": "Ana Renk",
+        "default": "#137fec",
+        "type": "color"
+      },
+      "secondary": {
+        "label": "İkincil Renk",
+        "default": "#6366f1",
+        "type": "color"
+      },
+      "accent": {
+        "label": "Vurgu Rengi",
+        "default": "#10b981",
+        "type": "color"
+      },
+      "background": {
+        "label": "Arka Plan",
+        "default": "#ffffff",
+        "type": "color"
+      },
+      "surface": {
+        "label": "Yüzey Rengi",
+        "default": "#f8fafc",
+        "type": "color"
+      },
+      "text": {
+        "label": "Metin Rengi",
+        "default": "#1f2937",
+        "type": "color"
+      },
+      "text_muted": {
+        "label": "Soluk Metin",
+        "default": "#6b7280",
+        "type": "color"
+      }
+    },
+    "fonts": {
+      "heading": {
+        "label": "Başlık Fontu",
+        "default": "Poppins",
+        "type": "font"
+      },
+      "body": {
+        "label": "Gövde Fontu",
+        "default": "Inter",
+        "type": "font"
+      }
+    },
+    "custom": {
+      "header_style": {
+        "label": "Header Stili",
+        "type": "select",
+        "options": ["fixed", "static"],
+        "default": "fixed"
+      },
+      "header_transparent": {
+        "label": "Şeffaf Header",
+        "type": "boolean",
+        "default": false
+      },
+      "show_breadcrumb": {
+        "label": "Breadcrumb Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_columns": {
+        "label": "Footer Kolon Sayısı",
+        "type": "select",
+        "options": ["2", "3", "4"],
+        "default": "4"
+      },
+      "show_back_to_top": {
+        "label": "Yukarı Çık Butonu",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_bg_color": {
+        "label": "Footer Arka Plan Rengi",
+        "type": "color",
+        "default": "#111827"
+      },
+      "footer_text_color": {
+        "label": "Footer Metin Rengi",
+        "type": "color",
+        "default": "#ffffff"
+      },
+      "footer_show": {
+        "label": "Footer Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_copyright_text": {
+        "label": "Footer Telif Hakkı Metni",
+        "type": "text",
+        "default": "Tüm hakları saklıdır."
+      },
+      "footer_copyright_year": {
+        "label": "Copyright Yılı",
+        "type": "select",
+        "options": ["auto", "manual"],
+        "default": "auto"
+      },
+      "footer_copyright_year_manual": {
+        "label": "Manuel Yıl",
+        "type": "text",
+        "default": ""
+      },
+      "footer_copyright_company": {
+        "label": "Copyright Şirket Adı",
+        "type": "text",
+        "default": ""
+      },
+      "footer_copyright_format": {
+        "label": "Copyright Formatı",
+        "type": "select",
+        "options": ["default", "custom"],
+        "default": "default"
+      },
+      "footer_copyright_custom": {
+        "label": "Özel Copyright Metni",
+        "type": "textarea",
+        "default": ""
+      },
+      "footer_show_social": {
+        "label": "Sosyal Medya İkonları Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_menu": {
+        "label": "Footer Menü Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_contact": {
+        "label": "İletişim Bilgileri Göster",
+        "type": "boolean",
+        "default": true
+      }
+    }
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "name": "Hero Bölümü",
+      "component": "hero"
+    },
+    {
+      "id": "features",
+      "name": "Özellikler",
+      "component": "features"
+    },
+    {
+      "id": "about",
+      "name": "Hakkımızda",
+      "component": "about"
+    },
+    {
+      "id": "services",
+      "name": "Hizmetler",
+      "component": "services"
+    },
+    {
+      "id": "testimonials",
+      "name": "Referanslar",
+      "component": "testimonials"
+    },
+    {
+      "id": "cta",
+      "name": "Call to Action",
+      "component": "cta"
+    },
+    {
+      "id": "contact",
+      "name": "İletişim",
+      "component": "contact-section"
+    }
+  ],
+  "supports": [
+    "slider",
+    "forms",
+    "blog",
+    "custom_css",
+    "custom_js"
+  ]
+}
+

@@ -1,0 +1,85 @@
+{
+  "name": "pages",
+  "title": "Sayfalar",
+  "version": "1.0.0",
+  "description": "Statik sayfa yönetimi - Starter tema için özelleştirilmiş",
+  "author": "CMS",
+  "requires_php": "7.4",
+  "requires_cms": "1.0",
+  "main_file": "Controller.php",
+  "controller_class": "PagesModuleController",
+  "routes": [
+    {
+      "path": "pages",
+      "handler": "admin_index",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "pages/create",
+      "handler": "admin_create",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "pages/store",
+      "handler": "admin_store",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "pages/edit/{id}",
+      "handler": "admin_edit",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "pages/update/{id}",
+      "handler": "admin_update",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "pages/delete/{id}",
+      "handler": "admin_delete",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "pages/restore/{id}",
+      "handler": "admin_restore",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "pages/toggle-status/{id}",
+      "handler": "admin_toggleStatus",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "pages/versions/{id}",
+      "handler": "admin_versions",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "pages/duplicate/{id}",
+      "handler": "admin_duplicate",
+      "type": "admin",
+      "method": "POST"
+    }
+  ],
+  "permissions": [
+    "pages.view",
+    "pages.create",
+    "pages.edit",
+    "pages.delete"
+  ],
+  "settings": false,
+  "hooks": {
+    "actions": [],
+    "filters": []
+  }
+}
+

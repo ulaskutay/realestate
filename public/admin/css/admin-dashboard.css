@@ -1,0 +1,454 @@
+/* Admin Dashboard Styles */
+
+/* Material Icons - Font Face (Hızlı yükleme için) */
+@font-face {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 100 700;
+    src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v302/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2');
+    font-display: block;
+}
+
+/* Material Icons - Temel Stiller */
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -moz-font-feature-settings: 'liga';
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.material-symbols-outlined.fill {
+    font-variation-settings: 'FILL' 1;
+}
+
+/* Dark Mode Toggle Switch - Professional Design */
+#dark-mode-toggle {
+    position: relative;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#dark-mode-toggle:focus {
+    outline: none;
+}
+
+#dark-mode-toggle:focus-visible {
+    outline: 2px solid #137fec;
+    outline-offset: 2px;
+    border-radius: 9999px;
+}
+
+/* Toggle Track Background Animation */
+#dark-mode-toggle span:first-child {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark #dark-mode-toggle span:first-child {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Toggle Circle Animation */
+#dark-mode-toggle span:nth-child(2) {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.dark #dark-mode-toggle span:nth-child(2) {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Hover Effect */
+#dark-mode-toggle:hover span:first-child {
+    transform: scale(1.05);
+}
+
+#dark-mode-toggle:active span:nth-child(2) {
+    transform: translateX(0) scale(0.95);
+}
+
+.dark #dark-mode-toggle:active span:nth-child(2) {
+    transform: translateX(28px) scale(0.95);
+}
+
+/* Icon Animations */
+#sun-icon,
+#moon-icon {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    will-change: opacity, transform;
+}
+
+/* Smooth icon transitions */
+#sun-icon {
+    transform: scale(1) rotate(0deg);
+}
+
+.dark #sun-icon {
+    transform: scale(0) rotate(180deg);
+}
+
+#moon-icon {
+    transform: scale(0) rotate(-180deg);
+}
+
+.dark #moon-icon {
+    transform: scale(1) rotate(0deg);
+}
+
+/* Pulse animation on toggle */
+@keyframes togglePulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+#dark-mode-toggle.toggling span:nth-child(2) {
+    animation: togglePulse 0.3s ease-in-out;
+}
+
+/* Custom scrollbar for dark mode */
+.dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+    background: #15202b;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+}
+
+/* Light mode scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f6f7f8;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Fixed Sidebar */
+.sidebar-fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 50;
+}
+
+/* Mobil Overlay */
+#mobile-sidebar-overlay {
+    z-index: 45;
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* Main content margin for fixed sidebar */
+.main-content-with-sidebar {
+    margin-left: 16rem; /* 256px = w-64 */
+}
+
+/* Responsive: Hide sidebar on mobile, show main content full width */
+@media (max-width: 1024px) {
+    .main-content-with-sidebar {
+        margin-left: 0;
+    }
+    
+    .sidebar-fixed {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .sidebar-fixed.mobile-open {
+        transform: translateX(0);
+    }
+}
+
+/* Mobil uyumluluk iyileştirmeleri */
+@media (max-width: 768px) {
+    /* Padding azaltma - tüm main content alanları için */
+    main.flex-1 {
+        padding: 1rem !important;
+    }
+    
+    /* Tablolar için yatay scroll */
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+    
+    /* Tablo hücreleri için mobil uyumluluk */
+    table {
+        font-size: 0.875rem;
+    }
+    
+    table th,
+    table td {
+        padding: 0.75rem 0.5rem;
+        white-space: nowrap;
+    }
+    
+    /* Form elemanları için tam genişlik */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    input[type="time"],
+    input[type="url"],
+    input[type="search"],
+    textarea,
+    select {
+        width: 100%;
+        max-width: 100%;
+        font-size: 16px; /* iOS zoom önleme */
+    }
+    
+    /* Butonlar için mobil uyumluluk */
+    .flex.flex-col.sm\:flex-row {
+        flex-direction: column;
+    }
+    
+    .flex.flex-col.sm\:flex-row > * {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .flex.flex-col.sm\:flex-row > *:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Grid'ler için tek sütun */
+    .grid.grid-cols-1.sm\:grid-cols-2,
+    .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4 {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Sidebar içeriği için padding azaltma */
+    .sidebar-fixed {
+        padding: 1rem;
+    }
+    
+    /* Top header için mobil uyumluluk */
+    header.sticky {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    /* Header başlıkları için mobil uyumluluk */
+    header h1.text-3xl {
+        font-size: 1.5rem;
+        line-height: 2rem;
+    }
+    
+    /* Filtre butonları için mobil uyumluluk */
+    .flex.flex-wrap.gap-2 {
+        gap: 0.5rem;
+    }
+    
+    .flex.flex-wrap.gap-2 > * {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+    }
+    
+    /* Tab navigation için mobil uyumluluk */
+    nav.flex.gap-2 {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    
+    nav.flex.gap-2::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Card'lar için mobil uyumluluk */
+    .rounded-xl {
+        border-radius: 0.5rem;
+    }
+    
+    /* Modal ve dropdown'lar için mobil uyumluluk */
+    .absolute.right-0 {
+        right: 0.5rem;
+        left: 0.5rem;
+        width: auto;
+    }
+    
+    /* Form grupları için mobil uyumluluk */
+    .grid.grid-cols-1.md\:grid-cols-2 {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Form container'ları için mobil uyumluluk */
+    .space-y-6 > * {
+        margin-bottom: 1rem;
+    }
+    
+    /* Editor container'ları için mobil uyumluluk */
+    .ql-editor {
+        min-height: 300px;
+    }
+    
+    .ql-toolbar.ql-snow {
+        flex-wrap: wrap;
+    }
+    
+    /* Quill toolbar butonları mobilde küçült */
+    .ql-toolbar .ql-formats {
+        margin-right: 0.25rem;
+    }
+    
+    .ql-toolbar button {
+        padding: 0.25rem;
+    }
+    
+    /* Media picker için mobil uyumluluk */
+    .grid.grid-cols-2,
+    .grid.grid-cols-3,
+    .grid.grid-cols-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    
+    /* Scrollbar gizleme */
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Line clamp için */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+}
+
+/* Çok küçük ekranlar için */
+@media (max-width: 640px) {
+    /* Font boyutları */
+    .text-3xl {
+        font-size: 1.5rem;
+        line-height: 2rem;
+    }
+    
+    .text-2xl {
+        font-size: 1.25rem;
+        line-height: 1.75rem;
+    }
+    
+    .text-xl {
+        font-size: 1.125rem;
+        line-height: 1.75rem;
+    }
+    
+    /* Padding daha da azalt */
+    .p-6 {
+        padding: 0.75rem;
+    }
+    
+    .p-10 {
+        padding: 1rem;
+    }
+    
+    .p-12 {
+        padding: 1.5rem;
+    }
+    
+    /* Gap azaltma */
+    .gap-6 {
+        gap: 0.75rem;
+    }
+    
+    .gap-4 {
+        gap: 0.5rem;
+    }
+    
+    /* Sidebar genişliği */
+    .sidebar-fixed {
+        width: 280px;
+        max-width: 85vw;
+    }
+    
+    /* Butonlar için mobil uyumluluk */
+    button,
+    a[class*="px-"] {
+        min-height: 44px; /* Touch target için */
+        padding: 0.5rem 1rem;
+    }
+    
+    /* İkon boyutları */
+    .material-symbols-outlined.text-2xl {
+        font-size: 1.25rem;
+    }
+    
+    .material-symbols-outlined.text-xl {
+        font-size: 1.125rem;
+    }
+    
+    /* Tablo için daha küçük font */
+    table {
+        font-size: 0.75rem;
+    }
+    
+    table th,
+    table td {
+        padding: 0.5rem 0.375rem;
+    }
+    
+    /* Form label'ları için mobil uyumluluk */
+    label {
+        font-size: 0.875rem;
+        margin-bottom: 0.375rem;
+    }
+    
+    /* Input grupları için mobil uyumluluk */
+    .flex.items-center.gap-2 {
+        flex-wrap: wrap;
+    }
+}
+
+/* Tablet için orta boy ekranlar */
+@media (min-width: 641px) and (max-width: 1024px) {
+    .sidebar-fixed {
+        width: 280px;
+    }
+}

@@ -1,0 +1,16 @@
+# Uploads klasörü güvenlik ayarları
+
+# PHP dosyalarının çalıştırılmasını engelle
+<FilesMatch "\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Sadece görsel dosyalarına izin ver
+<FilesMatch "\.(jpg|jpeg|png|gif|svg|webp|ico)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Dizin listelemesini kapat
+Options -Indexes
