@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <?php 
     // SEO Ayarları
     $seoTitle = get_option('seo_title', '');
@@ -102,6 +102,20 @@
             overflow-x: hidden;
             max-width: 100%;
             width: 100%;
+            position: relative;
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        img, video, iframe {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        main {
+            overflow-x: hidden;
+            width: 100%;
+            position: relative;
         }
         
         body {
@@ -322,6 +336,56 @@
         }
         
         // Mobile menu toggle - header.php'de yönetiliyor
+        
+        // Prevent horizontal scrolling on mobile
+        (function() {
+            let lastTouchEnd = 0;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            // Prevent horizontal scroll on touch
+            document.addEventListener('touchstart', function(e) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+            
+            document.addEventListener('touchmove', function(e) {
+                const touchX = e.touches[0].clientX;
+                const touchY = e.touches[0].clientY;
+                const deltaX = Math.abs(touchX - touchStartX);
+                const deltaY = Math.abs(touchY - touchStartY);
+                
+                // If horizontal movement is greater than vertical, prevent default
+                if (deltaX > deltaY && deltaX > 10) {
+                    // Allow if it's a scrollable element
+                    const target = e.target;
+                    const scrollable = target.closest('[data-scrollable]') || 
+                                     target.closest('.overflow-x-auto') ||
+                                     target.closest('.overflow-x-scroll');
+                    
+                    if (!scrollable) {
+                        e.preventDefault();
+                    }
+                }
+            }, { passive: false });
+            
+            // Prevent double-tap zoom
+            document.addEventListener('touchend', function(e) {
+                const now = Date.now();
+                if (now - lastTouchEnd <= 300) {
+                    e.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+            // Lock scroll position
+            let scrollPosition = 0;
+            window.addEventListener('scroll', function() {
+                if (window.scrollX !== 0) {
+                    window.scrollTo(0, window.scrollY);
+                }
+            });
+        })();
     </script>
 </body>
 </html>
