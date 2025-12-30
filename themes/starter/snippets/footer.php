@@ -196,11 +196,19 @@ function adjustBrightness($hex, $percent) {
                 <!-- Logo -->
                     <div class="flex items-center gap-3">
                     <?php if (!empty($siteLogo)): ?>
+                            <?php
+                            // Footer logo görüntülenen boyutu: h-10 = 40px
+                            $footerLogoAspectRatio = $logoWidth && $logoHeight ? ($logoWidth / $logoHeight) : 2.5;
+                            $footerDisplayHeight = 40; // h-10
+                            $footerDisplayWidth = round($footerDisplayHeight * $footerLogoAspectRatio);
+                            ?>
                             <img src="<?php echo esc_url($siteLogo); ?>" 
                                  alt="<?php echo esc_attr($siteName); ?>" 
                                  class="h-10 w-auto object-contain brightness-0 invert"
-                                 width="<?php echo $logoWidth ? (int)$logoWidth : 125; ?>"
-                                 height="<?php echo $logoHeight ? min((int)$logoHeight, 40) : 40; ?>">
+                                 width="<?php echo $footerDisplayWidth; ?>"
+                                 height="<?php echo $footerDisplayHeight; ?>"
+                                 loading="lazy"
+                                 decoding="async">
                     <?php else: ?>
                             <div class="w-10 h-10 flex items-center justify-center rounded-xl" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);">
                                 <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">

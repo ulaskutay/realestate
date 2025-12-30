@@ -158,12 +158,21 @@ function renderStarterMobileMenuItem($item, $level = 0) {
             <!-- Logo -->
             <a href="/" class="flex items-center gap-3 <?php echo $isCentered ? 'absolute left-4 sm:left-6 lg:left-8' : ''; ?>">
                 <?php if (!empty($siteLogo)): ?>
+                    <?php
+                    // Logo görüntülenen boyutları (Tailwind class'larına göre)
+                    // h-12 = 48px, sm:h-14 = 56px, lg:h-16 = 64px
+                    // Aspect ratio korunarak width hesapla (varsayılan 2.5:1)
+                    $logoAspectRatio = $logoWidth && $logoHeight ? ($logoWidth / $logoHeight) : 2.5;
+                    $maxDisplayHeight = 64; // lg:h-16
+                    $maxDisplayWidth = round($maxDisplayHeight * $logoAspectRatio);
+                    ?>
                     <img src="<?php echo esc_url($siteLogo); ?>" 
                          alt="<?php echo esc_attr($siteName); ?>" 
                          class="h-12 sm:h-14 lg:h-16 w-auto object-contain"
-                         width="<?php echo $logoWidth ? (int)$logoWidth : 200; ?>"
-                         height="<?php echo $logoHeight ? (int)$logoHeight : 64; ?>"
-                         loading="eager">
+                         width="<?php echo $maxDisplayWidth; ?>"
+                         height="<?php echo $maxDisplayHeight; ?>"
+                         loading="eager"
+                         decoding="async">
                 <?php else: ?>
                     <div class="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 gradient-primary rounded-lg flex items-center justify-center">
                         <span class="text-white font-bold text-xl sm:text-2xl lg:text-3xl"><?php echo substr($siteName, 0, 1); ?></span>

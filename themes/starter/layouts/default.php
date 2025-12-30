@@ -98,6 +98,12 @@
             --font-body: <?php echo $themeLoader ? "'" . $themeLoader->getFont('body', 'Inter') . "'" : "'Inter'"; ?>, sans-serif;
         }
         
+        html, body {
+            overflow-x: hidden;
+            max-width: 100%;
+            width: 100%;
+        }
+        
         body {
             font-family: var(--font-body);
             color: var(--color-text);
