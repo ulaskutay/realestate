@@ -354,8 +354,47 @@ class HomeController extends Controller
         // Sayfayı getir
         $page = $pageModel->findBySlug($slug);
 
+        // Debug modu kontrolü
+        $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
+
+        if ($debugMode) {
+            error_log("Page lookup - Slug: $slug");
+            error_log("Page found: " . ($page ? 'YES' : 'NO'));
+            if ($page) {
+                error_log("Page status: " . ($page['status'] ?? 'NULL'));
+                error_log("Page type: " . ($page['type'] ?? 'NULL'));
+            }
+        }
+
         // Sayfa yoksa veya yayınlanmamışsa 404
-        if (!$page || $page['status'] !== 'published' || (isset($page['type']) && $page['type'] !== 'page')) {
+        if (!$page) {
+            if ($debugMode) {
+                error_log("404 - Page not found for slug: $slug");
+            }
+            http_response_code(404);
+            require_once __DIR__ . '/../../core/ViewRenderer.php';
+            $renderer = ViewRenderer::getInstance();
+            $renderer->setLayout('default');
+            $this->view('frontend/404', ['title' => 'Sayfa Bulunamadı', 'current_page' => '404']);
+            return;
+        }
+
+        if ($page['status'] !== 'published') {
+            if ($debugMode) {
+                error_log("404 - Page status is not published. Status: " . ($page['status'] ?? 'NULL'));
+            }
+            http_response_code(404);
+            require_once __DIR__ . '/../../core/ViewRenderer.php';
+            $renderer = ViewRenderer::getInstance();
+            $renderer->setLayout('default');
+            $this->view('frontend/404', ['title' => 'Sayfa Bulunamadı', 'current_page' => '404']);
+            return;
+        }
+
+        if (isset($page['type']) && $page['type'] !== 'page') {
+            if ($debugMode) {
+                error_log("404 - Page type is not 'page'. Type: " . ($page['type'] ?? 'NULL'));
+            }
             http_response_code(404);
             require_once __DIR__ . '/../../core/ViewRenderer.php';
             $renderer = ViewRenderer::getInstance();
@@ -373,19 +412,22 @@ class HomeController extends Controller
         // Template seçimi
         $pageTemplate = $customFields['page_template'] ?? 'default';
 
-        // Debug: Template değerini kontrol et
-        // error_log("Page Template: " . $pageTemplate);
-        // error_log("Custom Fields: " . print_r($customFields, true));
+        if ($debugMode) {
+            error_log("Page Template: $pageTemplate");
+            error_log("Page ID: {$page['id']}, Slug: {$page['slug']}");
+        }
 
-        // Eğer özel template seçilmişse (service-detail, about, contact vb.), tema template'ini kullan
-        if (in_array($pageTemplate, ['service-detail', 'about', 'contact'])) {
+        // Eğer özel template seçilmişse (service-detail, about, contact, teklif-al vb.), tema template'ini kullan
+        if (in_array($pageTemplate, ['service-detail', 'about', 'contact', 'teklif-al', 'quote-request'])) {
             // Aktif temayı al
-            $activeTheme = get_option('active_theme', 'starter');
-            $templatePath = __DIR__ . '/../../themes/' . $activeTheme . '/' . $pageTemplate . '.php';
-
+            $activeTheme = get_option('active_theme', 'codetic');
+            
+            // Template path - DOCUMENT_ROOT kullan (sunucuda /home/codeticc/public_html)
+            $templatePath = $_SERVER['DOCUMENT_ROOT'] . '/themes/' . $activeTheme . '/' . $pageTemplate . '.php';
+            
             if (file_exists($templatePath)) {
                 // ThemeLoader'ı yükle
-                require_once __DIR__ . '/../../core/ThemeLoader.php';
+                require_once $_SERVER['DOCUMENT_ROOT'] . '/core/ThemeLoader.php';
                 $themeLoader = ThemeLoader::getInstance();
 
                 // Template'e değişkenleri geçir
@@ -393,10 +435,20 @@ class HomeController extends Controller
                 $meta_description = $page['meta_description'] ?: $page['excerpt'];
                 $meta_keywords = $page['meta_keywords'];
                 $current_page = 'page';
-
+                $customFields = $customFields ?? [];
+                
                 // Template'i include et
                 include $templatePath;
-                exit; // return yerine exit kullan
+                exit;
+            } else {
+                // Template bulunamadı - hata mesajı göster
+                die("
+                    <h1>Template Bulunamadı</h1>
+                    <p>Sayfa template'i bulunamadı: <strong>$pageTemplate</strong></p>
+                    <p>Aranan yol: <code>$templatePath</code></p>
+                    <p>Sayfa ID: {$page['id']}, Slug: {$page['slug']}</p>
+                    <p>Lütfen admin panelden sayfa template'ini kontrol edin.</p>
+                ");
             }
         }
 
@@ -415,6 +467,68 @@ class HomeController extends Controller
         ];
 
         $this->view('frontend/pages/single', $data);
+    }
+
+    /**
+     * Teklif alma sayfası (Fallback - özel route'lar için)
+     * Panelden oluşturulan sayfa page() metodu ile handle edilir
+     */
+    public function quoteRequest()
+    {
+        // Page model'ini yükle
+        require_once __DIR__ . '/../models/Page.php';
+        $pageModel = new Page();
+
+        // Aktif temayı al
+        $activeTheme = get_option('active_theme', 'codetic');
+        $templatePath = __DIR__ . '/../../themes/' . $activeTheme . '/teklif-al.php';
+
+        // Slug'dan sayfayı bul (teklif-al veya quote-request)
+        $page = $pageModel->findBySlug('teklif-al');
+        if (!$page) {
+            $page = $pageModel->findBySlug('quote-request');
+        }
+        
+        // Sayfa bulunamadıysa varsayılan değerlerle devam et
+        if (!$page) {
+            $page = [
+                'id' => 0,
+                'title' => 'Teklif Al',
+                'slug' => 'teklif-al',
+                'excerpt' => 'Projeniz için detaylı teklif alın',
+                'meta_title' => 'Teklif Al',
+                'meta_description' => 'Projeniz için detaylı teklif alın',
+                'status' => 'published',
+                'type' => 'page'
+            ];
+        }
+
+        // Custom fields'ı al
+        $customFields = [];
+        if ($page['id'] > 0) {
+            $customFields = $pageModel->getCustomFields($page['id']);
+        }
+
+        // Template varsa onu kullan
+        if (file_exists($templatePath)) {
+            // ThemeLoader'ı yükle
+            require_once __DIR__ . '/../../core/ThemeLoader.php';
+            $themeLoader = ThemeLoader::getInstance();
+            
+            // Template'e değişkenleri geçir
+            $title = $page['meta_title'] ?? $page['title'] ?? 'Teklif Al';
+            $meta_description = $page['meta_description'] ?? $page['excerpt'] ?? 'Projeniz için detaylı teklif alın';
+            $meta_keywords = $page['meta_keywords'] ?? '';
+            $current_page = 'quote-request';
+
+            // Template'i include et
+            include $templatePath;
+            exit;
+        }
+
+        // Template yoksa page() metoduna yönlendir (slug bazlı)
+        // Bu sayede panelden oluşturulan sayfa doğru şekilde handle edilir
+        $this->page('teklif-al');
     }
 }
 

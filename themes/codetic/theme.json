@@ -1,0 +1,426 @@
+{
+  "name": "Codetic Theme",
+  "slug": "codetic",
+  "version": "1.0.0",
+  "author": "Codetic",
+  "author_url": "",
+  "description": "Modern, profesyonel ve performanslı Codetic teması. Özelleştirilebilir renkler ve bileşenler ile güçlü bir web deneyimi.",
+  "screenshot": "screenshot.svg",
+  "settings": {
+    "colors": {
+      "primary": {
+        "label": "Ana Renk",
+        "default": "#3b82f6",
+        "type": "color"
+      },
+      "secondary": {
+        "label": "İkincil Renk",
+        "default": "#8b5cf6",
+        "type": "color"
+      },
+      "accent": {
+        "label": "Vurgu Rengi",
+        "default": "#10b981",
+        "type": "color"
+      },
+      "background": {
+        "label": "Arka Plan",
+        "default": "#ffffff",
+        "type": "color"
+      },
+      "surface": {
+        "label": "Yüzey Rengi",
+        "default": "#f8fafc",
+        "type": "color"
+      },
+      "text": {
+        "label": "Metin Rengi",
+        "default": "#1f2937",
+        "type": "color"
+      },
+      "text_muted": {
+        "label": "Soluk Metin",
+        "default": "#6b7280",
+        "type": "color"
+      }
+    },
+    "fonts": {
+      "heading": {
+        "label": "Başlık Fontu",
+        "default": "Poppins",
+        "type": "font"
+      },
+      "body": {
+        "label": "Gövde Fontu",
+        "default": "Inter",
+        "type": "font"
+      }
+    },
+    "header": {
+      "style": {
+        "label": "Header Stili",
+        "type": "select",
+        "options": ["fixed", "static", "transparent"],
+        "default": "fixed"
+      },
+      "bg_color": {
+        "label": "Header Arka Plan Rengi",
+        "type": "color",
+        "default": "rgba(15, 23, 42, 0.8)"
+      },
+      "text_color": {
+        "label": "Header Metin Rengi",
+        "type": "color",
+        "default": "#ffffff"
+      },
+      "show_search": {
+        "label": "Arama Butonu Göster",
+        "type": "boolean",
+        "default": false
+      },
+      "show_cta": {
+        "label": "CTA Butonu Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "cta_text": {
+        "label": "CTA Buton Metni",
+        "type": "text",
+        "default": "Hemen Başla"
+      },
+      "cta_link": {
+        "label": "CTA Buton Linki",
+        "type": "text",
+        "default": "/contact"
+      }
+    },
+    "hero": {
+      "title_prefix": {
+        "label": "Başlık Ön Eki",
+        "type": "text",
+        "default": "This is something"
+      },
+      "animated_words": {
+        "label": "Animasyonlu Kelimeler (virgülle ayrılmış)",
+        "type": "text",
+        "default": "amazing,new,wonderful,beautiful,smart"
+      },
+      "subtitle": {
+        "label": "Hero Alt Başlık / Açıklama",
+        "type": "textarea",
+        "default": "Managing a small business today is already tough. Avoid further complications by ditching outdated, tedious trade methods. Our goal is to streamline SMB trade, making it easier and faster than ever."
+      },
+      "top_button_enabled": {
+        "label": "Üst Buton Aktif",
+        "type": "boolean",
+        "default": true
+      },
+      "top_button_text": {
+        "label": "Üst Buton Metni",
+        "type": "text",
+        "default": "Read our launch article"
+      },
+      "top_button_link": {
+        "label": "Üst Buton Linki",
+        "type": "text",
+        "default": "/blog"
+      },
+      "top_button_style": {
+        "label": "Üst Buton Stili",
+        "type": "select",
+        "default": "secondary",
+        "options": {
+          "secondary": "Secondary (Şeffaf)",
+          "outline": "Outline (Çerçeveli)",
+          "primary": "Primary (Dolu)"
+        }
+      },
+      "top_button_icon": {
+        "label": "Üst Buton İkonu",
+        "type": "select",
+        "default": "arrow",
+        "options": {
+          "arrow": "Ok",
+          "external": "Dış Link",
+          "none": "İkon Yok"
+        }
+      },
+      "button_text": {
+        "label": "Birincil Buton Metni",
+        "type": "text",
+        "default": "Sign up here"
+      },
+      "button_link": {
+        "label": "Birincil Buton Linki",
+        "type": "text",
+        "default": "/contact"
+      },
+      "secondary_button_text": {
+        "label": "İkincil Buton Metni",
+        "type": "text",
+        "default": "Jump on a call"
+      },
+      "secondary_button_link": {
+        "label": "İkincil Buton Linki",
+        "type": "text",
+        "default": "/contact"
+      },
+      "hero_image": {
+        "label": "Hero Görsel (Opsiyonel)",
+        "type": "image",
+        "default": ""
+      },
+      "hero_image_alt": {
+        "label": "Görsel Alt Metni",
+        "type": "text",
+        "default": "Hero Görsel"
+      },
+      "particle_enabled": {
+        "label": "Parçacık Animasyonu Aktif",
+        "type": "boolean",
+        "default": true
+      },
+      "particle_count": {
+        "label": "Parçacık Sayısı",
+        "type": "number",
+        "default": 100,
+        "min": 50,
+        "max": 200
+      },
+      "particle_speed": {
+        "label": "Parçacık Hızı",
+        "type": "number",
+        "default": 2,
+        "min": 1,
+        "max": 5
+      },
+      "particle_color": {
+        "label": "Parçacık Rengi",
+        "type": "color",
+        "default": "#60a5fa"
+      },
+      "connection_distance": {
+        "label": "Bağlantı Mesafesi",
+        "type": "number",
+        "default": 120,
+        "min": 80,
+        "max": 200
+      },
+      "interaction_enabled": {
+        "label": "Mouse Etkileşimi Aktif",
+        "type": "boolean",
+        "default": true
+      },
+      "form_enabled": {
+        "label": "Hero Form Aktif",
+        "type": "boolean",
+        "default": false
+      },
+      "form_id": {
+        "label": "Hero Formu",
+        "type": "form_select",
+        "default": ""
+      }
+    },
+    "custom": {
+      "show_breadcrumb": {
+        "label": "Breadcrumb Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_columns": {
+        "label": "Footer Kolon Sayısı",
+        "type": "select",
+        "options": ["2", "3", "4"],
+        "default": "4"
+      },
+      "show_back_to_top": {
+        "label": "Yukarı Çık Butonu",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_bg_color": {
+        "label": "Footer Arka Plan Rengi",
+        "type": "color",
+        "default": "#111827"
+      },
+      "footer_text_color": {
+        "label": "Footer Metin Rengi",
+        "type": "color",
+        "default": "#ffffff"
+      },
+      "footer_show": {
+        "label": "Footer Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_copyright_text": {
+        "label": "Footer Telif Hakkı Metni",
+        "type": "text",
+        "default": "Tüm hakları saklıdır."
+      },
+      "footer_copyright_year": {
+        "label": "Copyright Yılı",
+        "type": "select",
+        "options": ["auto", "manual"],
+        "default": "auto"
+      },
+      "footer_copyright_year_manual": {
+        "label": "Manuel Yıl",
+        "type": "text",
+        "default": ""
+      },
+      "footer_copyright_company": {
+        "label": "Copyright Şirket Adı",
+        "type": "text",
+        "default": ""
+      },
+      "footer_copyright_format": {
+        "label": "Copyright Formatı",
+        "type": "select",
+        "options": ["default", "custom"],
+        "default": "default"
+      },
+      "footer_copyright_custom": {
+        "label": "Özel Copyright Metni",
+        "type": "textarea",
+        "default": ""
+      },
+      "footer_show_social": {
+        "label": "Sosyal Medya İkonları Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_menu": {
+        "label": "Footer Menü Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_contact": {
+        "label": "İletişim Bilgileri Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_gradient_overlay": {
+        "label": "Gradient Overlay Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_grid_pattern": {
+        "label": "Grid Pattern Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_social_icon_style": {
+        "label": "Sosyal Medya İkon Stili",
+        "type": "select",
+        "options": ["modern", "minimal", "rounded"],
+        "default": "modern"
+      },
+      "footer_link_hover_effect": {
+        "label": "Link Hover Efekti",
+        "type": "select",
+        "options": ["underline", "dot", "highlight"],
+        "default": "underline"
+      },
+      "footer_contact_icon_style": {
+        "label": "İletişim İkon Stili",
+        "type": "select",
+        "options": ["boxed", "minimal", "gradient"],
+        "default": "boxed"
+      },
+      "footer_show_bottom_gradient": {
+        "label": "Alt Çizgi Gradient Efekti",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_back_to_top": {
+        "label": "Yukarı Çık Butonu Göster",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_back_to_top_text": {
+        "label": "Yukarı Çık Buton Metni",
+        "type": "text",
+        "default": "Yukarı Çık"
+      },
+      "footer_padding_top": {
+        "label": "Footer Üst Boşluk",
+        "type": "select",
+        "options": ["small", "medium", "large"],
+        "default": "large"
+      },
+      "footer_padding_bottom": {
+        "label": "Footer Alt Boşluk",
+        "type": "select",
+        "options": ["small", "medium", "large"],
+        "default": "large"
+      },
+      "footer_heading_underline": {
+        "label": "Başlık Alt Çizgisi Göster",
+        "type": "boolean",
+        "default": true
+      }
+    }
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "name": "Hero Bölümü",
+      "component": "hero"
+    },
+    {
+      "id": "glowing-features",
+      "name": "Glowing Özellikler",
+      "component": "glowing-features"
+    },
+    {
+      "id": "feature-tabs",
+      "name": "Özellik Sekmeleri",
+      "component": "feature-tabs"
+    },
+    {
+      "id": "dashboard-showcase",
+      "name": "Dashboard Showcase",
+      "component": "dashboard-showcase"
+    },
+    {
+      "id": "features",
+      "name": "Özellikler",
+      "component": "features"
+    },
+    {
+      "id": "about",
+      "name": "Hakkımızda",
+      "component": "about"
+    },
+    {
+      "id": "services",
+      "name": "Hizmetler",
+      "component": "services"
+    },
+    {
+      "id": "testimonials",
+      "name": "Referanslar",
+      "component": "testimonials"
+    },
+    {
+      "id": "cta",
+      "name": "Call to Action",
+      "component": "cta"
+    },
+    {
+      "id": "contact",
+      "name": "İletişim",
+      "component": "contact-section"
+    }
+  ],
+  "supports": [
+    "slider",
+    "forms",
+    "blog",
+    "custom_css",
+    "custom_js"
+  ]
+}
+

@@ -1,0 +1,60 @@
+{
+  "name": "quote-request",
+  "title": "Teklif Al Sayfası",
+  "version": "1.0.0",
+  "description": "Teklif alma sayfası yönetimi - Codetic tema için özelleştirilmiş",
+  "author": "CMS",
+  "requires_php": "7.4",
+  "requires_cms": "1.0",
+  "main_file": "Controller.php",
+  "controller_class": "QuoteRequestModuleController",
+  "routes": [
+    {
+      "path": "quote-request",
+      "handler": "admin_index",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "quote-request/create",
+      "handler": "admin_create",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "quote-request/store",
+      "handler": "admin_store",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "quote-request/edit/{id}",
+      "handler": "admin_edit",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "quote-request/update/{id}",
+      "handler": "admin_update",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "quote-request/delete/{id}",
+      "handler": "admin_delete",
+      "type": "admin",
+      "method": "POST"
+    }
+  ],
+  "permissions": [
+    "quote-request.view",
+    "quote-request.create",
+    "quote-request.edit",
+    "quote-request.delete"
+  ],
+  "settings": false,
+  "hooks": {
+    "actions": [],
+    "filters": []
+  }
+}
