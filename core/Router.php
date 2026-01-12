@@ -30,9 +30,12 @@ class Router {
      * Route ekler
      */
     private function addRoute($method, $path, $handler) {
+        // Path'i normalize et (baştaki ve sondaki slash'leri kaldır, matchRoute ile uyumlu olması için)
+        $normalizedPath = trim($path, '/');
+        
         $this->routes[] = [
             'method' => $method,
-            'path' => $this->basePath . $path,
+            'path' => $normalizedPath,
             'handler' => $handler
         ];
     }
@@ -41,7 +44,7 @@ class Router {
      * Mevcut URL'yi parse eder
      */
     private function getCurrentPath() {
-        $path = $_SERVER['REQUEST_URI'];
+        $path = $_SERVER['REQUEST_URI'] ?? '/';
         
         // Query string'i kaldır
         if (($pos = strpos($path, '?')) !== false) {
@@ -52,6 +55,10 @@ class Router {
         if ($this->basePath && strpos($path, $this->basePath) === 0) {
             $path = substr($path, strlen($this->basePath));
         }
+        
+        // /public/ kısmını kaldır (eğer varsa) - daha güvenilir yöntem
+        $path = preg_replace('#^/public/#', '/', $path);
+        $path = preg_replace('#^public/#', '', $path);
         
         // Başındaki ve sonundaki slash'leri temizle
         $path = trim($path, '/');
@@ -87,17 +94,19 @@ class Router {
             return true;
         }
         
-        // Basit eşleştirme
+        // Basit eşleştirme - önce tam eşleşme kontrolü
         if ($routePath === $currentPath) {
             return true;
         }
         
-        // Parametreli route desteği (örn: blog/{slug})
-        $routePattern = preg_replace('/\{(\w+)\}/', '([^/]+)', $routePath);
-        $routePattern = '#^' . $routePattern . '$#';
-        
-        if (preg_match($routePattern, $currentPath, $matches)) {
-            return $matches;
+        // Parametreli route desteği (örn: blog/{slug}) - sadece parametreli route'lar için
+        if (strpos($routePath, '{') !== false) {
+            $routePattern = preg_replace('/\{(\w+)\}/', '([^/]+)', $routePath);
+            $routePattern = '#^' . $routePattern . '$#';
+            
+            if (preg_match($routePattern, $currentPath, $matches)) {
+                return $matches;
+            }
         }
         
         return false;
@@ -110,14 +119,36 @@ class Router {
         $method = $_SERVER['REQUEST_METHOD'];
         $currentPath = $this->getCurrentPath();
         
-        foreach ($this->routes as $route) {
+        // Debug modu kontrolü (sadece geliştirme ortamında)
+        $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
+        
+        if ($debugMode) {
+            error_log("Router dispatch - Method: $method, Current Path: $currentPath");
+            error_log("Total routes: " . count($this->routes));
+        }
+        
+        foreach ($this->routes as $index => $route) {
             if ($route['method'] !== $method) {
                 continue;
             }
             
+            if ($debugMode) {
+                error_log("Checking route #$index: {$route['method']} '{$route['path']}'");
+            }
+            
             $match = $this->matchRoute($route['path'], $currentPath);
             
+            if ($debugMode && $currentPath === 'rezervasyon') {
+                error_log("  Route path normalized: '" . trim($route['path'], '/') . "'");
+                error_log("  Current path normalized: '" . trim($currentPath, '/') . "'");
+                error_log("  Match result: " . ($match ? 'YES' : 'NO'));
+            }
+            
             if ($match) {
+                if ($debugMode) {
+                    error_log("Route matched! Handler: {$route['handler']}");
+                }
+                
                 $handler = $this->parseHandler($route['handler']);
                 
                 if ($handler) {
@@ -128,6 +159,9 @@ class Router {
                     $controllerFile = __DIR__ . '/../app/controllers/' . $controllerName . '.php';
                     
                     if (!file_exists($controllerFile)) {
+                        if ($debugMode) {
+                            error_log("Controller file not found: $controllerFile");
+                        }
                         die("Controller bulunamadı: {$controllerName}");
                     }
                     
@@ -142,6 +176,9 @@ class Router {
                     
                     // Controller sınıfını kontrol et
                     if (!class_exists($controllerName)) {
+                        if ($debugMode) {
+                            error_log("Controller class not found: $controllerName");
+                        }
                         die("Controller sınıfı bulunamadı: {$controllerName}");
                     }
                     
@@ -149,6 +186,9 @@ class Router {
                     $controller = new $controllerName();
                     
                     if (!method_exists($controller, $actionName)) {
+                        if ($debugMode) {
+                            error_log("Action method not found: $controllerName::$actionName");
+                        }
                         die("Action bulunamadı: {$controllerName}::{$actionName}");
                     }
                     
@@ -162,6 +202,9 @@ class Router {
         }
         
         // Route bulunamadı - 404 sayfası göster
+        if ($debugMode) {
+            error_log("No route matched for: $method $currentPath");
+        }
         http_response_code(404);
         
         // ViewRenderer ve Layout kullan

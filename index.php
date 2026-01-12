@@ -267,6 +267,13 @@ $router->get('/iletisim', 'HomeController@contact');
 $router->post('/contact', 'HomeController@contactSubmit');
 $router->post('/iletisim', 'HomeController@contactSubmit');
 
+// Teklif alma sayfası (özel route)
+$router->get('/teklif-al', 'HomeController@quoteRequest');
+$router->get('/quote-request', 'HomeController@quoteRequest');
+
+// Rezervasyon sayfası
+$router->get('/rezervasyon', 'HomeController@reservation');
+
 // Form gönderimi (frontend)
 $router->post('/forms/submit', 'FormController@submit');
 

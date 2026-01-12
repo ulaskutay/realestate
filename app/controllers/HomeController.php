@@ -419,15 +419,35 @@ class HomeController extends Controller
 
         // Eğer özel template seçilmişse (service-detail, about, contact, teklif-al vb.), tema template'ini kullan
         if (in_array($pageTemplate, ['service-detail', 'about', 'contact', 'teklif-al', 'quote-request'])) {
-            // Aktif temayı al
+            // Aktif temayı al - MUTLAKA codetic olmalı
             $activeTheme = get_option('active_theme', 'codetic');
             
-            // Template path - DOCUMENT_ROOT kullan (sunucuda /home/codeticc/public_html)
-            $templatePath = $_SERVER['DOCUMENT_ROOT'] . '/themes/' . $activeTheme . '/' . $pageTemplate . '.php';
+            // DOCUMENT_ROOT kontrolü
+            $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? dirname(dirname(__DIR__));
+            
+            // Template path - codetic temasında olmalı
+            $templatePath = $docRoot . '/themes/codetic/' . $pageTemplate . '.php';
+            
+            // Alternatif path'ler (eğer DOCUMENT_ROOT yanlışsa)
+            $altPaths = [
+                __DIR__ . '/../../themes/codetic/' . $pageTemplate . '.php',
+                dirname(dirname(__DIR__)) . '/themes/codetic/' . $pageTemplate . '.php',
+            ];
+            
+            // Önce ana path'i dene
+            if (!file_exists($templatePath)) {
+                // Alternatif path'leri dene
+                foreach ($altPaths as $altPath) {
+                    if (file_exists($altPath)) {
+                        $templatePath = $altPath;
+                        break;
+                    }
+                }
+            }
             
             if (file_exists($templatePath)) {
                 // ThemeLoader'ı yükle
-                require_once $_SERVER['DOCUMENT_ROOT'] . '/core/ThemeLoader.php';
+                require_once $docRoot . '/core/ThemeLoader.php';
                 $themeLoader = ThemeLoader::getInstance();
 
                 // Template'e değişkenleri geçir
@@ -441,13 +461,22 @@ class HomeController extends Controller
                 include $templatePath;
                 exit;
             } else {
-                // Template bulunamadı - hata mesajı göster
+                // Template bulunamadı - detaylı hata mesajı göster
+                $searchedPaths = [
+                    $docRoot . '/themes/codetic/' . $pageTemplate . '.php',
+                    __DIR__ . '/../../themes/codetic/' . $pageTemplate . '.php',
+                    dirname(dirname(__DIR__)) . '/themes/codetic/' . $pageTemplate . '.php',
+                ];
+                $pathsList = implode('<br>', array_map(function($p) { return '<code>' . htmlspecialchars($p) . '</code>'; }, $searchedPaths));
+                
                 die("
                     <h1>Template Bulunamadı</h1>
                     <p>Sayfa template'i bulunamadı: <strong>$pageTemplate</strong></p>
-                    <p>Aranan yol: <code>$templatePath</code></p>
-                    <p>Sayfa ID: {$page['id']}, Slug: {$page['slug']}</p>
-                    <p>Lütfen admin panelden sayfa template'ini kontrol edin.</p>
+                    <p><strong>Aktif Tema:</strong> codetic (zorunlu)</p>
+                    <p><strong>Sayfa ID:</strong> {$page['id']}, <strong>Slug:</strong> {$page['slug']}</p>
+                    <p><strong>Custom Fields:</strong> " . htmlspecialchars(print_r($customFields, true)) . "</p>
+                    <p><strong>Aranan yollar:</strong><br>$pathsList</p>
+                    <p>Lütfen admin panelden sayfa template'ini kontrol edin ve <strong>codetic</strong> temasında olduğundan emin olun.</p>
                 ");
             }
         }
@@ -529,6 +558,71 @@ class HomeController extends Controller
         // Template yoksa page() metoduna yönlendir (slug bazlı)
         // Bu sayede panelden oluşturulan sayfa doğru şekilde handle edilir
         $this->page('teklif-al');
+    }
+
+    /**
+     * Rezervasyon sayfası
+     * 3 aşamalı rezervasyon formu: Uçak bileti -> Otel -> Araç kiralama
+     */
+    public function reservation()
+    {
+        // Debug: Metod çağrıldı
+        error_log("HomeController::reservation() çağrıldı");
+        
+        // Aktif temayı al
+        $activeTheme = get_option('active_theme', 'codetic');
+        
+        // DOCUMENT_ROOT kontrolü
+        $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? dirname(dirname(__DIR__));
+        
+        // Template path - codetic temasında olmalı
+        $templatePath = $docRoot . '/themes/codetic/rezervasyon.php';
+        
+        // Alternatif path'ler (eğer DOCUMENT_ROOT yanlışsa)
+        $altPaths = [
+            __DIR__ . '/../../themes/codetic/rezervasyon.php',
+            dirname(dirname(__DIR__)) . '/themes/codetic/rezervasyon.php',
+        ];
+        
+        // Önce ana path'i dene
+        if (!file_exists($templatePath)) {
+            error_log("Template bulunamadı: $templatePath");
+            // Alternatif path'leri dene
+            foreach ($altPaths as $altPath) {
+                if (file_exists($altPath)) {
+                    error_log("Alternatif template bulundu: $altPath");
+                    $templatePath = $altPath;
+                    break;
+                }
+            }
+        } else {
+            error_log("Template bulundu: $templatePath");
+        }
+
+        // Template varsa onu kullan
+        if (file_exists($templatePath)) {
+            // ThemeLoader'ı yükle
+            require_once __DIR__ . '/../../core/ThemeLoader.php';
+            $themeLoader = ThemeLoader::getInstance();
+            
+            // Template'e değişkenleri geçir
+            $title = 'Rezervasyon';
+            $meta_description = 'Uçak bileti, otel ve araç kiralama rezervasyonu yapın';
+            $meta_keywords = 'rezervasyon, uçak bileti, otel, araç kiralama';
+            $current_page = 'reservation';
+
+            // Template'i include et
+            include $templatePath;
+            exit;
+        }
+
+        // Template yoksa 404 göster
+        error_log("Template dosyası bulunamadı. Aranan path'ler: " . implode(', ', array_merge([$templatePath], $altPaths)));
+        http_response_code(404);
+        require_once __DIR__ . '/../../core/ViewRenderer.php';
+        $renderer = ViewRenderer::getInstance();
+        $renderer->setLayout('default');
+        $this->view('frontend/404', ['title' => 'Sayfa Bulunamadı', 'current_page' => '404']);
     }
 }
 
