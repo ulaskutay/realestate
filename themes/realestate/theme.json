@@ -1,0 +1,253 @@
+{
+  "name": "Real Estate Theme",
+  "slug": "realestate",
+  "version": "1.0.0",
+  "author": "CMS",
+  "author_url": "",
+  "description": "Modern, conversion-focused real estate website theme. Clean and professional design with a premium feel.",
+  "screenshot": "screenshot.svg",
+  "settings": {
+    "colors": {
+      "primary": {
+        "label": "Primary Color",
+        "default": "#1e40af",
+        "type": "color"
+      },
+      "secondary": {
+        "label": "Secondary Color",
+        "default": "#1e293b",
+        "type": "color"
+      },
+      "accent": {
+        "label": "Accent Color",
+        "default": "#0ea5e9",
+        "type": "color"
+      },
+      "background": {
+        "label": "Background Color",
+        "default": "#ffffff",
+        "type": "color"
+      },
+      "surface": {
+        "label": "Surface Color",
+        "default": "#f8fafc",
+        "type": "color"
+      },
+      "text": {
+        "label": "Text Color",
+        "default": "#1e293b",
+        "type": "color"
+      },
+      "text_muted": {
+        "label": "Muted Text Color",
+        "default": "#64748b",
+        "type": "color"
+      }
+    },
+    "fonts": {
+      "heading": {
+        "label": "Heading Font",
+        "default": "Zalando Sans SemiExpanded",
+        "type": "font"
+      },
+      "body": {
+        "label": "Body Font",
+        "default": "Zalando Sans SemiExpanded",
+        "type": "font"
+      }
+    },
+    "header": {
+      "style": {
+        "label": "Header Style",
+        "type": "select",
+        "options": ["fixed", "static", "transparent"],
+        "default": "fixed"
+      },
+      "bg_color": {
+        "label": "Header Background Color",
+        "type": "color",
+        "default": "#ffffff"
+      },
+      "text_color": {
+        "label": "Header Text Color",
+        "type": "color",
+        "default": "#1e293b"
+      },
+      "show_search": {
+        "label": "Show Search Button",
+        "type": "boolean",
+        "default": true
+      },
+      "show_cta": {
+        "label": "Show CTA Button",
+        "type": "boolean",
+        "default": true
+      },
+      "cta_text": {
+        "label": "CTA Button Text",
+        "type": "text",
+        "default": "List Your Property"
+      },
+      "cta_link": {
+        "label": "CTA Button Link",
+        "type": "text",
+        "default": "/contact"
+      }
+    },
+    "hero": {
+      "title": {
+        "label": "Hero Başlık",
+        "type": "text",
+        "default": "Hayalinizdeki Evini Bugün Bulun"
+      },
+      "subtitle": {
+        "label": "Hero Alt Başlık",
+        "type": "textarea",
+        "default": "Geniş gayrimenkul koleksiyonumuzdan premium evler, daireler ve ticari alanlar arasından mükemmel mülkü keşfedin."
+      },
+      "button_text": {
+        "label": "Birincil Buton Metni",
+        "type": "text",
+        "default": "Mülkleri İncele"
+      },
+      "button_link": {
+        "label": "Birincil Buton Linki",
+        "type": "text",
+        "default": "/ilanlar"
+      },
+      "secondary_button_text": {
+        "label": "İkincil Buton Metni",
+        "type": "text",
+        "default": "Tur Planla"
+      },
+      "secondary_button_link": {
+        "label": "İkincil Buton Linki",
+        "type": "text",
+        "default": "/contact"
+      },
+      "hero_image": {
+        "label": "Hero Arka Plan Görseli",
+        "type": "image",
+        "default": ""
+      }
+    },
+    "custom": {
+      "show_breadcrumb": {
+        "label": "Show Breadcrumb",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_columns": {
+        "label": "Footer Columns",
+        "type": "select",
+        "options": ["2", "3", "4"],
+        "default": "4"
+      },
+      "show_back_to_top": {
+        "label": "Back to Top Button",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_bg_color": {
+        "label": "Footer Background Color",
+        "type": "color",
+        "default": "#1e293b"
+      },
+      "footer_text_color": {
+        "label": "Footer Text Color",
+        "type": "color",
+        "default": "#ffffff"
+      },
+      "footer_show": {
+        "label": "Show Footer",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_copyright_text": {
+        "label": "Footer Copyright Text",
+        "type": "text",
+        "default": "All rights reserved."
+      },
+      "footer_copyright_year": {
+        "label": "Copyright Year",
+        "type": "select",
+        "options": ["auto", "manual"],
+        "default": "auto"
+      },
+      "footer_copyright_year_manual": {
+        "label": "Manual Year",
+        "type": "text",
+        "default": ""
+      },
+      "footer_copyright_company": {
+        "label": "Copyright Company Name",
+        "type": "text",
+        "default": ""
+      },
+      "footer_show_social": {
+        "label": "Show Social Media Icons",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_menu": {
+        "label": "Show Footer Menu",
+        "type": "boolean",
+        "default": true
+      },
+      "footer_show_contact": {
+        "label": "Show Contact Information",
+        "type": "boolean",
+        "default": true
+      }
+    }
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "name": "Hero Section",
+      "component": "hero"
+    },
+    {
+      "id": "property-search",
+      "name": "Property Search",
+      "component": "property-search"
+    },
+    {
+      "id": "featured-listings",
+      "name": "Featured Listings",
+      "component": "featured-listings"
+    },
+    {
+      "id": "why-choose-us",
+      "name": "Neden Bizi Seçmelisiniz",
+      "component": "why-choose-us"
+    },
+    {
+      "id": "agent-profile",
+      "name": "Agent Profile",
+      "component": "agent-profile"
+    },
+    {
+      "id": "testimonials",
+      "name": "Müşteri Yorumları",
+      "component": "testimonials"
+    },
+    {
+      "id": "blog-preview",
+      "name": "Blog Preview",
+      "component": "blog-preview"
+    },
+    {
+      "id": "cta",
+      "name": "Call to Action",
+      "component": "cta"
+    }
+  ],
+  "supports": [
+    "slider",
+    "forms",
+    "blog",
+    "custom_css",
+    "custom_js"
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "name": "realestate-listings",
+  "title": "Emlak İlanları",
+  "version": "1.0.0",
+  "description": "Emlak teması için ilan yönetim modülü",
+  "author": "CMS",
+  "requires_php": "7.4",
+  "requires_cms": "1.0",
+  "main_file": "Controller.php",
+  "controller_class": "RealEstateListingsController",
+  "routes": [
+    {
+      "path": "realestate-listings",
+      "handler": "admin_index",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "realestate-listings/create",
+      "handler": "admin_create",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "realestate-listings/store",
+      "handler": "admin_store",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "realestate-listings/edit/{id}",
+      "handler": "admin_edit",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "realestate-listings/update/{id}",
+      "handler": "admin_update",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "realestate-listings/delete/{id}",
+      "handler": "admin_delete",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "ilanlar",
+      "handler": "frontend_index",
+      "type": "frontend",
+      "method": "GET"
+    },
+    {
+      "path": "ilan/{slug}",
+      "handler": "frontend_detail",
+      "type": "frontend",
+      "method": "GET"
+    }
+  ],
+  "permissions": [
+    "realestate-listings.view",
+    "realestate-listings.create",
+    "realestate-listings.edit",
+    "realestate-listings.delete"
+  ],
+  "settings": false,
+  "hooks": {
+    "actions": [],
+    "filters": []
+  }
+}

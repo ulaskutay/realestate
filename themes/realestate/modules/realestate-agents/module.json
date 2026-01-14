@@ -1,0 +1,72 @@
+{
+  "name": "realestate-agents",
+  "title": "Emlak Danışmanları",
+  "version": "1.0.0",
+  "description": "Emlak teması için danışman yönetim modülü",
+  "author": "CMS",
+  "requires_php": "7.4",
+  "requires_cms": "1.0",
+  "main_file": "Controller.php",
+  "controller_class": "RealEstateAgentsController",
+  "routes": [
+    {
+      "path": "realestate-agents",
+      "handler": "admin_index",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "realestate-agents/create",
+      "handler": "admin_create",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "realestate-agents/store",
+      "handler": "admin_store",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "realestate-agents/edit/{id}",
+      "handler": "admin_edit",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "realestate-agents/update/{id}",
+      "handler": "admin_update",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "realestate-agents/delete/{id}",
+      "handler": "admin_delete",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "danismanlar",
+      "handler": "frontend_index",
+      "type": "frontend",
+      "method": "GET"
+    },
+    {
+      "path": "danisman/{slug}",
+      "handler": "frontend_detail",
+      "type": "frontend",
+      "method": "GET"
+    }
+  ],
+  "permissions": [
+    "realestate-agents.view",
+    "realestate-agents.create",
+    "realestate-agents.edit",
+    "realestate-agents.delete"
+  ],
+  "settings": false,
+  "hooks": {
+    "actions": [],
+    "filters": []
+  }
+}
