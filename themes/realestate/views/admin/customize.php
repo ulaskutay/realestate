@@ -11,12 +11,14 @@ $previewUrl = admin_url('themes/preview/' . $themeSlug);
 
 // Sayfa bölümlerini al
 $pageSections = [];
+$contactPageSections = [];
 if (isset($themeManager)) {
     try {
         // Aktif temanın ID'sini al
         $activeTheme = $themeManager->getActiveTheme();
         $themeId = $activeTheme['id'] ?? null;
         
+        // Ana sayfa bölümleri
         $sections = $themeManager->getPageSections('home', $themeId) ?? [];
         foreach ($sections as $section) {
             $sectionId = $section['section_id'] ?? '';
@@ -41,6 +43,35 @@ if (isset($themeManager)) {
                 if (isset($section['items'])) {
                     $items = is_array($section['items']) ? $section['items'] : json_decode($section['items'] ?? '[]', true);
                     $pageSections[$sectionId]['items'] = is_array($items) ? $items : [];
+                }
+            }
+        }
+        
+        // İletişim sayfası bölümleri
+        $contactSections = $themeManager->getPageSections('contact', $themeId) ?? [];
+        foreach ($contactSections as $section) {
+            $sectionId = $section['section_id'] ?? '';
+            if ($sectionId) {
+                $sectionSettings = [];
+                if (isset($section['settings'])) {
+                    if (is_array($section['settings'])) {
+                        $sectionSettings = $section['settings'];
+                    } else {
+                        $decoded = json_decode($section['settings'], true);
+                        $sectionSettings = is_array($decoded) ? $decoded : [];
+                    }
+                }
+                
+                $contactPageSections[$sectionId] = array_merge(
+                    $sectionSettings,
+                    ['enabled' => ($section['is_active'] ?? 1) == 1]
+                );
+                $contactPageSections[$sectionId]['title'] = $section['title'] ?? '';
+                $contactPageSections[$sectionId]['subtitle'] = $section['subtitle'] ?? '';
+                $contactPageSections[$sectionId]['content'] = $section['content'] ?? '';
+                if (isset($section['items'])) {
+                    $items = is_array($section['items']) ? $section['items'] : json_decode($section['items'] ?? '[]', true);
+                    $contactPageSections[$sectionId]['items'] = is_array($items) ? $items : [];
                 }
             }
         }
@@ -1049,11 +1080,357 @@ try {
                                             <input type="text" name="sections[cta][settings][secondary_button_link]" value="<?php echo esc_attr($pageSections['cta']['settings']['secondary_button_link'] ?? '/ilanlar'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
                                         </div>
                                     </div>
+                                    
+                                    <!-- Buton Renkleri -->
+                                    <div class="mt-4 pt-4 border-t border-blue-500/20">
+                                        <p class="text-xs text-blue-300 mb-3 font-semibold">Buton Renkleri</p>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Birincil Buton Arka Plan</label>
+                                                <input type="color" name="sections[cta][settings][primary_button_bg]" value="<?php echo esc_attr($pageSections['cta']['settings']['primary_button_bg'] ?? '#ffffff'); ?>" class="w-full h-10 rounded-lg cursor-pointer">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Birincil Buton Metin</label>
+                                                <input type="color" name="sections[cta][settings][primary_button_text]" value="<?php echo esc_attr($pageSections['cta']['settings']['primary_button_text'] ?? '#1e40af'); ?>" class="w-full h-10 rounded-lg cursor-pointer">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">İkincil Buton Arka Plan</label>
+                                                <input type="color" name="sections[cta][settings][secondary_button_bg]" value="<?php echo esc_attr($pageSections['cta']['settings']['secondary_button_bg'] ?? '#00000000'); ?>" class="w-full h-10 rounded-lg cursor-pointer">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">İkincil Buton Metin</label>
+                                                <input type="color" name="sections[cta][settings][secondary_button_text_color]" value="<?php echo esc_attr($pageSections['cta']['settings']['secondary_button_text_color'] ?? '#ffffff'); ?>" class="w-full h-10 rounded-lg cursor-pointer">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Tasarım Ayarları -->
+                                <details class="mt-3">
+                                    <summary class="text-xs font-medium text-slate-300 mb-2 cursor-pointer hover:text-slate-200">Tasarım Ayarları</summary>
+                                    <div class="mt-3 space-y-3 p-3 rounded-lg bg-slate-800/50">
+                                        <!-- Arka Plan Gradient -->
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-2">Arka Plan Gradient Renkleri</label>
+                                            <div class="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <label class="block text-xs text-slate-500 mb-1">Başlangıç</label>
+                                                    <input type="color" name="sections[cta][settings][bg_gradient_from]" value="<?php echo esc_attr($pageSections['cta']['settings']['bg_gradient_from'] ?? '#1e40af'); ?>" class="w-full h-10 rounded-lg cursor-pointer">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs text-slate-500 mb-1">Orta</label>
+                                                    <input type="color" name="sections[cta][settings][bg_gradient_via]" value="<?php echo esc_attr($pageSections['cta']['settings']['bg_gradient_via'] ?? '#2563eb'); ?>" class="w-full h-10 rounded-lg cursor-pointer">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs text-slate-500 mb-1">Bitiş</label>
+                                                    <input type="color" name="sections[cta][settings][bg_gradient_to]" value="<?php echo esc_attr($pageSections['cta']['settings']['bg_gradient_to'] ?? '#1e3a8a'); ?>" class="w-full h-10 rounded-lg cursor-pointer">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Card Ayarları -->
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Kart Arka Plan Opaklığı</label>
+                                                <input type="number" name="sections[cta][settings][card_bg_opacity]" value="<?php echo esc_attr($pageSections['cta']['settings']['card_bg_opacity'] ?? '0.1'); ?>" min="0" max="1" step="0.1" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Blur Efekti</label>
+                                                <select name="sections[cta][settings][card_blur]" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                                    <option value="none" <?php echo ($pageSections['cta']['settings']['card_blur'] ?? 'md') === 'none' ? 'selected' : ''; ?>>Yok</option>
+                                                    <option value="sm" <?php echo ($pageSections['cta']['settings']['card_blur'] ?? 'md') === 'sm' ? 'selected' : ''; ?>>Küçük</option>
+                                                    <option value="md" <?php echo ($pageSections['cta']['settings']['card_blur'] ?? 'md') === 'md' ? 'selected' : ''; ?>>Orta</option>
+                                                    <option value="lg" <?php echo ($pageSections['cta']['settings']['card_blur'] ?? 'md') === 'lg' ? 'selected' : ''; ?>>Büyük</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Padding -->
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1.5">Dikey Boşluk</label>
+                                            <select name="sections[cta][settings][padding_y]" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                                <option value="py-12 lg:py-16" <?php echo ($pageSections['cta']['settings']['padding_y'] ?? 'py-20 lg:py-32') === 'py-12 lg:py-16' ? 'selected' : ''; ?>>Küçük</option>
+                                                <option value="py-16 lg:py-24" <?php echo ($pageSections['cta']['settings']['padding_y'] ?? 'py-20 lg:py-32') === 'py-16 lg:py-24' ? 'selected' : ''; ?>>Orta</option>
+                                                <option value="py-20 lg:py-32" <?php echo ($pageSections['cta']['settings']['padding_y'] ?? 'py-20 lg:py-32') === 'py-20 lg:py-32' ? 'selected' : ''; ?>>Büyük</option>
+                                                <option value="py-24 lg:py-40" <?php echo ($pageSections['cta']['settings']['padding_y'] ?? 'py-20 lg:py-32') === 'py-24 lg:py-40' ? 'selected' : ''; ?>>Çok Büyük</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </details>
+                                
+                                <!-- Trust Indicators -->
+                                <details class="mt-3">
+                                    <summary class="text-xs font-medium text-slate-300 mb-2 cursor-pointer hover:text-slate-200">Güven Göstergeleri</summary>
+                                    <div class="mt-3 space-y-3 p-3 rounded-lg bg-slate-800/50">
+                                        <label class="flex items-center gap-3 cursor-pointer">
+                                            <input type="checkbox" name="sections[cta][settings][show_trust_indicators]" value="1" <?php echo ($pageSections['cta']['settings']['show_trust_indicators'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
+                                            <span class="text-xs text-slate-400">Güven göstergelerini göster</span>
+                                        </label>
+                                        
+                                        <div id="trust-indicators-list" class="space-y-2">
+                                            <?php 
+                                            $trustIndicators = !empty($pageSections['cta']['settings']['trust_indicators']) && is_array($pageSections['cta']['settings']['trust_indicators']) 
+                                                ? $pageSections['cta']['settings']['trust_indicators'] 
+                                                : [
+                                                    ['text' => 'Ücretsiz Danışmanlık'],
+                                                    ['text' => 'Profesyonel Hizmet'],
+                                                    ['text' => '7/24 Destek']
+                                                ];
+                                            foreach ($trustIndicators as $index => $indicator): 
+                                            ?>
+                                                <div class="flex items-center gap-2 trust-indicator-item">
+                                                    <input type="text" name="sections[cta][settings][trust_indicators][<?php echo $index; ?>][text]" 
+                                                           value="<?php echo esc_attr($indicator['text'] ?? ''); ?>" 
+                                                           placeholder="Gösterge metni" 
+                                                           class="flex-1 px-3 py-2 input-field rounded-lg text-sm">
+                                                    <button type="button" onclick="removeTrustIndicator(this)" class="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                                        <span class="material-symbols-outlined text-sm">delete</span>
+                                                    </button>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        
+                                        <button type="button" onclick="addTrustIndicator()" class="w-full px-4 py-2 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center justify-center gap-2 text-sm">
+                                            <span class="material-symbols-outlined text-lg">add</span>
+                                            Gösterge Ekle
+                                        </button>
+                                    </div>
+                                </details>
+                                
+                                <label class="flex items-center gap-3 cursor-pointer mt-3">
+                                    <input type="checkbox" name="sections[cta][enabled]" value="1" <?php echo ($pageSections['cta']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
+                                    <span class="text-xs text-slate-400">Bu bölümü göster</span>
+                                </label>
+                            </div>
+                        </details>
+                        
+                    </div>
+                </div>
+            </div>
+            
+            <!-- İletişim Sayfası Bölümleri -->
+            <div class="border-b border-white/5">
+                <button onclick="window.toggleSection('contact')" class="section-btn w-full p-4 flex items-center gap-4 hover:bg-white/5 transition-all" data-section="contact">
+                    <div class="section-icon w-10 h-10 rounded-xl bg-slate-700/50 flex items-center justify-center">
+                        <span class="material-symbols-outlined">mail</span>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <span class="text-sm font-semibold block">İletişim Sayfası</span>
+                        <span class="text-xs text-slate-400">Hero, form, harita ayarları</span>
+                    </div>
+                    <span class="material-symbols-outlined text-slate-400 section-arrow transition-transform">expand_more</span>
+                </button>
+                <div id="contact-panel" class="section-panel">
+                    <div class="px-4 pb-5 space-y-3">
+                        
+                        <!-- Hero Section -->
+                        <details class="glass rounded-xl overflow-hidden group">
+                            <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-sm">📧</span>
+                                    <span class="text-sm font-medium">Hero Bölümü</span>
+                                </div>
+                                <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="p-4 pt-0 space-y-3 border-t border-white/5">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Başlık</label>
+                                    <input type="text" name="contact_sections[hero][title]" value="<?php echo esc_attr($contactPageSections['hero']['title'] ?? 'Hayalinizdeki Mülkü Bulalım'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Alt Başlık</label>
+                                    <textarea name="contact_sections[hero][subtitle]" rows="2" class="w-full px-4 py-2.5 input-field rounded-lg text-sm resize-none"><?php echo esc_html($contactPageSections['hero']['subtitle'] ?? 'Uzman ekibimiz, mülk satın alma, satış veya kiralama işlemlerinizde size yardımcı olmak için burada. Hemen iletişime geçin!'); ?></textarea>
+                                </div>
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" name="contact_sections[hero][enabled]" value="1" <?php echo ($contactPageSections['hero']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
+                                    <span class="text-xs text-slate-400">Bu bölümü göster</span>
+                                </label>
+                            </div>
+                        </details>
+                        
+                        <!-- Form Section -->
+                        <details class="glass rounded-xl overflow-hidden group">
+                            <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-sm">📝</span>
+                                    <span class="text-sm font-medium">İletişim Formu</span>
+                                </div>
+                                <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="p-4 pt-0 space-y-3 border-t border-white/5">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Form Başlığı</label>
+                                    <input type="text" name="contact_sections[form][title]" value="<?php echo esc_attr($contactPageSections['form']['title'] ?? 'Mülk Talebinizi İletin'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Form Açıklaması</label>
+                                    <textarea name="contact_sections[form][description]" rows="2" class="w-full px-4 py-2.5 input-field rounded-lg text-sm resize-none"><?php echo esc_html($contactPageSections['form']['description'] ?? 'Aradığınız mülk özelliklerini belirtin, size en uygun seçenekleri sunalım.'); ?></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Form Seçimi</label>
+                                    <select name="contact_sections[form][form_id]" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                        <option value="">Varsayılan Form (iletisim)</option>
+                                        <?php foreach ($availableForms as $form): ?>
+                                        <option value="<?php echo esc_attr($form['id']); ?>" <?php echo (isset($contactPageSections['form']['form_id']) && $contactPageSections['form']['form_id'] == $form['id']) ? 'selected' : ''; ?>>
+                                            <?php echo esc_html($form['name']); ?> (<?php echo esc_html($form['slug']); ?>)
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="text-xs text-slate-500 mt-1">Gösterilecek formu seçin. Seçilmezse varsayılan "iletisim" formu gösterilir.</p>
+                                </div>
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" name="contact_sections[form][enabled]" value="1" <?php echo ($contactPageSections['form']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
+                                    <span class="text-xs text-slate-400">Formu göster</span>
+                                </label>
+                            </div>
+                        </details>
+                        
+                        <!-- Why Choose Us Section -->
+                        <details class="glass rounded-xl overflow-hidden group">
+                            <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm">⭐</span>
+                                    <span class="text-sm font-medium">Neden Bizi Tercih Etmelisiniz?</span>
+                                </div>
+                                <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="p-4 pt-0 space-y-3 border-t border-white/5">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Bölüm Başlığı</label>
+                                    <input type="text" name="contact_sections[why-choose-us][title]" value="<?php echo esc_attr($contactPageSections['why-choose-us']['title'] ?? 'Neden Bizi Tercih Etmelisiniz?'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                
+                                <!-- Items -->
+                                <div class="border-t border-white/5 pt-3">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <label class="block text-xs font-medium text-slate-300">Avantaj Öğeleri</label>
+                                        <button type="button" onclick="addWhyChooseItem()" class="px-3 py-1.5 text-xs font-medium bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">add</span>
+                                            Ekle
+                                        </button>
+                                    </div>
+                                    <div id="why-choose-items" class="space-y-3">
+                                        <?php 
+                                        $whyChooseItems = isset($contactPageSections['why-choose-us']['items']) && is_array($contactPageSections['why-choose-us']['items']) 
+                                            ? $contactPageSections['why-choose-us']['items'] 
+                                            : [
+                                                ['text' => '500+ aktif mülk seçeneği'],
+                                                ['text' => 'Deneyimli ve sertifikalı danışmanlar'],
+                                                ['text' => 'Şeffaf fiyatlandırma ve güvenli işlem'],
+                                                ['text' => '7/24 müşteri desteği ve hızlı yanıt']
+                                            ];
+                                        foreach ($whyChooseItems as $index => $item): 
+                                        ?>
+                                        <div class="flex items-start gap-2 why-choose-item">
+                                            <input type="text" name="contact_sections[why-choose-us][items][<?php echo $index; ?>][text]" 
+                                                   value="<?php echo esc_attr($item['text'] ?? ''); ?>" 
+                                                   placeholder="Avantaj metni" 
+                                                   class="flex-1 px-4 py-2 input-field rounded-lg text-sm">
+                                            <button type="button" onclick="removeWhyChooseItem(this)" class="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                                <span class="material-symbols-outlined text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </div>
                                 
                                 <label class="flex items-center gap-3 cursor-pointer">
-                                    <input type="checkbox" name="sections[cta][enabled]" value="1" <?php echo ($pageSections['cta']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
+                                    <input type="checkbox" name="contact_sections[why-choose-us][enabled]" value="1" <?php echo ($contactPageSections['why-choose-us']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
                                     <span class="text-xs text-slate-400">Bu bölümü göster</span>
+                                </label>
+                            </div>
+                        </details>
+                        
+                        <!-- Services Section -->
+                        <details class="glass rounded-xl overflow-hidden group">
+                            <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-sm">🛠️</span>
+                                    <span class="text-sm font-medium">Hizmetlerimiz</span>
+                                </div>
+                                <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="p-4 pt-0 space-y-3 border-t border-white/5">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Bölüm Başlığı</label>
+                                    <input type="text" name="contact_sections[services][title]" value="<?php echo esc_attr($contactPageSections['services']['title'] ?? 'Hizmetlerimiz'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Bölüm Açıklaması</label>
+                                    <input type="text" name="contact_sections[services][description]" value="<?php echo esc_attr($contactPageSections['services']['description'] ?? 'Size nasıl yardımcı olabiliriz?'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                </div>
+                                
+                                <!-- Service Items -->
+                                <div class="border-t border-white/5 pt-3">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <label class="block text-xs font-medium text-slate-300">Hizmet Öğeleri</label>
+                                        <button type="button" onclick="addServiceItem()" class="px-3 py-1.5 text-xs font-medium bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">add</span>
+                                            Ekle
+                                        </button>
+                                    </div>
+                                    <div id="services-items" class="space-y-3">
+                                        <?php 
+                                        $serviceItems = isset($contactPageSections['services']['items']) && is_array($contactPageSections['services']['items']) 
+                                            ? $contactPageSections['services']['items'] 
+                                            : [
+                                                ['title' => 'Satılık Mülk', 'icon' => 'home', 'link' => ''],
+                                                ['title' => 'Kiralık Mülk', 'icon' => 'apartment', 'link' => ''],
+                                                ['title' => 'Mülk Değerleme', 'icon' => 'assessment', 'link' => ''],
+                                                ['title' => 'Danışmanlık', 'icon' => 'people', 'link' => '']
+                                            ];
+                                        foreach ($serviceItems as $index => $item): 
+                                        ?>
+                                        <div class="service-item glass rounded-lg p-4 space-y-3">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-xs font-medium text-slate-300">Hizmet #<?php echo $index + 1; ?></span>
+                                                <button type="button" onclick="removeServiceItem(this)" class="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors">
+                                                    <span class="material-symbols-outlined text-sm">delete</span>
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">İkon (Material Symbols)</label>
+                                                <input type="text" name="contact_sections[services][items][<?php echo $index; ?>][icon]" value="<?php echo esc_attr($item['icon'] ?? 'star'); ?>" placeholder="home" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+                                                <p class="text-xs text-slate-500 mt-1">Material Symbols ikon adı (örn: home, apartment, assessment)</p>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Hizmet Başlığı</label>
+                                                <input type="text" name="contact_sections[services][items][<?php echo $index; ?>][title]" value="<?php echo esc_attr($item['title'] ?? ''); ?>" placeholder="Hizmet adı" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1.5">Link (Opsiyonel)</label>
+                                                <input type="text" name="contact_sections[services][items][<?php echo $index; ?>][link]" value="<?php echo esc_attr($item['link'] ?? ''); ?>" placeholder="/services/satilik" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" name="contact_sections[services][enabled]" value="1" <?php echo ($contactPageSections['services']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
+                                    <span class="text-xs text-slate-400">Bu bölümü göster</span>
+                                </label>
+                            </div>
+                        </details>
+                        
+                        <!-- Map Section -->
+                        <details class="glass rounded-xl overflow-hidden group">
+                            <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center text-sm">📍</span>
+                                    <span class="text-sm font-medium">Harita</span>
+                                </div>
+                                <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
+                            </summary>
+                            <div class="p-4 pt-0 space-y-3 border-t border-white/5">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1.5">Google Maps Embed Kodu</label>
+                                    <textarea name="contact_sections[map][embed]" rows="4" class="w-full px-4 py-2.5 input-field rounded-lg text-sm resize-none font-mono text-xs" placeholder="<iframe src='...'></iframe>"><?php echo esc_html($contactPageSections['map']['embed'] ?? ''); ?></textarea>
+                                    <p class="text-xs text-slate-500 mt-1">Google Maps'ten embed kodunu buraya yapıştırın</p>
+                                </div>
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" name="contact_sections[map][enabled]" value="1" <?php echo ($contactPageSections['map']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
+                                    <span class="text-xs text-slate-400">Haritayı göster</span>
                                 </label>
                             </div>
                         </details>
@@ -1134,6 +1511,27 @@ try {
                             </div>
                             <?php endif; ?>
                             
+                            <!-- Footer Başlıkları -->
+                            <div class="mt-4 pt-4 border-t border-white/5">
+                                <p class="text-xs font-medium text-slate-300 mb-3">Footer Başlıkları</p>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1.5">Menü Başlığı</label>
+                                        <input type="text" name="custom[footer_menu_title]" value="<?php echo esc_attr($settings['custom']['footer_menu_title']['value'] ?? $settings['custom']['footer_menu_title']['default'] ?? 'Quick Links'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1.5">İletişim Başlığı</label>
+                                        <input type="text" name="custom[footer_contact_title]" value="<?php echo esc_attr($settings['custom']['footer_contact_title']['value'] ?? $settings['custom']['footer_contact_title']['default'] ?? 'Contact'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1.5">Yazılar Başlığı</label>
+                                        <input type="text" name="custom[footer_posts_title]" value="<?php echo esc_attr($settings['custom']['footer_posts_title']['value'] ?? $settings['custom']['footer_posts_title']['default'] ?? 'Recent Posts'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <?php if (isset($settings['custom']['footer_show_social'])): ?>
                             <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-white/5 transition-colors">
                                 <input type="checkbox" name="custom[footer_show_social]" value="1" <?php echo ($settings['custom']['footer_show_social']['value'] ?? $settings['custom']['footer_show_social']['default'] ?? true) ? 'checked' : ''; ?> class="w-5 h-5 rounded bg-slate-700 border-slate-600 text-blue-500 focus:ring-blue-500/30">
@@ -1190,7 +1588,8 @@ function saveSettings() {
         fonts: {},
         header: {},
         custom: {},
-        sections: {}
+        sections: {},
+        contact_sections: {}
     };
     
     // Branding
@@ -1309,6 +1708,51 @@ function saveSettings() {
             .filter(item => item && (item.name || item.text || item.content));
         settings.sections.testimonials.items = itemsArray;
     }
+    
+    // Contact Sections
+    document.querySelectorAll('input[name^="contact_sections["], textarea[name^="contact_sections["], select[name^="contact_sections["]').forEach(input => {
+        // Items için özel işleme
+        const itemMatch = input.name.match(/contact_sections\[([^\]]+)\]\[items\]\[(\d+)\]\[([^\]]+)\]/);
+        if (itemMatch) {
+            const [, sectionId, itemIndex, itemKey] = itemMatch;
+            if (!settings.contact_sections[sectionId]) settings.contact_sections[sectionId] = {};
+            if (!settings.contact_sections[sectionId].items) settings.contact_sections[sectionId].items = {};
+            if (!settings.contact_sections[sectionId].items[itemIndex]) settings.contact_sections[sectionId].items[itemIndex] = {};
+            settings.contact_sections[sectionId].items[itemIndex][itemKey] = input.value;
+            return;
+        }
+        
+        // Normal section ayarları
+        const match = input.name.match(/contact_sections\[(.+?)\]\[(.+?)\]/);
+        if (match) {
+            const sectionId = match[1];
+            const key = match[2];
+            
+            if (!settings.contact_sections[sectionId]) {
+                settings.contact_sections[sectionId] = {};
+            }
+            
+            let value;
+            if (input.type === 'checkbox') {
+                value = input.checked ? '1' : '0';
+            } else {
+                value = input.value;
+            }
+            
+            settings.contact_sections[sectionId][key] = value;
+        }
+    });
+    
+    // Contact sections items'ları array'e çevir ve filtrele
+    Object.keys(settings.contact_sections).forEach(sectionId => {
+        if (settings.contact_sections[sectionId].items && typeof settings.contact_sections[sectionId].items === 'object') {
+            const itemsArray = Object.keys(settings.contact_sections[sectionId].items)
+                .sort((a, b) => parseInt(a) - parseInt(b))
+                .map(key => settings.contact_sections[sectionId].items[key])
+                .filter(item => item && item.text);
+            settings.contact_sections[sectionId].items = itemsArray;
+        }
+    });
     
     // JSON olarak gönder
     fetch('<?php echo admin_url('themes/saveSettings'); ?>', {
@@ -1765,6 +2209,145 @@ function removeTestimonialAvatar(index) {
     
     if (avatarPreview) {
         avatarPreview.innerHTML = `<span class="text-white font-semibold text-xl">${firstName}</span>`;
+    }
+}
+
+// Services Item Management
+let serviceItemIndex = <?php echo isset($contactPageSections['services']['items']) && is_array($contactPageSections['services']['items']) ? (int)count($contactPageSections['services']['items']) : 4; ?>;
+
+function addServiceItem() {
+    const container = document.getElementById('services-items');
+    if (!container) return;
+    
+    const itemHtml = `
+        <div class="service-item glass rounded-lg p-4 space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-300">Hizmet #${serviceItemIndex + 1}</span>
+                <button type="button" onclick="removeServiceItem(this)" class="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">İkon (Material Symbols)</label>
+                <input type="text" name="contact_sections[services][items][${serviceItemIndex}][icon]" value="star" placeholder="home" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+                <p class="text-xs text-slate-500 mt-1">Material Symbols ikon adı (örn: home, apartment, assessment)</p>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Hizmet Başlığı</label>
+                <input type="text" name="contact_sections[services][items][${serviceItemIndex}][title]" value="" placeholder="Hizmet adı" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1.5">Link (Opsiyonel)</label>
+                <input type="text" name="contact_sections[services][items][${serviceItemIndex}][link]" value="" placeholder="/services/satilik" class="w-full px-4 py-2 input-field rounded-lg text-sm">
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', itemHtml);
+    serviceItemIndex++;
+}
+
+function removeServiceItem(btn) {
+    if (confirm('Bu hizmeti silmek istediğinize emin misiniz?')) {
+        btn.closest('.service-item').remove();
+        // Index'leri yeniden numaralandır
+        const items = document.querySelectorAll('#services-items .service-item');
+        items.forEach((item, index) => {
+            const numberSpan = item.querySelector('.text-slate-300');
+            if (numberSpan) numberSpan.textContent = `Hizmet #${index + 1}`;
+            
+            // Input name'lerini güncelle
+            item.querySelectorAll('input').forEach(input => {
+                const name = input.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/\[items\]\[\d+\]/, `[items][${index}]`);
+                    input.setAttribute('name', newName);
+                }
+            });
+        });
+        serviceItemIndex = items.length;
+    }
+}
+
+// Why Choose Us Item Management
+let whyChooseItemIndex = <?php echo isset($contactPageSections['why-choose-us']['items']) && is_array($contactPageSections['why-choose-us']['items']) ? (int)count($contactPageSections['why-choose-us']['items']) : 4; ?>;
+
+function addWhyChooseItem() {
+    const container = document.getElementById('why-choose-items');
+    if (!container) return;
+    
+    const itemHtml = `
+        <div class="flex items-start gap-2 why-choose-item">
+            <input type="text" name="contact_sections[why-choose-us][items][${whyChooseItemIndex}][text]" 
+                   value="" 
+                   placeholder="Avantaj metni" 
+                   class="flex-1 px-4 py-2 input-field rounded-lg text-sm">
+            <button type="button" onclick="removeWhyChooseItem(this)" class="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                <span class="material-symbols-outlined text-sm">delete</span>
+            </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', itemHtml);
+    whyChooseItemIndex++;
+}
+
+function removeWhyChooseItem(btn) {
+    if (confirm('Bu öğeyi silmek istediğinize emin misiniz?')) {
+        btn.closest('.why-choose-item').remove();
+        // Index'leri yeniden numaralandır
+        const items = document.querySelectorAll('#why-choose-items .why-choose-item');
+        items.forEach((item, index) => {
+            const input = item.querySelector('input');
+            if (input) {
+                const name = input.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/\[items\]\[\d+\]/, `[items][${index}]`);
+                    input.setAttribute('name', newName);
+                }
+            }
+        });
+        whyChooseItemIndex = items.length;
+    }
+}
+
+// Trust Indicators Functions
+let trustIndicatorIndex = <?php echo count($pageSections['cta']['settings']['trust_indicators'] ?? []); ?>;
+
+function addTrustIndicator() {
+    const container = document.getElementById('trust-indicators-list');
+    if (!container) return;
+    
+    const index = trustIndicatorIndex;
+    const itemHtml = `
+        <div class="flex items-center gap-2 trust-indicator-item">
+            <input type="text" name="sections[cta][settings][trust_indicators][${index}][text]" 
+                   value="" 
+                   placeholder="Gösterge metni" 
+                   class="flex-1 px-3 py-2 input-field rounded-lg text-sm">
+            <button type="button" onclick="removeTrustIndicator(this)" class="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                <span class="material-symbols-outlined text-sm">delete</span>
+            </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', itemHtml);
+    trustIndicatorIndex++;
+}
+
+function removeTrustIndicator(btn) {
+    if (confirm('Bu göstergiyi silmek istediğinize emin misiniz?')) {
+        btn.closest('.trust-indicator-item').remove();
+        // Index'leri yeniden numaralandır
+        const items = document.querySelectorAll('#trust-indicators-list .trust-indicator-item');
+        items.forEach((item, index) => {
+            const input = item.querySelector('input[type="text"]');
+            if (input) {
+                const name = input.getAttribute('name');
+                if (name) {
+                    const newName = name.replace(/\[trust_indicators\]\[\d+\]/, `[trust_indicators][${index}]`);
+                    input.setAttribute('name', newName);
+                }
+            }
+        });
+        trustIndicatorIndex = items.length;
     }
 }
 </script>

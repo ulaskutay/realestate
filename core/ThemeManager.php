@@ -748,6 +748,13 @@ class ThemeManager {
                 $this->saveHomepageSections($sections, $theme['id']);
             }
             
+            // Contact page sections'ları kaydet
+            $contactSections = $settings['contact_sections'] ?? null;
+            if ($contactSections !== null) {
+                unset($settings['contact_sections']); // Settings'den çıkar
+                $this->saveContactSections($contactSections, $theme['id']);
+            }
+            
             // Custom CSS'i kaydet
             if ($customCss !== null) {
                 $this->saveCustomCode('css', $customCss);
@@ -829,6 +836,75 @@ class ThemeManager {
                 $stmt->execute([$themeId, $sectionId, $title, $subtitle, $content, $settingsJson, $itemsJson, $isActive, $sortOrder]);
             }
         }
+    }
+    
+    /**
+     * İletişim sayfası bölümlerini kaydet
+     */
+    private function saveContactSections(array $sections, int $themeId): void {
+        foreach ($sections as $sectionId => $sectionData) {
+            // Section var mı kontrol et (theme_id ile birlikte)
+            $stmt = $this->db->prepare("SELECT id FROM page_sections WHERE theme_id = ? AND page_type = 'contact' AND section_id = ? LIMIT 1");
+            $stmt->execute([$themeId, $sectionId]);
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $title = $sectionData['title'] ?? '';
+            $subtitle = $sectionData['subtitle'] ?? '';
+            $content = $sectionData['content'] ?? '';
+            $isActive = isset($sectionData['enabled']) ? ($sectionData['enabled'] == '1' ? 1 : 0) : 1;
+            
+            // Items'ı al (varsa)
+            $items = isset($sectionData['items']) && is_array($sectionData['items']) ? $sectionData['items'] : [];
+            $itemsJson = json_encode($items, JSON_UNESCAPED_UNICODE);
+            
+            // title, subtitle, content, enabled, items dışındaki alanları settings olarak kaydet
+            $settingsData = [];
+            if (isset($sectionData['settings']) && is_array($sectionData['settings'])) {
+                $settingsData = $sectionData['settings'];
+            } else {
+                $excludeKeys = ['title', 'subtitle', 'content', 'enabled', 'items'];
+                $settingsData = array_diff_key($sectionData, array_flip($excludeKeys));
+            }
+            
+            $settingsJson = json_encode($settingsData, JSON_UNESCAPED_UNICODE);
+            
+            if ($existing) {
+                // Güncelle
+                $stmt = $this->db->prepare("
+                    UPDATE page_sections SET
+                        title = ?,
+                        subtitle = ?,
+                        content = ?,
+                        settings = ?,
+                        items = ?,
+                        is_active = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$title, $subtitle, $content, $settingsJson, $itemsJson, $isActive, $existing['id']]);
+            } else {
+                // Yeni ekle
+                $stmt = $this->db->prepare("
+                    INSERT INTO page_sections (theme_id, page_type, section_id, title, subtitle, content, settings, items, is_active, sort_order)
+                    VALUES (?, 'contact', ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $sortOrder = $this->getContactSectionSortOrder($sectionId);
+                $stmt->execute([$themeId, $sectionId, $title, $subtitle, $content, $settingsJson, $itemsJson, $isActive, $sortOrder]);
+            }
+        }
+    }
+    
+    /**
+     * İletişim sayfası section için varsayılan sıralama
+     */
+    private function getContactSectionSortOrder(string $sectionId): int {
+        $order = [
+            'hero' => 1,
+            'form' => 2,
+            'services' => 3,
+            'why-choose-us' => 4,
+            'map' => 5,
+        ];
+        return $order[$sectionId] ?? 99;
     }
     
     /**
