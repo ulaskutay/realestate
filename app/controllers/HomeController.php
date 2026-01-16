@@ -267,24 +267,63 @@ class HomeController extends Controller
     public function contact()
     {
         try {
-            // Önce modül route'unu kontrol et (modül varsa zaten çağrılmış olmalı)
-            require_once __DIR__ . '/../../core/ModuleLoader.php';
-            $moduleLoader = ModuleLoader::getInstance();
+            // Aktif temayı al
+            $activeTheme = get_option('active_theme', 'realestate');
             
-            // Modül route'u varsa ve işlenmişse, buraya gelmemeli
-            // Ama yine de kontrol edelim
-            $contactModule = $moduleLoader->getModule('contact');
-            if ($contactModule && $moduleLoader->isModuleActiveInDB('contact')) {
-                // Modül aktifse, modül controller'ını çağır
-                $controller = $moduleLoader->getModuleController('contact');
-                if ($controller && method_exists($controller, 'frontend_index')) {
-                    $controller->frontend_index();
-                    exit;
+            // Önce aktif temanın contact modülü var mı kontrol et (dizin kontrolü)
+            $themePath = __DIR__ . '/../../themes/' . $activeTheme;
+            $contactModulePath = $themePath . '/modules/contact';
+            $contactModuleExists = is_dir($contactModulePath) && file_exists($contactModulePath . '/module.json');
+            
+            // Eğer aktif temada contact modülü varsa, modülü kullan
+            if ($contactModuleExists) {
+                require_once __DIR__ . '/../../core/ModuleLoader.php';
+                $moduleLoader = ModuleLoader::getInstance();
+                
+                // Aktif temanın modüllerini yükle
+                $moduleLoader->loadThemeModules($themePath);
+                $contactModule = $moduleLoader->getModule('contact');
+                
+                // Eğer modül bulunduysa ve aktif temaya aitse kullan
+                if ($contactModule) {
+                    $isThemeModule = isset($contactModule['is_theme_module']) && $contactModule['is_theme_module'];
+                    
+                    // Modülün tema path'inden tema adını çıkar
+                    $moduleThemePath = $contactModule['theme_path'] ?? '';
+                    $moduleThemeName = '';
+                    if ($moduleThemePath) {
+                        // theme_path'den tema adını çıkar: /path/to/themes/theme-name
+                        $pathParts = explode('/', trim($moduleThemePath, '/'));
+                        $moduleThemeName = end($pathParts);
+                    }
+                    
+                    // Modül aktif temaya aitse kullan
+                    if ($isThemeModule && $moduleThemeName === $activeTheme) {
+                        $controller = $moduleLoader->getModuleController('contact');
+                        if (!$controller) {
+                            // Controller yüklenmemişse, modülü yükle
+                            try {
+                                $moduleLoader->loadModule($contactModule);
+                                $controller = $moduleLoader->getModuleController('contact');
+                            } catch (Exception $e) {
+                                error_log("Contact module load error: " . $e->getMessage());
+                                error_log("Stack trace: " . $e->getTraceAsString());
+                                // Hata oluşursa fallback'e geç
+                                $contactModule = null;
+                            }
+                        }
+                        if ($controller && method_exists($controller, 'frontend_index')) {
+                            $controller->frontend_index();
+                            exit;
+                        } else {
+                            error_log("Contact controller not found or frontend_index method missing");
+                            // Fallback'e geç
+                        }
+                    }
                 }
             }
             
-            // Fallback: Tema contact template'i varsa onu kullan
-            $activeTheme = get_option('active_theme', 'starter');
+            // Modül yoksa veya yüklenemediyse: Tema contact template'i varsa onu kullan
             $templatePath = __DIR__ . '/../../themes/' . $activeTheme . '/contact.php';
             
             if (file_exists($templatePath)) {

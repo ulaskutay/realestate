@@ -1285,62 +1285,6 @@ try {
                             </div>
                         </details>
                         
-                        <!-- Why Choose Us Section -->
-                        <details class="glass rounded-xl overflow-hidden group">
-                            <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">
-                                <div class="flex items-center gap-3">
-                                    <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-sm">⭐</span>
-                                    <span class="text-sm font-medium">Neden Bizi Tercih Etmelisiniz?</span>
-                                </div>
-                                <span class="material-symbols-outlined text-slate-400 group-open:rotate-180 transition-transform">expand_more</span>
-                            </summary>
-                            <div class="p-4 pt-0 space-y-3 border-t border-white/5">
-                                <div>
-                                    <label class="block text-xs text-slate-400 mb-1.5">Bölüm Başlığı</label>
-                                    <input type="text" name="contact_sections[why-choose-us][title]" value="<?php echo esc_attr($contactPageSections['why-choose-us']['title'] ?? 'Neden Bizi Tercih Etmelisiniz?'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
-                                </div>
-                                
-                                <!-- Items -->
-                                <div class="border-t border-white/5 pt-3">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <label class="block text-xs font-medium text-slate-300">Avantaj Öğeleri</label>
-                                        <button type="button" onclick="addWhyChooseItem()" class="px-3 py-1.5 text-xs font-medium bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-sm">add</span>
-                                            Ekle
-                                        </button>
-                                    </div>
-                                    <div id="why-choose-items" class="space-y-3">
-                                        <?php 
-                                        $whyChooseItems = isset($contactPageSections['why-choose-us']['items']) && is_array($contactPageSections['why-choose-us']['items']) 
-                                            ? $contactPageSections['why-choose-us']['items'] 
-                                            : [
-                                                ['text' => '500+ aktif mülk seçeneği'],
-                                                ['text' => 'Deneyimli ve sertifikalı danışmanlar'],
-                                                ['text' => 'Şeffaf fiyatlandırma ve güvenli işlem'],
-                                                ['text' => '7/24 müşteri desteği ve hızlı yanıt']
-                                            ];
-                                        foreach ($whyChooseItems as $index => $item): 
-                                        ?>
-                                        <div class="flex items-start gap-2 why-choose-item">
-                                            <input type="text" name="contact_sections[why-choose-us][items][<?php echo $index; ?>][text]" 
-                                                   value="<?php echo esc_attr($item['text'] ?? ''); ?>" 
-                                                   placeholder="Avantaj metni" 
-                                                   class="flex-1 px-4 py-2 input-field rounded-lg text-sm">
-                                            <button type="button" onclick="removeWhyChooseItem(this)" class="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                                                <span class="material-symbols-outlined text-sm">delete</span>
-                                            </button>
-                                        </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </div>
-                                
-                                <label class="flex items-center gap-3 cursor-pointer">
-                                    <input type="checkbox" name="contact_sections[why-choose-us][enabled]" value="1" <?php echo ($contactPageSections['why-choose-us']['enabled'] ?? true) ? 'checked' : ''; ?> class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-indigo-500">
-                                    <span class="text-xs text-slate-400">Bu bölümü göster</span>
-                                </label>
-                            </div>
-                        </details>
-                        
                         <!-- Services Section -->
                         <details class="glass rounded-xl overflow-hidden group">
                             <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">
@@ -1749,7 +1693,7 @@ function saveSettings() {
             const itemsArray = Object.keys(settings.contact_sections[sectionId].items)
                 .sort((a, b) => parseInt(a) - parseInt(b))
                 .map(key => settings.contact_sections[sectionId].items[key])
-                .filter(item => item && item.text);
+                .filter(item => item && item.title);
             settings.contact_sections[sectionId].items = itemsArray;
         }
     });
@@ -1790,13 +1734,8 @@ function saveSettings() {
         }
     })
     .catch(error => {
-        alert('Bağlantı hatası: ' + error.message);
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    })
-    .catch(error => {
         console.error('Error:', error);
-        alert('Bir hata oluştu');
+        alert('Bağlantı hatası: ' + error.message);
         btn.innerHTML = originalText;
         btn.disabled = false;
     });
@@ -2265,47 +2204,6 @@ function removeServiceItem(btn) {
             });
         });
         serviceItemIndex = items.length;
-    }
-}
-
-// Why Choose Us Item Management
-let whyChooseItemIndex = <?php echo isset($contactPageSections['why-choose-us']['items']) && is_array($contactPageSections['why-choose-us']['items']) ? (int)count($contactPageSections['why-choose-us']['items']) : 4; ?>;
-
-function addWhyChooseItem() {
-    const container = document.getElementById('why-choose-items');
-    if (!container) return;
-    
-    const itemHtml = `
-        <div class="flex items-start gap-2 why-choose-item">
-            <input type="text" name="contact_sections[why-choose-us][items][${whyChooseItemIndex}][text]" 
-                   value="" 
-                   placeholder="Avantaj metni" 
-                   class="flex-1 px-4 py-2 input-field rounded-lg text-sm">
-            <button type="button" onclick="removeWhyChooseItem(this)" class="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                <span class="material-symbols-outlined text-sm">delete</span>
-            </button>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', itemHtml);
-    whyChooseItemIndex++;
-}
-
-function removeWhyChooseItem(btn) {
-    if (confirm('Bu öğeyi silmek istediğinize emin misiniz?')) {
-        btn.closest('.why-choose-item').remove();
-        // Index'leri yeniden numaralandır
-        const items = document.querySelectorAll('#why-choose-items .why-choose-item');
-        items.forEach((item, index) => {
-            const input = item.querySelector('input');
-            if (input) {
-                const name = input.getAttribute('name');
-                if (name) {
-                    const newName = name.replace(/\[items\]\[\d+\]/, `[items][${index}]`);
-                    input.setAttribute('name', newName);
-                }
-            }
-        });
-        whyChooseItemIndex = items.length;
     }
 }
 

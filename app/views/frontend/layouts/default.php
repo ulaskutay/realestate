@@ -165,8 +165,9 @@
     if ($renderer->hasActiveTheme()) {
         echo $themeLoader->getHeadOutput();
     }
+    ?>
     
-    // Preload Tailwind CSS JS for faster loading -->
+    <!-- Preload Tailwind CSS JS for faster loading -->
     <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/js/tailwind.min.js'); ?>" as="script">
     
     <?php
@@ -245,6 +246,12 @@
     // Tema footer çıktısı
     if ($renderer->hasActiveTheme()) {
         echo $themeLoader->getFooterOutput();
+    }
+    
+    // Theme JS - Ana sayfa için de yükle
+    if ($renderer->hasActiveTheme() && file_exists($themeLoader->getThemePath() . '/assets/js/theme.js')) {
+        $jsUrl = $themeLoader->getJsUrl();
+        echo '<script src="' . $jsUrl . '"></script>';
     }
     
     // Ek scriptler

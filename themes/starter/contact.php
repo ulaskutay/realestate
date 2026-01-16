@@ -1,33 +1,17 @@
 <?php
 /**
  * Starter Theme - Contact Page Template
- * İletişim sayfası şablonu
+ * İletişim sayfası şablonu - Customize ayarlarına bağlı
  */
 
 // ThemeLoader yükle
 require_once __DIR__ . '/../../core/ThemeLoader.php';
 $themeLoader = ThemeLoader::getInstance();
 
-// Sayfa verileri
-$pageTitle = $page['title'] ?? 'İletişim';
-$pageExcerpt = $page['excerpt'] ?? '';
-$customFields = $customFields ?? [];
-
-// İletişim bilgileri
-$contactEmail = $customFields['contact_email'] ?? get_option('admin_email', '');
-$contactPhone = $customFields['contact_phone'] ?? '';
-$contactAddress = $customFields['contact_address'] ?? '';
-$contactHours = $customFields['contact_hours'] ?? '';
-
-// Harita
-$mapEmbed = $customFields['map_embed'] ?? '';
-$mapLatitude = $customFields['map_latitude'] ?? '';
-$mapLongitude = $customFields['map_longitude'] ?? '';
-
-// Form
-$formId = $customFields['form_id'] ?? null;
-$formTitle = $customFields['form_title'] ?? 'Bize Ulaşın';
-$formDescription = $customFields['form_description'] ?? '';
+// Functions dosyasını yükle (the_form fonksiyonu için)
+if (!function_exists('the_form')) {
+    require_once __DIR__ . '/../../includes/functions.php';
+}
 
 // Form component'ini yükle
 $formComponentPath = __DIR__ . '/../../app/views/frontend/components/form.php';
@@ -35,11 +19,106 @@ if (file_exists($formComponentPath)) {
     require_once $formComponentPath;
 }
 
-// Sosyal medya
-$socialFacebook = $customFields['social_facebook'] ?? '';
-$socialTwitter = $customFields['social_twitter'] ?? '';
-$socialInstagram = $customFields['social_instagram'] ?? '';
-$socialLinkedin = $customFields['social_linkedin'] ?? '';
+// Site ve şirket bilgileri
+$siteName = get_option('site_name', 'Site Adı');
+$companyName = get_option('company_name', $siteName);
+$companyEmail = get_option('company_email', get_option('contact_email', ''));
+$companyPhone = get_option('company_phone', get_option('contact_phone', ''));
+$companyAddress = get_option('company_address', get_option('contact_address', ''));
+
+// Sosyal medya linkleri
+$socialLinks = [
+    'facebook' => ['url' => get_option('social_facebook', ''), 'icon' => 'fab fa-facebook-f', 'label' => 'Facebook'],
+    'instagram' => ['url' => get_option('social_instagram', ''), 'icon' => 'fab fa-instagram', 'label' => 'Instagram'],
+    'twitter' => ['url' => get_option('social_twitter', ''), 'icon' => 'fab fa-x-twitter', 'label' => 'X (Twitter)'],
+    'linkedin' => ['url' => get_option('social_linkedin', ''), 'icon' => 'fab fa-linkedin-in', 'label' => 'LinkedIn'],
+];
+
+// Aktif sosyal medya linklerini filtrele
+$activeSocials = array_filter($socialLinks, fn($s) => !empty($s['url']));
+
+// ThemeManager'ı yükle (customize ayarları için)
+$contactPageSections = [];
+if (class_exists('ThemeManager')) {
+    try {
+        $themeManager = ThemeManager::getInstance();
+        $activeTheme = $themeManager->getActiveTheme();
+        $themeId = $activeTheme['id'] ?? null;
+        
+        if ($themeId) {
+            $contactSections = $themeManager->getPageSections('contact', $themeId) ?? [];
+            foreach ($contactSections as $section) {
+                $sectionId = $section['section_id'] ?? '';
+                if ($sectionId) {
+                    $sectionSettings = [];
+                    if (isset($section['settings'])) {
+                        if (is_array($section['settings'])) {
+                            $sectionSettings = $section['settings'];
+                        } else {
+                            $decoded = json_decode($section['settings'], true);
+                            $sectionSettings = is_array($decoded) ? $decoded : [];
+                        }
+                    }
+                    
+                    $contactPageSections[$sectionId] = array_merge(
+                        $sectionSettings,
+                        ['enabled' => ($section['is_active'] ?? 1) == 1]
+                    );
+                    $contactPageSections[$sectionId]['title'] = $section['title'] ?? '';
+                    $contactPageSections[$sectionId]['subtitle'] = $section['subtitle'] ?? '';
+                    $contactPageSections[$sectionId]['content'] = $section['content'] ?? '';
+                    if (isset($section['items'])) {
+                        $items = is_array($section['items']) ? $section['items'] : json_decode($section['items'] ?? '[]', true);
+                        $contactPageSections[$sectionId]['items'] = is_array($items) ? $items : [];
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Contact page sections error: " . $e->getMessage());
+    }
+}
+
+// Hero section ayarları
+$heroTitle = $contactPageSections['hero']['title'] ?? __('Bize Ulaşın');
+$heroSubtitle = $contactPageSections['hero']['subtitle'] ?? __('Sorularınız için bizimle iletişime geçin. Size yardımcı olmaktan mutluluk duyarız.');
+$heroEnabled = $contactPageSections['hero']['enabled'] ?? true;
+
+// Form section ayarları
+$formTitle = $contactPageSections['form']['title'] ?? __('İletişim Formu');
+$formDescription = $contactPageSections['form']['description'] ?? __('Aşağıdaki formu doldurarak bize ulaşabilirsiniz.');
+$formEnabled = $contactPageSections['form']['enabled'] ?? true;
+$formId = $contactPageSections['form']['form_id'] ?? null;
+
+// Form ID varsa, form slug'ını al
+$formSlug = 'iletisim'; // Varsayılan
+if ($formId) {
+    try {
+        require_once __DIR__ . '/../../core/Database.php';
+        $db = Database::getInstance();
+        $form = $db->fetch("SELECT slug FROM forms WHERE id = ?", [$formId]);
+        if ($form && isset($form['slug'])) {
+            $formSlug = $form['slug'];
+        }
+    } catch (Exception $e) {
+        error_log("Contact form load error: " . $e->getMessage());
+    }
+}
+
+// Map section ayarları
+$mapEmbed = $contactPageSections['map']['embed'] ?? get_option('google_maps_embed', '');
+$mapEnabled = $contactPageSections['map']['enabled'] ?? true;
+
+// Why Choose Us section ayarları
+$whyChooseUsTitle = $contactPageSections['why-choose-us']['title'] ?? __('Neden Bizi Tercih Etmelisiniz?');
+$whyChooseUsItems = $contactPageSections['why-choose-us']['items'] ?? [];
+$whyChooseUsEnabled = $contactPageSections['why-choose-us']['enabled'] ?? true;
+
+// Services section ayarları
+$servicesTitle = $contactPageSections['services']['title'] ?? __('Hizmetlerimiz');
+$servicesDescription = $contactPageSections['services']['description'] ?? __('Size nasıl yardımcı olabiliriz?');
+$servicesItems = $contactPageSections['services']['items'] ?? [];
+$servicesEnabled = $contactPageSections['services']['enabled'] ?? true;
 
 // Tema renkleri
 $primaryColor = $themeLoader->getColor('primary', '#137fec');
@@ -49,11 +128,11 @@ $primaryColor = $themeLoader->getColor('primary', '#137fec');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo esc_html($title ?? $pageTitle); ?></title>
+    <title><?php echo esc_html($title ?? 'İletişim'); ?></title>
     <?php if (!empty($meta_description)): ?>
     <meta name="description" content="<?php echo esc_attr($meta_description); ?>">
     <?php endif; ?>
-    <!-- Inline Font Definitions (Only essential weights) -->
+    <!-- Inline Font Definitions -->
     <style>
         @font-face {
             font-family: 'Inter';
@@ -71,57 +150,6 @@ $primaryColor = $themeLoader->getColor('primary', '#137fec');
         }
     </style>
     <style>
-        /* Form CSS - Inline */
-        .cms-form-wrapper { max-width: 600px; margin: 0 auto; }
-        .cms-form-wrapper .form-description { color: #6b7280; margin-bottom: 1.5rem; font-size: 0.95rem; line-height: 1.6; }
-        .cms-form { font-family: inherit; }
-        .cms-form .form-fields { display: flex; flex-wrap: wrap; gap: 1.25rem; }
-        .cms-form .form-field { flex-basis: 100%; }
-        .cms-form .form-field.field-width-half { flex-basis: calc(50% - 0.625rem); }
-        .cms-form .form-field.field-width-third { flex-basis: calc(33.333% - 0.833rem); }
-        .cms-form .form-field.field-width-quarter { flex-basis: calc(25% - 0.9375rem); }
-        .cms-form .field-label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem; }
-        .cms-form .required-mark { color: #ef4444; margin-left: 0.25rem; }
-        .cms-form .field-input input[type="text"],
-        .cms-form .field-input input[type="email"],
-        .cms-form .field-input input[type="tel"],
-        .cms-form .field-input input[type="number"],
-        .cms-form .field-input input[type="date"],
-        .cms-form .field-input input[type="time"],
-        .cms-form .field-input input[type="datetime-local"],
-        .cms-form .field-input textarea,
-        .cms-form .field-input select {
-            width: 100%; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem;
-            font-size: 1rem; color: #111827; background-color: white; transition: all 0.2s; font-family: inherit;
-        }
-        .cms-form .field-input input:focus,
-        .cms-form .field-input textarea:focus,
-        .cms-form .field-input select:focus {
-            outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .cms-form .field-input textarea { resize: vertical; min-height: 120px; }
-        .cms-form .field-help { font-size: 0.75rem; color: #6b7280; margin-top: 0.375rem; }
-        .cms-form .checkbox-group,
-        .cms-form .radio-group { display: flex; flex-direction: column; gap: 0.625rem; }
-        .cms-form .checkbox-label,
-        .cms-form .radio-label { display: flex; align-items: center; gap: 0.625rem; cursor: pointer; font-size: 0.95rem; color: #374151; }
-        .cms-form .checkbox-label input,
-        .cms-form .radio-label input { width: 1.125rem; height: 1.125rem; accent-color: #3b82f6; cursor: pointer; }
-        .cms-form .form-submit { margin-top: 1.5rem; }
-        .cms-form .submit-button {
-            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-            padding: 0.875rem 2rem; font-size: 1rem; font-weight: 600; color: white;
-            border: none; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; font-family: inherit;
-        }
-        .cms-form .submit-button:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
-        .cms-form .submit-button:disabled { opacity: 0.7; cursor: not-allowed; }
-        @media (max-width: 640px) {
-            .cms-form .form-field.field-width-half,
-            .cms-form .form-field.field-width-third,
-            .cms-form .form-field.field-width-quarter { flex-basis: 100%; }
-        }
-    </style>
-    <style>
         :root {
             --color-primary: <?php echo $primaryColor; ?>;
         }
@@ -131,122 +159,144 @@ $primaryColor = $themeLoader->getColor('primary', '#137fec');
         .text-primary { color: var(--color-primary); }
         .bg-primary { background-color: var(--color-primary); }
         .border-primary { border-color: var(--color-primary); }
-        .ring-primary { --tw-ring-color: var(--color-primary); }
     </style>
-    
-    <!-- Preload Tailwind CSS JS for faster loading -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <!-- Preload Tailwind CSS JS -->
     <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/js/tailwind.min.js'); ?>" as="script">
 </head>
 <body class="antialiased bg-gray-50">
     
-    <?php echo $themeLoader->renderSnippet('header', ['title' => $pageTitle, 'current_page' => 'contact']); ?>
+    <?php echo $themeLoader->renderSnippet('header', ['title' => 'İletişim', 'current_page' => 'contact']); ?>
     
     <!-- Hero Section -->
+    <?php if ($heroEnabled): ?>
     <section class="gradient-primary py-20 lg:py-28">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 class="text-4xl lg:text-5xl font-bold text-white mb-6"><?php echo esc_html($pageTitle); ?></h1>
-            <?php if (!empty($pageExcerpt)): ?>
-            <p class="text-xl text-white/80 max-w-2xl mx-auto"><?php echo esc_html($pageExcerpt); ?></p>
+            <h1 class="text-4xl lg:text-5xl font-bold text-white mb-6"><?php echo esc_html($heroTitle); ?></h1>
+            <?php if (!empty($heroSubtitle)): ?>
+            <p class="text-xl text-white/80 max-w-2xl mx-auto"><?php echo esc_html($heroSubtitle); ?></p>
             <?php endif; ?>
         </div>
     </section>
+    <?php endif; ?>
     
     <!-- Main Content -->
     <section class="py-16 lg:py-24">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
                 
-                <!-- İletişim Bilgileri -->
-                <div>
-                    <h2 class="text-3xl font-bold text-gray-900 mb-8">İletişim Bilgileri</h2>
+                <!-- Left Column: Contact Info & Why Choose Us & Services -->
+                <div class="space-y-12">
                     
-                    <div class="space-y-6">
-                        <?php if (!empty($contactEmail)): ?>
-                        <div class="flex items-start gap-4">
-                            <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    <!-- İletişim Bilgileri -->
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-8">İletişim Bilgileri</h2>
+                        
+                        <div class="space-y-6">
+                            <?php if (!empty($companyEmail)): ?>
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-900 mb-1">E-posta</h3>
+                                    <a href="mailto:<?php echo esc_attr($companyEmail); ?>" class="text-gray-600 hover:text-primary transition-colors">
+                                        <?php echo esc_html($companyEmail); ?>
+                                    </a>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="font-semibold text-gray-900 mb-1">E-posta</h3>
-                                <a href="mailto:<?php echo esc_attr($contactEmail); ?>" class="text-gray-600 hover:text-primary transition-colors">
-                                    <?php echo esc_html($contactEmail); ?>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($companyPhone)): ?>
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-900 mb-1">Telefon</h3>
+                                    <a href="tel:<?php echo esc_attr(preg_replace('/[^0-9+]/', '', $companyPhone)); ?>" class="text-gray-600 hover:text-primary transition-colors">
+                                        <?php echo esc_html($companyPhone); ?>
+                                    </a>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($companyAddress)): ?>
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-900 mb-1">Adres</h3>
+                                    <p class="text-gray-600"><?php echo nl2br(esc_html($companyAddress)); ?></p>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <!-- Sosyal Medya -->
+                        <?php if (!empty($activeSocials)): ?>
+                        <div class="mt-10 pt-10 border-t border-gray-200">
+                            <h3 class="font-semibold text-gray-900 mb-4">Bizi Takip Edin</h3>
+                            <div class="flex gap-4">
+                                <?php foreach ($activeSocials as $key => $social): ?>
+                                <a href="<?php echo esc_url($social['url']); ?>" target="_blank" rel="noopener" class="w-10 h-10 bg-gray-100 hover:bg-primary hover:text-white rounded-full flex items-center justify-center text-gray-600 transition-all">
+                                    <i class="<?php echo esc_attr($social['icon']); ?>"></i>
                                 </a>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if (!empty($contactPhone)): ?>
-                        <div class="flex items-start gap-4">
-                            <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-gray-900 mb-1">Telefon</h3>
-                                <a href="tel:<?php echo esc_attr(preg_replace('/[^0-9+]/', '', $contactPhone)); ?>" class="text-gray-600 hover:text-primary transition-colors">
-                                    <?php echo esc_html($contactPhone); ?>
-                                </a>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if (!empty($contactAddress)): ?>
-                        <div class="flex items-start gap-4">
-                            <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-gray-900 mb-1">Adres</h3>
-                                <p class="text-gray-600"><?php echo nl2br(esc_html($contactAddress)); ?></p>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <?php if (!empty($contactHours)): ?>
-                        <div class="flex items-start gap-4">
-                            <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-gray-900 mb-1">Çalışma Saatleri</h3>
-                                <p class="text-gray-600"><?php echo esc_html($contactHours); ?></p>
+                                <?php endforeach; ?>
                             </div>
                         </div>
                         <?php endif; ?>
                     </div>
                     
-                    <!-- Sosyal Medya -->
-                    <?php if (!empty($socialFacebook) || !empty($socialTwitter) || !empty($socialInstagram) || !empty($socialLinkedin)): ?>
-                    <div class="mt-10 pt-10 border-t border-gray-200">
-                        <h3 class="font-semibold text-gray-900 mb-4">Bizi Takip Edin</h3>
-                        <div class="flex gap-4">
-                            <?php if (!empty($socialFacebook)): ?>
-                            <a href="<?php echo esc_url($socialFacebook); ?>" target="_blank" rel="noopener" class="w-10 h-10 bg-gray-100 hover:bg-primary hover:text-white rounded-full flex items-center justify-center text-gray-600 transition-all">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/></svg>
-                            </a>
-                            <?php endif; ?>
-                            <?php if (!empty($socialTwitter)): ?>
-                            <a href="<?php echo esc_url($socialTwitter); ?>" target="_blank" rel="noopener" class="w-10 h-10 bg-gray-100 hover:bg-primary hover:text-white rounded-full flex items-center justify-center text-gray-600 transition-all">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                            </a>
-                            <?php endif; ?>
-                            <?php if (!empty($socialInstagram)): ?>
-                            <a href="<?php echo esc_url($socialInstagram); ?>" target="_blank" rel="noopener" class="w-10 h-10 bg-gray-100 hover:bg-primary hover:text-white rounded-full flex items-center justify-center text-gray-600 transition-all">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                            </a>
-                            <?php endif; ?>
-                            <?php if (!empty($socialLinkedin)): ?>
-                            <a href="<?php echo esc_url($socialLinkedin); ?>" target="_blank" rel="noopener" class="w-10 h-10 bg-gray-100 hover:bg-primary hover:text-white rounded-full flex items-center justify-center text-gray-600 transition-all">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                            </a>
-                            <?php endif; ?>
+                    <!-- Why Choose Us Section -->
+                    <?php if ($whyChooseUsEnabled && !empty($whyChooseUsItems)): ?>
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-6"><?php echo esc_html($whyChooseUsTitle); ?></h2>
+                        <ul class="space-y-4">
+                            <?php foreach ($whyChooseUsItems as $item): ?>
+                                <?php if (!empty($item['text'])): ?>
+                                <li class="flex items-start gap-3">
+                                    <svg class="w-6 h-6 text-primary flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <span class="text-gray-700"><?php echo esc_html($item['text']); ?></span>
+                                </li>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <!-- Services Section -->
+                    <?php if ($servicesEnabled && !empty($servicesItems)): ?>
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-3"><?php echo esc_html($servicesTitle); ?></h2>
+                        <?php if (!empty($servicesDescription)): ?>
+                        <p class="text-gray-600 mb-6"><?php echo esc_html($servicesDescription); ?></p>
+                        <?php endif; ?>
+                        <div class="grid grid-cols-2 gap-4">
+                            <?php foreach ($servicesItems as $service): ?>
+                                <?php if (!empty($service['title'])): ?>
+                                <a href="<?php echo !empty($service['link']) ? esc_url($service['link']) : '#'; ?>" class="flex flex-col items-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-primary/20">
+                                    <?php if (!empty($service['icon'])): ?>
+                                    <span class="material-symbols-outlined text-4xl text-primary mb-3"><?php echo esc_html($service['icon']); ?></span>
+                                    <?php endif; ?>
+                                    <span class="font-semibold text-gray-900 text-center"><?php echo esc_html($service['title']); ?></span>
+                                </a>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
                         </div>
                     </div>
                     <?php endif; ?>
+                    
                 </div>
                 
-                <!-- İletişim Formu -->
+                <!-- Right Column: Contact Form -->
+                <?php if ($formEnabled): ?>
                 <div>
-                    <div class="bg-white rounded-2xl shadow-lg p-8">
+                    <div class="bg-white rounded-2xl shadow-lg p-8 sticky top-8">
                         <h2 class="text-2xl font-bold text-gray-900 mb-2"><?php echo esc_html($formTitle); ?></h2>
                         <?php if (!empty($formDescription)): ?>
                         <p class="text-gray-600 mb-6"><?php echo esc_html($formDescription); ?></p>
@@ -259,21 +309,26 @@ $primaryColor = $themeLoader->getColor('primary', '#137fec');
                         <?php unset($_SESSION['contact_message'], $_SESSION['contact_message_type']); ?>
                         <?php endif; ?>
                         
-                        <?php if (!empty($formId) && function_exists('render_form_by_id')): ?>
-                            <!-- Seçilen formu render et -->
-                            <?php echo render_form_by_id($formId); ?>
-                        <?php else: ?>
-                            <!-- Varsayılan form (form seçilmemişse) -->
-                            <p class="text-gray-500 text-sm mb-4">Lütfen admin panelinden bir form seçin.</p>
-                        <?php endif; ?>
+                        <div class="space-y-5">
+                            <?php 
+                            if (function_exists('the_form')) {
+                                the_form($formSlug);
+                            } else if (function_exists('cms_form')) {
+                                echo cms_form($formSlug);
+                            } else {
+                                echo '<p class="text-gray-500 text-sm">Lütfen admin panelinden bir form seçin.</p>';
+                            }
+                            ?>
+                        </div>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
     </section>
     
-    <!-- Harita -->
-    <?php if (!empty($mapEmbed)): ?>
+    <!-- Map Section -->
+    <?php if ($mapEnabled && !empty($mapEmbed)): ?>
     <section class="pb-16 lg:pb-24">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="rounded-2xl overflow-hidden shadow-lg">
@@ -285,7 +340,7 @@ $primaryColor = $themeLoader->getColor('primary', '#137fec');
     
     <?php echo $themeLoader->renderSnippet('footer'); ?>
     
-    <!-- Tailwind CSS - Load with defer to prevent render-blocking -->
+    <!-- Tailwind CSS -->
     <script src="<?php echo ViewRenderer::assetUrl('assets/js/tailwind.min.js'); ?>" defer></script>
 </body>
 </html>

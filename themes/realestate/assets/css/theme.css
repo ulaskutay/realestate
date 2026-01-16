@@ -158,6 +158,23 @@ html {
     transition-duration: 150ms;
 }
 
+/* Mobile Menu Global Styles */
+#mobile-menu {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#mobile-menu.hidden {
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+}
+
+#mobile-menu:not(.hidden) {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
 /* Listing Detail Page - Mobile Image Fix */
 /* Prevent horizontal overflow */
 section {
@@ -165,34 +182,27 @@ section {
     max-width: 100%;
 }
 
-/* Gallery container */
-#gallery-carousel,
-#gallery-carousel * {
-    box-sizing: border-box;
-}
-
+/* Gallery Carousel - Basit ve Çalışan */
 #gallery-carousel {
     width: 100%;
-    max-width: 100%;
     position: relative;
     overflow: hidden;
 }
 
-#gallery-carousel #carousel-wrapper {
-    width: 100%;
-    max-width: 100%;
+#carousel-wrapper {
+    display: flex;
+    height: 100%;
+    will-change: transform;
+}
+
+#carousel-wrapper .carousel-slide {
+    flex: 0 0 auto;
+    height: 100%;
     overflow: hidden;
 }
 
-#gallery-carousel #carousel-wrapper > div {
+#carousel-wrapper .carousel-slide img {
     width: 100%;
-    max-width: 100%;
-    overflow: hidden;
-}
-
-#gallery-carousel img {
-    width: 100%;
-    max-width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
@@ -217,6 +227,46 @@ section {
         padding-right: 1rem;
     }
     
+    /* Mobile menu improvements */
+    #mobile-menu {
+        max-height: calc(100vh - 4rem);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+        z-index: 40;
+        background-color: var(--color-background, #ffffff);
+    }
+    
+    #mobile-menu:not(.hidden) {
+        display: block !important;
+    }
+    
+    #mobile-menu.hidden {
+        display: none !important;
+    }
+    
+    #mobile-menu-toggle {
+        position: relative;
+        z-index: 50;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    #mobile-menu-toggle svg {
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+    }
+    
+    #mobile-menu-toggle #menu-icon.hidden,
+    #mobile-menu-toggle #close-icon.hidden {
+        display: none !important;
+    }
+    
+    #mobile-menu-toggle #menu-icon:not(.hidden),
+    #mobile-menu-toggle #close-icon:not(.hidden) {
+        display: block !important;
+    }
+    
     /* Force gallery to stay within bounds */
     #gallery-carousel {
         width: 100% !important;
@@ -228,8 +278,9 @@ section {
     }
     
     #gallery-carousel #carousel-wrapper {
-        width: 100% !important;
-        max-width: 100% !important;
+        width: auto !important;
+        min-width: 100% !important;
+        display: flex !important;
     }
     
     #gallery-carousel #carousel-wrapper > div {

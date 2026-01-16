@@ -6,23 +6,11 @@
  * NOT: Bu dosya artık modül yapısına taşınmıştır.
  * Modül: themes/realestate/modules/contact/
  * Modül route'u öncelikli olduğu için bu dosya sadece fallback olarak kullanılır.
+ * 
+ * NOT: Modül kontrolü HomeController::contact() metodunda yapılıyor.
+ * Bu dosya sadece modül yüklenmediğinde fallback olarak kullanılır.
  */
 
-// Önce modül route'unu kontrol et
-require_once __DIR__ . '/../../core/ModuleLoader.php';
-$moduleLoader = ModuleLoader::getInstance();
-$contactModule = $moduleLoader->getModule('contact');
-
-if ($contactModule && $moduleLoader->isModuleActiveInDB('contact')) {
-    // Modül aktifse, modül controller'ını çağır
-    $controller = $moduleLoader->getModuleController('contact');
-    if ($controller && method_exists($controller, 'frontend_index')) {
-        $controller->frontend_index();
-        exit;
-    }
-}
-
-// Fallback: Eski template yapısı
 // ThemeLoader'ı yükle (eğer yüklenmemişse)
 if (!isset($themeLoader) || !$themeLoader) {
     if (!class_exists('ThemeLoader')) {
@@ -62,8 +50,99 @@ $socialLinks = [
 // Aktif sosyal medya linklerini filtrele
 $activeSocials = array_filter($socialLinks, fn($s) => !empty($s['url']));
 
-// Google Maps embed URL (opsiyonel)
-$mapEmbed = get_option('google_maps_embed', '');
+// ThemeManager'ı yükle (customize ayarları için)
+$contactPageSections = [];
+if (class_exists('ThemeManager')) {
+    try {
+        $themeManager = ThemeManager::getInstance();
+        $activeTheme = $themeManager->getActiveTheme();
+        $themeId = $activeTheme['id'] ?? null;
+        
+        if ($themeId) {
+            $contactSections = $themeManager->getPageSections('contact', $themeId) ?? [];
+            foreach ($contactSections as $section) {
+                $sectionId = $section['section_id'] ?? '';
+                if ($sectionId) {
+                    $sectionSettings = [];
+                    if (isset($section['settings'])) {
+                        if (is_array($section['settings'])) {
+                            $sectionSettings = $section['settings'];
+                        } else {
+                            $decoded = json_decode($section['settings'], true);
+                            $sectionSettings = is_array($decoded) ? $decoded : [];
+                        }
+                    }
+                    
+                    $contactPageSections[$sectionId] = array_merge(
+                        $sectionSettings,
+                        ['enabled' => ($section['is_active'] ?? 1) == 1]
+                    );
+                    $contactPageSections[$sectionId]['title'] = $section['title'] ?? '';
+                    $contactPageSections[$sectionId]['subtitle'] = $section['subtitle'] ?? '';
+                    $contactPageSections[$sectionId]['content'] = $section['content'] ?? '';
+                    if (isset($section['items'])) {
+                        $items = is_array($section['items']) ? $section['items'] : json_decode($section['items'] ?? '[]', true);
+                        $contactPageSections[$sectionId]['items'] = is_array($items) ? $items : [];
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Contact page sections error: " . $e->getMessage());
+    }
+}
+
+// Hero section ayarları
+$heroTitle = $contactPageSections['hero']['title'] ?? __('Hayalinizdeki Mülkü Bulalım');
+$heroSubtitle = $contactPageSections['hero']['subtitle'] ?? __('Uzman ekibimiz, mülk satın alma, satış veya kiralama işlemlerinizde size yardımcı olmak için burada. Hemen iletişime geçin!');
+$heroEnabled = $contactPageSections['hero']['enabled'] ?? true;
+// Background image - hem background_image hem hero_image olarak kontrol et
+$heroBackgroundImage = $contactPageSections['hero']['background_image'] ?? $contactPageSections['hero']['hero_image'] ?? '';
+
+// Primary color'ı al (gradient için)
+$primaryColor = '#1e40af'; // Varsayılan
+$secondaryColor = '#1e293b'; // Varsayılan
+if (class_exists('ThemeLoader')) {
+    $themeLoaderInstance = ThemeLoader::getInstance();
+    $primaryColor = $themeLoaderInstance->getColor('primary', '#1e40af');
+    $secondaryColor = $themeLoaderInstance->getColor('secondary', '#1e293b');
+}
+
+// Form section ayarları
+$formTitle = $contactPageSections['form']['title'] ?? __('Mülk Talebinizi İletin');
+$formDescription = $contactPageSections['form']['description'] ?? __('Aradığınız mülk özelliklerini belirtin, size en uygun seçenekleri sunalım.');
+$formEnabled = $contactPageSections['form']['enabled'] ?? true;
+$formId = $contactPageSections['form']['form_id'] ?? null;
+
+// Form ID varsa, form slug'ını al
+$formSlug = 'iletisim'; // Varsayılan
+if ($formId) {
+    try {
+        require_once __DIR__ . '/../../core/Database.php';
+        $db = Database::getInstance();
+        $form = $db->fetch("SELECT slug FROM forms WHERE id = ?", [$formId]);
+        if ($form && isset($form['slug'])) {
+            $formSlug = $form['slug'];
+        }
+    } catch (Exception $e) {
+        error_log("Contact form load error: " . $e->getMessage());
+    }
+}
+
+// Services section ayarları
+$servicesTitle = $contactPageSections['services']['title'] ?? __('Hizmetlerimiz');
+$servicesDescription = $contactPageSections['services']['description'] ?? __('Size nasıl yardımcı olabiliriz?');
+$servicesItems = $contactPageSections['services']['items'] ?? [
+    ['title' => 'Satılık Mülk', 'icon' => 'home', 'link' => ''],
+    ['title' => 'Kiralık Mülk', 'icon' => 'apartment', 'link' => ''],
+    ['title' => 'Mülk Değerleme', 'icon' => 'assessment', 'link' => ''],
+    ['title' => 'Danışmanlık', 'icon' => 'people', 'link' => '']
+];
+$servicesEnabled = $contactPageSections['services']['enabled'] ?? true;
+
+// Map section ayarları
+$mapEmbed = $contactPageSections['map']['embed'] ?? get_option('google_maps_embed', '');
+$mapEnabled = $contactPageSections['map']['enabled'] ?? true;
 
 // Sayfa içeriğini buffer'a al
 // Eğer output buffer zaten başlatılmışsa, temizle
@@ -74,125 +153,637 @@ ob_start();
 ?>
 
 <!-- Hero Section -->
-<section class="relative py-20 lg:py-28 bg-gradient-to-br from-secondary/90 via-secondary/80 to-primary/90 text-white overflow-hidden">
-    <!-- Background Pattern -->
-    <div class="absolute inset-0 opacity-10">
-        <div class="absolute inset-0" style="background-image: url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cg fill=\"none\" fill-rule=\"evenodd\"%3E%3Cg fill=\"%23ffffff\" fill-opacity=\"0.1\"%3E%3Cpath d=\"M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');"></div>
-    </div>
+<?php if ($heroEnabled): ?>
+<style>
+    .contact-hero-section {
+        position: relative;
+        padding: 5rem 1rem;
+        color: white;
+        overflow: hidden;
+        min-height: 500px;
+        display: flex;
+        align-items: center;
+    }
+    @media (min-width: 1024px) {
+        .contact-hero-section {
+            padding: 7rem 1.5rem;
+            min-height: 600px;
+        }
+    }
+    .contact-hero-bg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 0;
+    }
+    .contact-hero-gradient {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 0;
+        background: linear-gradient(135deg, <?php echo esc_attr($primaryColor); ?> 0%, <?php echo esc_attr($secondaryColor); ?> 100%);
+    }
+    .contact-hero-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 1;
+    }
+    .contact-hero-pattern {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0.1;
+        z-index: 1;
+        background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.1"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+    }
+    .contact-hero-content {
+        position: relative;
+        z-index: 10;
+        max-width: 1280px;
+        margin: 0 auto;
+        width: 100%;
+        padding: 0 1rem;
+    }
+    @media (min-width: 1024px) {
+        .contact-hero-content {
+            padding: 0 1.5rem;
+        }
+    }
+    .contact-hero-inner {
+        max-width: 56rem;
+        margin: 0 auto;
+        text-align: center;
+    }
+    .contact-hero-title {
+        font-size: 2.25rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        line-height: 1.2;
+        color: white;
+    }
+    @media (min-width: 1024px) {
+        .contact-hero-title {
+            font-size: 3.75rem;
+        }
+    }
+    .contact-hero-subtitle {
+        font-size: 1.25rem;
+        margin-bottom: 2rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.9);
+    }
+    @media (min-width: 1024px) {
+        .contact-hero-subtitle {
+            font-size: 1.5rem;
+        }
+    }
+    .contact-hero-stats {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1.5rem;
+        margin-top: 2.5rem;
+    }
+    @media (min-width: 1024px) {
+        .contact-hero-stats {
+            gap: 2rem;
+        }
+    }
+    .contact-hero-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .contact-hero-stat-icon {
+        width: 3rem;
+        height: 3rem;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .contact-hero-stat-icon svg {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+    .contact-hero-stat-text {
+        font-size: 1.125rem;
+        font-weight: 500;
+        color: white;
+    }
+</style>
+<section class="contact-hero-section">
+    <!-- Background Image -->
+    <?php if ($heroBackgroundImage): ?>
+    <img src="<?php echo esc_url($heroBackgroundImage); ?>" alt="<?php echo esc_attr($heroTitle); ?>" class="contact-hero-bg">
+    <?php else: ?>
+    <!-- Default gradient background -->
+    <div class="contact-hero-gradient"></div>
+    <?php endif; ?>
     
-    <div class="container mx-auto px-4 lg:px-6 relative z-10">
-        <div class="max-w-4xl mx-auto text-center">
-            <h1 class="text-4xl lg:text-6xl font-bold mb-6 leading-tight">
-                <?php echo esc_html(__('Hayalinizdeki Mülkü Bulalım')); ?>
+    <!-- Dark Overlay -->
+    <div class="contact-hero-overlay"></div>
+    
+    <!-- Background Pattern -->
+    <div class="contact-hero-pattern"></div>
+    
+    <div class="contact-hero-content">
+        <div class="contact-hero-inner">
+            <h1 class="contact-hero-title">
+                <?php echo esc_html($heroTitle); ?>
             </h1>
-            <p class="text-xl lg:text-2xl text-white/90 mb-8 leading-relaxed">
-                <?php echo esc_html(__('Uzman ekibimiz, mülk satın alma, satış veya kiralama işlemlerinizde size yardımcı olmak için burada. Hemen iletişime geçin!')); ?>
+            <p class="contact-hero-subtitle">
+                <?php echo esc_html($heroSubtitle); ?>
             </p>
             
             <!-- Quick Stats -->
-            <div class="flex flex-wrap justify-center gap-6 lg:gap-8 mt-10">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="contact-hero-stats">
+                <div class="contact-hero-stat">
+                    <div class="contact-hero-stat-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
-                    <span class="text-lg font-medium"><?php echo esc_html(__('24 Saat İçinde Yanıt')); ?></span>
+                    <span class="contact-hero-stat-text"><?php echo esc_html(__('24 Saat İçinde Yanıt')); ?></span>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="contact-hero-stat">
+                    <div class="contact-hero-stat-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                         </svg>
                     </div>
-                    <span class="text-lg font-medium"><?php echo esc_html(__('500+ Mülk Seçeneği')); ?></span>
+                    <span class="contact-hero-stat-text"><?php echo esc_html(__('500+ Mülk Seçeneği')); ?></span>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="contact-hero-stat">
+                    <div class="contact-hero-stat-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                         </svg>
                     </div>
-                    <span class="text-lg font-medium"><?php echo esc_html(__('Uzman Danışmanlar')); ?></span>
+                    <span class="contact-hero-stat-text"><?php echo esc_html(__('Uzman Danışmanlar')); ?></span>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="contact-hero-stat">
+                    <div class="contact-hero-stat-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                         </svg>
                     </div>
-                    <span class="text-lg font-medium"><?php echo esc_html(__('Güvenli İşlem')); ?></span>
+                    <span class="contact-hero-stat-text"><?php echo esc_html(__('Güvenli İşlem')); ?></span>
                 </div>
             </div>
         </div>
     </div>
 </section>
+<?php endif; ?>
 
 <!-- Main Content -->
-<section class="py-16 lg:py-24 bg-surface">
-    <div class="container mx-auto px-4 lg:px-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+<style>
+    .contact-main-section {
+        padding: 4rem 1rem;
+        background-color: #f8fafc;
+    }
+    @media (min-width: 1024px) {
+        .contact-main-section {
+            padding: 6rem 1.5rem;
+        }
+    }
+    .contact-container {
+        max-width: 1280px;
+        margin: 0 auto;
+        width: 100%;
+    }
+    .contact-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        align-items: start;
+    }
+    @media (min-width: 1024px) {
+        .contact-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+        }
+    }
+    .contact-card {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        padding: 2rem;
+    }
+    @media (min-width: 1024px) {
+        .contact-card {
+            padding: 2.5rem;
+        }
+    }
+    .contact-info-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .contact-services-section {
+        margin-top: 3rem;
+        grid-column: 1 / -1;
+    }
+    @media (min-width: 1024px) {
+        .contact-services-section {
+            margin-top: 4rem;
+        }
+    }
+    .contact-services-card {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        padding: 2rem;
+    }
+    @media (min-width: 1024px) {
+        .contact-services-card {
+            padding: 2.5rem;
+        }
+    }
+    .contact-services-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .contact-services-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 4rem;
+        height: 4rem;
+        background: rgba(30, 64, 175, 0.1);
+        border-radius: 1rem;
+        margin: 0 auto 1rem;
+    }
+    .contact-services-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.75rem;
+    }
+    @media (min-width: 1024px) {
+        .contact-services-title {
+            font-size: 1.875rem;
+        }
+    }
+    .contact-services-subtitle {
+        font-size: 1rem;
+        color: #64748b;
+        max-width: 32rem;
+        margin: 0 auto;
+    }
+    .contact-services-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    @media (min-width: 1024px) {
+        .contact-services-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+    }
+    .contact-service-item {
+        padding: 1.25rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 0.75rem;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: block;
+        color: inherit;
+    }
+    .contact-service-item:hover {
+        background: linear-gradient(135deg, rgba(30, 64, 175, 0.05) 0%, rgba(30, 64, 175, 0.1) 100%);
+        border-color: rgba(30, 64, 175, 0.3);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+    .contact-service-icon {
+        font-size: 2.25rem;
+        color: #1e40af;
+        margin: 0 auto 0.75rem;
+        display: block;
+        transition: transform 0.3s ease;
+    }
+    .contact-service-item:hover .contact-service-icon {
+        transform: scale(1.1);
+    }
+    .contact-service-text {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #1e293b;
+        transition: color 0.3s ease;
+    }
+    .contact-service-item:hover .contact-service-text {
+        color: #1e40af;
+    }
+</style>
+<section class="contact-main-section">
+    <div class="contact-container">
+        <div class="contact-grid">
             
             <!-- Contact Form -->
-            <div class="bg-white rounded-2xl shadow-xl p-8 lg:p-10">
-                <div class="mb-8">
-                    <div class="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-                        </svg>
-                    </div>
-                    <h2 class="text-3xl font-bold text-secondary mb-3">
-                        <?php echo esc_html(__('Mülk Talebinizi İletin')); ?>
+            <?php if ($formEnabled): ?>
+            <div class="contact-card" id="contact-form-container">
+                <style>
+                    .contact-form-header {
+                        margin-bottom: 2rem;
+                    }
+                    .contact-form-title {
+                        font-size: 1.875rem;
+                        font-weight: 700;
+                        color: #1e293b;
+                        margin-bottom: 0.75rem;
+                    }
+                    @media (min-width: 1024px) {
+                        .contact-form-title {
+                            font-size: 2.25rem;
+                        }
+                    }
+                    .contact-form-description {
+                        color: #64748b;
+                        font-size: 1.125rem;
+                        line-height: 1.6;
+                    }
+                </style>
+                <div class="contact-form-header">
+                    <h2 class="contact-form-title">
+                        <?php echo esc_html($formTitle); ?>
                     </h2>
-                    <p class="text-gray-600 text-lg">
-                        <?php echo esc_html(__('Aradığınız mülk özelliklerini belirtin, size en uygun seçenekleri sunalım.')); ?>
+                    <?php if (!empty($formDescription)): ?>
+                    <p class="contact-form-description">
+                        <?php echo esc_html($formDescription); ?>
                     </p>
+                    <?php endif; ?>
                 </div>
                 
-                <?php 
-                // Form render - 'iletisim' slug'ı ile formu göster
-                if (function_exists('the_form')) {
-                    the_form('iletisim');
-                } else if (function_exists('cms_form')) {
-                    echo cms_form('iletisim');
-                } else {
-                    echo '<p class="text-gray-600">İletişim formu yüklenemedi.</p>';
-                }
-                ?>
+                <div class="space-y-5">
+                    <style>
+                        /* Form başlığı üstündeki icon container'ı gizle */
+                        #contact-form-container .w-16.h-16.bg-primary.rounded-2xl.flex.items-center.justify-center.mb-6.shadow-lg {
+                            display: none !important;
+                        }
+                        
+                        /* Form Tasarım İyileştirmeleri */
+                        #contact-form-container .cms-form {
+                            background: transparent;
+                        }
+                        #contact-form-container .cms-form .form-field {
+                            margin-bottom: 1.75rem;
+                        }
+                        #contact-form-container .cms-form .field-label {
+                            display: block;
+                            font-weight: 600;
+                            color: #1e293b;
+                            margin-bottom: 0.625rem;
+                            font-size: 0.9375rem;
+                            letter-spacing: 0.01em;
+                        }
+                        #contact-form-container .cms-form .required-mark {
+                            color: #ef4444;
+                            margin-left: 0.25rem;
+                            font-weight: 700;
+                        }
+                        #contact-form-container .cms-form input[type="text"],
+                        #contact-form-container .cms-form input[type="email"],
+                        #contact-form-container .cms-form input[type="tel"],
+                        #contact-form-container .cms-form input[type="number"],
+                        #contact-form-container .cms-form textarea,
+                        #contact-form-container .cms-form select {
+                            width: 100%;
+                            padding: 1rem 1.25rem;
+                            border: 2px solid #e2e8f0;
+                            border-radius: 0.875rem;
+                            font-size: 1rem;
+                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                            background: #f8fafc;
+                            color: #1e293b;
+                            font-family: inherit;
+                        }
+                        #contact-form-container .cms-form input:hover,
+                        #contact-form-container .cms-form textarea:hover,
+                        #contact-form-container .cms-form select:hover {
+                            border-color: #cbd5e1;
+                            background: #ffffff;
+                        }
+                        #contact-form-container .cms-form input:focus,
+                        #contact-form-container .cms-form textarea:focus,
+                        #contact-form-container .cms-form select:focus {
+                            outline: none;
+                            border-color: #1e40af;
+                            background: #ffffff;
+                            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.1);
+                            transform: translateY(-1px);
+                        }
+                        #contact-form-container .cms-form input::placeholder,
+                        #contact-form-container .cms-form textarea::placeholder {
+                            color: #94a3b8;
+                            opacity: 1;
+                        }
+                        #contact-form-container .cms-form textarea {
+                            min-height: 140px;
+                            resize: vertical;
+                            line-height: 1.6;
+                        }
+                        #contact-form-container .cms-form select {
+                            cursor: pointer;
+                            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+                            background-position: right 0.75rem center;
+                            background-repeat: no-repeat;
+                            background-size: 1.5em 1.5em;
+                            padding-right: 2.5rem;
+                            appearance: none;
+                        }
+                        #contact-form-container .cms-form .submit-button {
+                            width: 100%;
+                            padding: 1.125rem 2rem;
+                            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+                            color: white;
+                            font-weight: 600;
+                            font-size: 1.0625rem;
+                            border: none;
+                            border-radius: 0.875rem;
+                            cursor: pointer;
+                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 0.625rem;
+                            box-shadow: 0 4px 14px 0 rgba(30, 64, 175, 0.25);
+                            margin-top: 0.5rem;
+                            letter-spacing: 0.025em;
+                        }
+                        #contact-form-container .cms-form .submit-button:hover {
+                            transform: translateY(-2px);
+                            box-shadow: 0 8px 20px 0 rgba(30, 64, 175, 0.35);
+                            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+                        }
+                        #contact-form-container .cms-form .submit-button:active {
+                            transform: translateY(0);
+                        }
+                        #contact-form-container .cms-form .submit-button:disabled {
+                            opacity: 0.6;
+                            cursor: not-allowed;
+                            transform: none;
+                            box-shadow: none;
+                        }
+                        #contact-form-container .cms-form .field-error input,
+                        #contact-form-container .cms-form .field-error textarea,
+                        #contact-form-container .cms-form .field-error select {
+                            border-color: #ef4444;
+                        }
+                        #contact-form-container .cms-form .field-error-message {
+                            color: #ef4444;
+                            font-size: 0.875rem;
+                            margin-top: 0.5rem;
+                        }
+                        #contact-form-container .cms-form .form-success {
+                            text-align: center;
+                            padding: 2rem;
+                            background: #f0fdf4;
+                            border: 2px solid #22c55e;
+                            border-radius: 0.75rem;
+                        }
+                        #contact-form-container .cms-form .success-icon {
+                            color: #22c55e;
+                            margin: 0 auto 1rem;
+                        }
+                        #contact-form-container .cms-form .success-message {
+                            color: #166534;
+                            font-weight: 600;
+                            font-size: 1.125rem;
+                        }
+                        #contact-form-container .cms-form .form-error-message {
+                            background: #fef2f2;
+                            border: 2px solid #ef4444;
+                            color: #991b1b;
+                            padding: 1rem;
+                            border-radius: 0.75rem;
+                            margin-top: 1rem;
+                        }
+                    </style>
+                    <?php 
+                    // Form render - customize'den seçilen formu göster
+                    if (function_exists('the_form')) {
+                        the_form($formSlug);
+                    } else if (function_exists('cms_form')) {
+                        echo cms_form($formSlug);
+                    } else {
+                        echo '<p class="text-gray-600">İletişim formu yüklenemedi.</p>';
+                    }
+                    ?>
+                </div>
                 
                 <!-- Real Estate Info Box -->
-                <div class="mt-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-                    <div class="flex items-start gap-4">
-                        <div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <style>
+                    .contact-info-box {
+                        margin-top: 2rem;
+                        padding: 1.5rem;
+                        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+                        border-radius: 0.75rem;
+                        border: 1px solid #bfdbfe;
+                    }
+                    .contact-info-box-inner {
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 1rem;
+                    }
+                    .contact-info-box-icon {
+                        width: 3rem;
+                        height: 3rem;
+                        background: #3b82f6;
+                        border-radius: 0.75rem;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex-shrink: 0;
+                    }
+                    .contact-info-box-icon svg {
+                        width: 1.5rem;
+                        height: 1.5rem;
+                        color: white;
+                    }
+                    .contact-info-box-content {
+                        flex: 1;
+                    }
+                    .contact-info-box-title {
+                        font-size: 1.125rem;
+                        font-weight: 700;
+                        color: #111827;
+                        margin-bottom: 0.5rem;
+                    }
+                    .contact-info-box-list {
+                        list-style: none;
+                        padding: 0;
+                        margin: 0;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.5rem;
+                    }
+                    .contact-info-box-item {
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 0.5rem;
+                        font-size: 0.875rem;
+                        color: #374151;
+                    }
+                    .contact-info-box-item svg {
+                        width: 1.25rem;
+                        height: 1.25rem;
+                        color: #3b82f6;
+                        flex-shrink: 0;
+                        margin-top: 0.125rem;
+                    }
+                </style>
+                <div class="contact-info-box">
+                    <div class="contact-info-box-inner">
+                        <div class="contact-info-box-icon">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                         </div>
-                        <div class="flex-1">
-                            <h4 class="text-lg font-bold text-gray-900 mb-2">
+                        <div class="contact-info-box-content">
+                            <h4 class="contact-info-box-title">
                                 <?php echo esc_html(__('Neden Bizi Tercih Etmelisiniz?')); ?>
                             </h4>
-                            <ul class="space-y-2 text-sm text-gray-700">
-                                <li class="flex items-start gap-2">
-                                    <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <ul class="contact-info-box-list">
+                                <li class="contact-info-box-item">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                     </svg>
                                     <span><?php echo esc_html(__('500+ aktif mülk seçeneği')); ?></span>
                                 </li>
-                                <li class="flex items-start gap-2">
-                                    <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <li class="contact-info-box-item">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                     </svg>
                                     <span><?php echo esc_html(__('Deneyimli ve sertifikalı danışmanlar')); ?></span>
                                 </li>
-                                <li class="flex items-start gap-2">
-                                    <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <li class="contact-info-box-item">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                     </svg>
                                     <span><?php echo esc_html(__('Şeffaf fiyatlandırma ve güvenli işlem')); ?></span>
                                 </li>
-                                <li class="flex items-start gap-2">
-                                    <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <li class="contact-info-box-item">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                     </svg>
                                     <span><?php echo esc_html(__('7/24 müşteri desteği ve hızlı yanıt')); ?></span>
@@ -202,9 +793,10 @@ ob_start();
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
             <!-- Contact Information -->
-            <div class="space-y-6">
+            <div class="contact-info-section">
                 
                 <!-- WhatsApp Quick Contact -->
                 <?php 
@@ -417,59 +1009,49 @@ ob_start();
                         </p>
                     </div>
                 </div>
-                
-                <!-- Quick Services -->
-                <div class="bg-white rounded-xl p-6 shadow-lg">
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                            <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-xl font-bold text-secondary">
-                                <?php echo esc_html(__('Hizmetlerimiz')); ?>
-                            </h3>
-                            <p class="text-sm text-gray-500">
-                                <?php echo esc_html(__('Size nasıl yardımcı olabiliriz?')); ?>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="p-4 bg-gray-50 rounded-lg text-center hover:bg-primary/5 transition-colors">
-                            <svg class="w-8 h-8 text-primary mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                            </svg>
-                            <p class="text-xs font-semibold text-gray-700"><?php echo esc_html(__('Satılık Mülk')); ?></p>
-                        </div>
-                        <div class="p-4 bg-gray-50 rounded-lg text-center hover:bg-primary/5 transition-colors">
-                            <svg class="w-8 h-8 text-primary mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                            </svg>
-                            <p class="text-xs font-semibold text-gray-700"><?php echo esc_html(__('Kiralık Mülk')); ?></p>
-                        </div>
-                        <div class="p-4 bg-gray-50 rounded-lg text-center hover:bg-primary/5 transition-colors">
-                            <svg class="w-8 h-8 text-primary mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                            <p class="text-xs font-semibold text-gray-700"><?php echo esc_html(__('Mülk Değerleme')); ?></p>
-                        </div>
-                        <div class="p-4 bg-gray-50 rounded-lg text-center hover:bg-primary/5 transition-colors">
-                            <svg class="w-8 h-8 text-primary mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                            </svg>
-                            <p class="text-xs font-semibold text-gray-700"><?php echo esc_html(__('Danışmanlık')); ?></p>
-                        </div>
-                    </div>
-                </div>
 
             </div>
         </div>
+        
+        <!-- Quick Services Section - Full Width Below Main Grid -->
+        <?php if ($servicesEnabled && !empty($servicesItems)): ?>
+        <div class="contact-services-section">
+            <div class="contact-services-card">
+                <div class="contact-services-header">
+                    <div class="contact-services-icon">
+                        <span class="material-symbols-outlined" style="font-size: 2rem; color: #1e40af;">check_circle</span>
+                    </div>
+                    <h3 class="contact-services-title">
+                        <?php echo esc_html($servicesTitle); ?>
+                    </h3>
+                    <?php if (!empty($servicesDescription)): ?>
+                    <p class="contact-services-subtitle">
+                        <?php echo esc_html($servicesDescription); ?>
+                    </p>
+                    <?php endif; ?>
+                </div>
+                <div class="contact-services-grid">
+                    <?php foreach ($servicesItems as $service): ?>
+                        <?php if (!empty($service['title'])): ?>
+                        <?php 
+                        $serviceLink = !empty($service['link']) ? $service['link'] : '#';
+                        $serviceIcon = $service['icon'] ?? 'star';
+                        ?>
+                        <a href="<?php echo esc_url($serviceLink); ?>" class="contact-service-item">
+                            <span class="material-symbols-outlined contact-service-icon"><?php echo esc_html($serviceIcon); ?></span>
+                            <p class="contact-service-text"><?php echo esc_html($service['title']); ?></p>
+                        </a>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </section>
 
 <!-- Map Section -->
-<?php if ($mapEmbed || $companyAddress): ?>
+<?php if ($mapEnabled && ($mapEmbed || $companyAddress)): ?>
 <section class="py-16 bg-gray-100">
     <div class="container mx-auto px-4 lg:px-6">
         <div class="bg-white rounded-2xl shadow-xl overflow-hidden">

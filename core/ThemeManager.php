@@ -775,18 +775,39 @@ class ThemeManager {
      */
     private function saveHomepageSections(array $sections, int $themeId): void {
         foreach ($sections as $sectionId => $sectionData) {
-            // Section var mı kontrol et (theme_id ile birlikte)
-            $stmt = $this->db->prepare("SELECT id FROM page_sections WHERE theme_id = ? AND page_type = 'home' AND section_id = ? LIMIT 1");
+            // Section var mı kontrol et (theme_id ile birlikte) - mevcut veriyi de al
+            $stmt = $this->db->prepare("SELECT id, settings, items FROM page_sections WHERE theme_id = ? AND page_type = 'home' AND section_id = ? LIMIT 1");
             $stmt->execute([$themeId, $sectionId]);
             $existing = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            $title = $sectionData['title'] ?? '';
-            $subtitle = $sectionData['subtitle'] ?? '';
-            $content = $sectionData['content'] ?? '';
-            $isActive = isset($sectionData['enabled']) ? ($sectionData['enabled'] == '1' ? 1 : 0) : 1;
+            // Mevcut settings'i yükle (varsa)
+            $existingSettings = [];
+            if ($existing && !empty($existing['settings'])) {
+                $existingSettings = json_decode($existing['settings'], true) ?? [];
+            }
+            
+            // Mevcut items'ı yükle (varsa)
+            $existingItems = [];
+            if ($existing && !empty($existing['items'])) {
+                $existingItems = json_decode($existing['items'], true) ?? [];
+            }
+            
+            // Title ve subtitle: Sadece boş değilse güncelle, boşsa mevcut değeri koru
+            $stmt = $this->db->prepare("SELECT title, subtitle, content FROM page_sections WHERE theme_id = ? AND page_type = 'home' AND section_id = ? LIMIT 1");
+            $stmt->execute([$themeId, $sectionId]);
+            $existingData = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $title = !empty($sectionData['title']) ? $sectionData['title'] : ($existingData['title'] ?? '');
+            $subtitle = isset($sectionData['subtitle']) ? $sectionData['subtitle'] : ($existingData['subtitle'] ?? '');
+            $content = isset($sectionData['content']) ? $sectionData['content'] : ($existingData['content'] ?? '');
+            $isActive = isset($sectionData['enabled']) ? ($sectionData['enabled'] == '1' ? 1 : 0) : ($existing ? null : 1);
             
             // Items'ı al (varsa) - tabs verisi de items içinde saklanabilir
-            $items = isset($sectionData['items']) && is_array($sectionData['items']) ? $sectionData['items'] : [];
+            $items = isset($sectionData['items']) && is_array($sectionData['items']) && !empty($sectionData['items']) 
+                ? $sectionData['items'] 
+                : (isset($sectionData['items']) && is_array($sectionData['items']) && empty($sectionData['items'])
+                    ? []  // Boş array olarak gönderilmişse temizle
+                    : $existingItems);
             
             // Tabs verisi varsa items yerine tabs kullan (feature-tabs için)
             if (isset($sectionData['tabs']) && is_array($sectionData['tabs'])) {
@@ -800,21 +821,60 @@ class ThemeManager {
             
             $itemsJson = json_encode($items, JSON_UNESCAPED_UNICODE);
             
-            // title, subtitle, content, enabled, items, tabs, packages dışındaki alanları settings olarak kaydet
-            // settings key'i zaten nested array olarak geliyor, bu yüzden direkt kullanabiliriz
-            $settingsData = [];
+            // Settings'i al - mevcut settings ile birleştir
+            $newSettingsData = [];
             if (isset($sectionData['settings']) && is_array($sectionData['settings'])) {
-                $settingsData = $sectionData['settings'];
+                $newSettingsData = $sectionData['settings'];
             } else {
                 // Eğer settings key'i yoksa, diğer alanları settings olarak kaydet
                 $excludeKeys = ['title', 'subtitle', 'content', 'enabled', 'items', 'tabs', 'packages'];
-                $settingsData = array_diff_key($sectionData, array_flip($excludeKeys));
+                $newSettingsData = array_diff_key($sectionData, array_flip($excludeKeys));
+            }
+            
+            // Mevcut settings ile birleştir: 
+            // Yeni değerler varsa kullan, yoksa mevcut değeri koru
+            // Sadece protected fields için boş değer gönderildiğinde mevcut değeri koru
+            $settingsData = $existingSettings;
+            
+            // Korunması gereken alanlar (form_id gibi - boş string olarak gönderilse bile mevcut değeri koru)
+            // Bu alanlar genellikle seçim yapılmadığında boş string olarak gönderilir ama mevcut değer korunmalı
+            $protectedFields = ['form_id'];
+            
+            foreach ($newSettingsData as $key => $value) {
+                // Korunması gereken alanlar için: Boş string veya null ise mevcut değeri koru
+                if (in_array($key, $protectedFields) && ($value === '' || $value === null)) {
+                    // Mevcut değeri koru, güncelleme yapma
+                    continue;
+                }
+                
+                // Null değer için mevcut değeri koru (bu alan gönderilmemiş demektir)
+                if ($value === null) {
+                    continue;
+                }
+                
+                // Checkbox veya boolean alanlar için özel işleme
+                if (strpos($key, 'show_') === 0 || strpos($key, 'enable_') === 0 || strpos($key, 'is_') === 0) {
+                    // Boolean alanlar için false olarak kaydet (boş string veya '0' ise)
+                    $settingsData[$key] = ($value === '' || $value === '0' || $value === false || $value === 'false') ? false : true;
+                } else {
+                    // Diğer alanlar için: Yeni değeri kaydet (boş string bile olsa)
+                    // Form üzerinden gönderilen tüm değerleri kaydetmeliyiz
+                    // Eğer kullanıcı form alanına değer girdiyse, o değer gönderiliyor demektir
+                    $settingsData[$key] = $value;
+                }
             }
             
             $settingsJson = json_encode($settingsData, JSON_UNESCAPED_UNICODE);
             
             if ($existing) {
-                // Güncelle
+                // Güncelle - is_active değeri null ise mevcut değeri koru
+                if ($isActive === null) {
+                    $stmt = $this->db->prepare("SELECT is_active FROM page_sections WHERE id = ? LIMIT 1");
+                    $stmt->execute([$existing['id']]);
+                    $existingActive = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $isActive = $existingActive['is_active'] ?? 1;
+                }
+                
                 $stmt = $this->db->prepare("
                     UPDATE page_sections SET
                         title = ?,
@@ -828,6 +888,9 @@ class ThemeManager {
                 $stmt->execute([$title, $subtitle, $content, $settingsJson, $itemsJson, $isActive, $existing['id']]);
             } else {
                 // Yeni ekle
+                if ($isActive === null) {
+                    $isActive = 1;
+                }
                 $stmt = $this->db->prepare("
                     INSERT INTO page_sections (theme_id, page_type, section_id, title, subtitle, content, settings, items, is_active, sort_order)
                     VALUES (?, 'home', ?, ?, ?, ?, ?, ?, ?, ?)
@@ -843,33 +906,91 @@ class ThemeManager {
      */
     private function saveContactSections(array $sections, int $themeId): void {
         foreach ($sections as $sectionId => $sectionData) {
-            // Section var mı kontrol et (theme_id ile birlikte)
-            $stmt = $this->db->prepare("SELECT id FROM page_sections WHERE theme_id = ? AND page_type = 'contact' AND section_id = ? LIMIT 1");
+            // Section var mı kontrol et (theme_id ile birlikte) - mevcut veriyi de al
+            $stmt = $this->db->prepare("SELECT id, settings, items FROM page_sections WHERE theme_id = ? AND page_type = 'contact' AND section_id = ? LIMIT 1");
             $stmt->execute([$themeId, $sectionId]);
             $existing = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            $title = $sectionData['title'] ?? '';
-            $subtitle = $sectionData['subtitle'] ?? '';
-            $content = $sectionData['content'] ?? '';
-            $isActive = isset($sectionData['enabled']) ? ($sectionData['enabled'] == '1' ? 1 : 0) : 1;
+            // Mevcut settings'i yükle (varsa)
+            $existingSettings = [];
+            if ($existing && !empty($existing['settings'])) {
+                $existingSettings = json_decode($existing['settings'], true) ?? [];
+            }
+            
+            // Mevcut items'ı yükle (varsa)
+            $existingItems = [];
+            if ($existing && !empty($existing['items'])) {
+                $existingItems = json_decode($existing['items'], true) ?? [];
+            }
+            
+            // Title ve subtitle: Sadece boş değilse güncelle, boşsa mevcut değeri koru
+            $stmt = $this->db->prepare("SELECT title, subtitle, content FROM page_sections WHERE theme_id = ? AND page_type = 'contact' AND section_id = ? LIMIT 1");
+            $stmt->execute([$themeId, $sectionId]);
+            $existingData = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $title = !empty($sectionData['title']) ? $sectionData['title'] : ($existingData['title'] ?? '');
+            $subtitle = isset($sectionData['subtitle']) ? $sectionData['subtitle'] : ($existingData['subtitle'] ?? '');
+            $content = isset($sectionData['content']) ? $sectionData['content'] : ($existingData['content'] ?? '');
+            $isActive = isset($sectionData['enabled']) ? ($sectionData['enabled'] == '1' ? 1 : 0) : ($existing ? null : 1);
             
             // Items'ı al (varsa)
-            $items = isset($sectionData['items']) && is_array($sectionData['items']) ? $sectionData['items'] : [];
+            $items = isset($sectionData['items']) && is_array($sectionData['items']) && !empty($sectionData['items']) 
+                ? $sectionData['items'] 
+                : (isset($sectionData['items']) && is_array($sectionData['items']) && empty($sectionData['items'])
+                    ? []  // Boş array olarak gönderilmişse temizle
+                    : $existingItems);
             $itemsJson = json_encode($items, JSON_UNESCAPED_UNICODE);
             
-            // title, subtitle, content, enabled, items dışındaki alanları settings olarak kaydet
-            $settingsData = [];
+            // Settings'i al - mevcut settings ile birleştir
+            $newSettingsData = [];
             if (isset($sectionData['settings']) && is_array($sectionData['settings'])) {
-                $settingsData = $sectionData['settings'];
+                $newSettingsData = $sectionData['settings'];
             } else {
                 $excludeKeys = ['title', 'subtitle', 'content', 'enabled', 'items'];
-                $settingsData = array_diff_key($sectionData, array_flip($excludeKeys));
+                $newSettingsData = array_diff_key($sectionData, array_flip($excludeKeys));
+            }
+            
+            // Mevcut settings ile birleştir
+            $settingsData = $existingSettings;
+            
+            // Korunması gereken alanlar (form_id gibi - boş string olarak gönderilse bile mevcut değeri koru)
+            $protectedFields = ['form_id'];
+            
+            foreach ($newSettingsData as $key => $value) {
+                // Korunması gereken alanlar için: Boş string veya null ise mevcut değeri koru
+                if (in_array($key, $protectedFields) && ($value === '' || $value === null)) {
+                    // Mevcut değeri koru, güncelleme yapma
+                    continue;
+                }
+                
+                // Null değer için mevcut değeri koru (bu alan gönderilmemiş demektir)
+                if ($value === null) {
+                    continue;
+                }
+                
+                // Checkbox veya boolean alanlar için özel işleme
+                if (strpos($key, 'show_') === 0 || strpos($key, 'enable_') === 0 || strpos($key, 'is_') === 0) {
+                    // Boolean alanlar için false olarak kaydet (boş string veya '0' ise)
+                    $settingsData[$key] = ($value === '' || $value === '0' || $value === false || $value === 'false') ? false : true;
+                } else {
+                    // Diğer alanlar için: Yeni değeri kaydet (boş string bile olsa)
+                    // Form üzerinden gönderilen tüm değerleri kaydetmeliyiz
+                    // Eğer kullanıcı form alanına değer girdiyse, o değer gönderiliyor demektir
+                    $settingsData[$key] = $value;
+                }
             }
             
             $settingsJson = json_encode($settingsData, JSON_UNESCAPED_UNICODE);
             
             if ($existing) {
-                // Güncelle
+                // Güncelle - is_active değeri null ise mevcut değeri koru
+                if ($isActive === null) {
+                    $stmt = $this->db->prepare("SELECT is_active FROM page_sections WHERE id = ? LIMIT 1");
+                    $stmt->execute([$existing['id']]);
+                    $existingActive = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $isActive = $existingActive['is_active'] ?? 1;
+                }
+                
                 $stmt = $this->db->prepare("
                     UPDATE page_sections SET
                         title = ?,
@@ -883,6 +1004,9 @@ class ThemeManager {
                 $stmt->execute([$title, $subtitle, $content, $settingsJson, $itemsJson, $isActive, $existing['id']]);
             } else {
                 // Yeni ekle
+                if ($isActive === null) {
+                    $isActive = 1;
+                }
                 $stmt = $this->db->prepare("
                     INSERT INTO page_sections (theme_id, page_type, section_id, title, subtitle, content, settings, items, is_active, sort_order)
                     VALUES (?, 'contact', ?, ?, ?, ?, ?, ?, ?, ?)

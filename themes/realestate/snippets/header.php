@@ -81,27 +81,47 @@ $siteLogo = $themeLoader->getLogo();
 
             <!-- Right Side Actions -->
             <div class="flex items-center space-x-4">
+                <!-- Desktop CTA Button -->
+                <?php if ($showCta): ?>
+                    <a href="<?php echo esc_url($ctaLink); ?>" 
+                       class="hidden lg:inline-block px-6 py-2 bg-primary text-white rounded-lg font-medium hover:bg-opacity-90 transition-all">
+                        <?php echo esc_html($ctaText); ?>
+                    </a>
+                <?php endif; ?>
+
+                <!-- Mobile Actions: Search + Menu -->
+                <div class="flex items-center space-x-2 lg:hidden">
+                    <?php if ($showSearch): ?>
+                        <button id="search-toggle" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" aria-label="<?php echo esc_attr__('Search'); ?>">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: <?php echo esc_attr($headerTextColor); ?>;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                        </button>
+                    <?php endif; ?>
+
+                    <!-- Mobile Menu Toggle -->
+                    <button id="mobile-menu-toggle" 
+                            class="p-2 hover:bg-gray-100 rounded-lg transition-colors" 
+                            aria-label="<?php echo esc_attr__('Menu'); ?>"
+                            aria-expanded="false"
+                            type="button">
+                        <svg id="menu-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: <?php echo esc_attr($headerTextColor); ?>;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                        <svg id="close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: <?php echo esc_attr($headerTextColor); ?>;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Desktop Search -->
                 <?php if ($showSearch): ?>
-                    <button id="search-toggle" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" aria-label="<?php echo esc_attr__('Search'); ?>">
+                    <button id="search-toggle-desktop" class="hidden lg:block p-2 hover:bg-gray-100 rounded-lg transition-colors" aria-label="<?php echo esc_attr__('Search'); ?>">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: <?php echo esc_attr($headerTextColor); ?>;">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                     </button>
                 <?php endif; ?>
-
-                <?php if ($showCta): ?>
-                    <a href="<?php echo esc_url($ctaLink); ?>" 
-                       class="inline-block px-6 py-2 bg-primary text-white rounded-lg font-medium hover:bg-opacity-90 transition-all">
-                        <?php echo esc_html($ctaText); ?>
-                    </a>
-                <?php endif; ?>
-
-                <!-- Mobile Menu Toggle -->
-                <button id="mobile-menu-toggle" class="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors" aria-label="<?php echo esc_attr__('Menu'); ?>">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: <?php echo esc_attr($headerTextColor); ?>;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                </button>
             </div>
         </div>
 
@@ -153,53 +173,125 @@ $siteLogo = $themeLoader->getLogo();
 <?php endif; ?>
 
 <script>
-    // Mobile menu toggle
-    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
-    const mobileMenu = document.getElementById('mobile-menu');
-    if (mobileMenuToggle && mobileMenu) {
-        mobileMenuToggle.addEventListener('click', () => {
-            mobileMenu.classList.toggle('hidden');
-        });
-    }
-
-    // Search overlay
-    <?php if ($showSearch): ?>
-    const searchToggle = document.getElementById('search-toggle');
-    const searchOverlay = document.getElementById('search-overlay');
-    const searchClose = document.getElementById('search-close');
-    
-    if (searchToggle && searchOverlay) {
-        searchToggle.addEventListener('click', () => {
-            searchOverlay.classList.remove('hidden');
-        });
-    }
-    
-    if (searchClose && searchOverlay) {
-        searchClose.addEventListener('click', () => {
-            searchOverlay.classList.add('hidden');
-        });
-    }
-    
-    searchOverlay.addEventListener('click', (e) => {
-        if (e.target === searchOverlay) {
-            searchOverlay.classList.add('hidden');
-        }
-    });
-    <?php endif; ?>
-
-    // Header scroll effect
+    // Header configuration for theme.js
     const header = document.getElementById('main-header');
-    if (header && <?php echo $isFixed ? 'true' : 'false'; ?>) {
-        window.addEventListener('scroll', () => {
-            if (window.scrollY > 50) {
-                header.style.backgroundColor = '<?php echo esc_js($headerBgColor); ?>';
-                header.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-            } else {
-                <?php if ($isTransparent): ?>
-                header.style.backgroundColor = 'transparent';
-                <?php endif; ?>
-                header.style.boxShadow = 'none';
+    if (header) {
+        header.dataset.bgColor = '<?php echo esc_js($headerBgColor); ?>';
+        header.dataset.transparent = '<?php echo $isTransparent ? 'true' : 'false'; ?>';
+        header.dataset.isFixed = '<?php echo $isFixed ? 'true' : 'false'; ?>';
+    }
+    
+    // Mobile Menu Toggle - Inline for immediate execution
+    (function() {
+        let menuInitialized = false;
+        
+        function initMobileMenuInline() {
+            if (menuInitialized) return;
+            
+            const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+            const mobileMenu = document.getElementById('mobile-menu');
+            
+            if (!mobileMenuToggle || !mobileMenu) {
+                // Retry if elements not found yet
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initMobileMenuInline);
+                } else {
+                    // Multiple retries for reliability
+                    let retries = 0;
+                    const maxRetries = 10;
+                    const retryInterval = setInterval(function() {
+                        retries++;
+                        const btn = document.getElementById('mobile-menu-toggle');
+                        const menu = document.getElementById('mobile-menu');
+                        if (btn && menu) {
+                            clearInterval(retryInterval);
+                            initMobileMenuInline();
+                        } else if (retries >= maxRetries) {
+                            clearInterval(retryInterval);
+                        }
+                    }, 50);
+                }
+                return;
+            }
+            
+            menuInitialized = true;
+            // Mark as initialized for theme.js fallback
+            mobileMenuToggle.dataset.menuInitialized = 'true';
+            const menuIcon = document.getElementById('menu-icon');
+            const closeIcon = document.getElementById('close-icon');
+            
+            function closeMenu() {
+                mobileMenu.classList.add('hidden');
+                mobileMenuToggle.setAttribute('aria-expanded', 'false');
+                document.body.style.overflow = '';
+                if (menuIcon && closeIcon) {
+                    menuIcon.classList.remove('hidden');
+                    closeIcon.classList.add('hidden');
+                }
+            }
+            
+            function openMenu() {
+                mobileMenu.classList.remove('hidden');
+                mobileMenuToggle.setAttribute('aria-expanded', 'true');
+                document.body.style.overflow = 'hidden';
+                if (menuIcon && closeIcon) {
+                    menuIcon.classList.add('hidden');
+                    closeIcon.classList.remove('hidden');
+                }
+            }
+            
+            mobileMenuToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (mobileMenu.classList.contains('hidden')) {
+                    openMenu();
+                } else {
+                    closeMenu();
+                }
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', function(e) {
+                if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
+                    if (!mobileMenu.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                        closeMenu();
+                    }
+                }
+            });
+            
+            // Close menu when clicking on a menu link
+            const menuLinks = mobileMenu.querySelectorAll('a');
+            menuLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    closeMenu();
+                });
+            });
+            
+            // Close menu on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && mobileMenu && !mobileMenu.classList.contains('hidden')) {
+                    closeMenu();
+                }
+            });
+        }
+        
+        // Initialize immediately - multiple strategies for reliability
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMobileMenuInline);
+        } else {
+            // DOM already loaded, try immediately
+            initMobileMenuInline();
+        }
+        
+        // Also try on window load as fallback
+        window.addEventListener('load', function() {
+            if (!menuInitialized) {
+                initMobileMenuInline();
             }
         });
-    }
+        
+        // Immediate execution attempt
+        setTimeout(initMobileMenuInline, 0);
+    })();
 </script>

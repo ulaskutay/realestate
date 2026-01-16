@@ -133,20 +133,85 @@ class ModuleLoader {
      * Tema modüllerini yükle
      */
     public function loadThemeModules($themePath) {
+        // Önce eski tema modüllerini temizle (sadece tema modülleri)
+        $modulesToUnload = [];
+        foreach ($this->loaded_modules as $name => $loadedModule) {
+            if (isset($loadedModule['info']['is_theme_module'])) {
+                $modulesToUnload[] = $name;
+            }
+        }
+        
+        // Eski tema modüllerini deaktive et ve temizle
+        foreach ($modulesToUnload as $name) {
+            // Route'ları temizle
+            foreach ($this->routes as $type => &$routes) {
+                $this->routes[$type] = array_filter($routes, function($route) use ($name) {
+                    return $route['module'] !== $name;
+                });
+            }
+            
+            // Yüklenen modüllerden kaldır
+            unset($this->loaded_modules[$name]);
+        }
+        
         // Tema modüllerini tara
         $this->theme_modules = $this->scanThemeModules($themePath);
         
-        // Tema modüllerini all_modules'e ekle (öncelikli)
+        // Tema modüllerini all_modules'e ekle (öncelikli - override eder)
         foreach ($this->theme_modules as $name => $module) {
             $this->all_modules[$name] = $module;
         }
         
         // Aktif tema modüllerini yükle
         foreach ($this->theme_modules as $name => $module) {
-            if ($module['is_active'] || !isset($this->active_modules[$name])) {
-                // Tema modülü otomatik aktif edilir
-                $this->activateModule($name);
-                $this->loadModule($module);
+            // Tema modülü otomatik aktif edilir
+            // Önce veritabanında aktif olarak işaretle
+            try {
+                $existing = $this->db->fetch(
+                    "SELECT id FROM modules WHERE slug = ?",
+                    [$name]
+                );
+                
+                $isSystem = isset($module['is_system']) ? (int)$module['is_system'] : 0;
+                
+                if ($existing) {
+                    $this->db->query(
+                        "UPDATE modules SET is_active = 1, is_system = ?, updated_at = NOW() WHERE slug = ?",
+                        [$isSystem, $name]
+                    );
+                } else {
+                    $this->db->query(
+                        "INSERT INTO modules (name, slug, label, description, icon, version, author, path, is_active, is_system, installed_at, created_at) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())",
+                        [
+                            $module['name'],
+                            $module['name'],
+                            $module['title'],
+                            $module['description'] ?? '',
+                            $module['admin_menu']['icon'] ?? 'extension',
+                            $module['version'],
+                            $module['author'] ?? '',
+                            $module['path'],
+                            $isSystem
+                        ]
+                    );
+                }
+                
+                // active_modules dizisine ekle
+                $this->active_modules[$name] = [
+                    'slug' => $name,
+                    'is_active' => 1
+                ];
+            } catch (Exception $e) {
+                error_log("Error activating theme module {$name}: " . $e->getMessage());
+            }
+            
+            // Modülü yükle
+            $result = $this->loadModule($module);
+            if (!$result) {
+                error_log("Failed to load theme module: {$name} from {$module['path']}");
+            } else {
+                error_log("Successfully loaded theme module: {$name}");
             }
         }
     }
@@ -285,6 +350,13 @@ class ModuleLoader {
      * Aktif temanın modüllerini scan listesine ekle
      */
     private function addThemeModulesToScan() {
+        // Önce all_modules içindeki tüm tema modüllerini temizle
+        foreach ($this->all_modules as $name => $module) {
+            if (isset($module['is_theme_module']) && $module['is_theme_module']) {
+                unset($this->all_modules[$name]);
+            }
+        }
+        
         // ThemeManager'dan aktif temayı al
         if (!class_exists('ThemeManager')) {
             require_once __DIR__ . '/ThemeManager.php';
@@ -300,7 +372,7 @@ class ModuleLoader {
         $themePath = $themeManager->getThemesPath() . '/' . $activeTheme['slug'];
         $themeModules = $this->scanThemeModules($themePath);
         
-        // Tema modüllerini all_modules'e ekle
+        // Tema modüllerini all_modules'e ekle (öncelikli - override eder)
         foreach ($themeModules as $name => $module) {
             $this->all_modules[$name] = $module;
         }
@@ -352,6 +424,20 @@ class ModuleLoader {
     private function loadActiveModules() {
         foreach ($this->all_modules as $name => $module) {
             if ($module['is_active']) {
+                // Eğer modül tema modülü değilse ve aynı isimde bir tema modülü varsa, tema modülü olmayan modülü yükleme
+                if (!isset($module['is_theme_module']) || !$module['is_theme_module']) {
+                    // Aynı isimde tema modülü var mı kontrol et
+                    $hasThemeModule = false;
+                    foreach ($this->all_modules as $otherName => $otherModule) {
+                        if ($otherName === $name && isset($otherModule['is_theme_module']) && $otherModule['is_theme_module']) {
+                            $hasThemeModule = true;
+                            break;
+                        }
+                    }
+                    if ($hasThemeModule) {
+                        continue; // Tema modülü varsa, tema modülü olmayan modülü atla
+                    }
+                }
                 $this->loadModule($module);
             }
         }
@@ -363,9 +449,47 @@ class ModuleLoader {
     public function loadModule($module) {
         $name = $module['name'];
         
-        // Zaten yüklenmişse atla
+        // Eğer aynı isimde bir modül zaten yüklenmişse
         if (isset($this->loaded_modules[$name])) {
-            return true;
+            $existingModule = $this->loaded_modules[$name]['info'];
+            
+            // Eğer yeni modül tema modülü ise ve eski modül de tema modülü ise, eski modülü temizle
+            if (isset($module['is_theme_module']) && isset($existingModule['is_theme_module'])) {
+                // Route'ları temizle
+                foreach ($this->routes as $type => &$routes) {
+                    $this->routes[$type] = array_filter($routes, function($route) use ($name) {
+                        return $route['module'] !== $name;
+                    });
+                }
+                
+                // Admin menüsünden kaldır
+                $this->admin_menus = array_filter($this->admin_menus, function($menu) use ($name) {
+                    return $menu['module'] !== $name;
+                });
+                
+                // Yüklenen modüllerden kaldır
+                unset($this->loaded_modules[$name]);
+            } elseif (isset($module['is_theme_module']) && !isset($existingModule['is_theme_module'])) {
+                // Yeni modül tema modülü ama eski modül tema modülü değilse, eski modülü temizle (tema modülü öncelikli)
+                foreach ($this->routes as $type => &$routes) {
+                    $this->routes[$type] = array_filter($routes, function($route) use ($name) {
+                        return $route['module'] !== $name;
+                    });
+                }
+                
+                // Admin menüsünden kaldır
+                $this->admin_menus = array_filter($this->admin_menus, function($menu) use ($name) {
+                    return $menu['module'] !== $name;
+                });
+                
+                unset($this->loaded_modules[$name]);
+            } elseif (!isset($module['is_theme_module']) && isset($existingModule['is_theme_module'])) {
+                // Yeni modül tema modülü değil ama eski modül tema modülü ise, yeni modülü yükleme (tema modülü öncelikli)
+                return true;
+            } else {
+                // Aynı modül zaten yüklenmiş ve ikisi de tema modülü değilse, atla
+                return true;
+            }
         }
         
         // PHP versiyon kontrolü
@@ -390,47 +514,97 @@ class ModuleLoader {
             }
         }
         
-        // Ana controller'ı yükle
-        require_once $main_file;
-        
-        // Controller sınıfını oluştur
+        // Controller sınıfını kontrol et
         $controller_class = $this->getControllerClassName($module);
         
+        // Eğer aynı sınıf adı zaten tanımlanmışsa
         if (class_exists($controller_class)) {
-            $controller = new $controller_class();
-            
-            // Modül bilgilerini controller'a aktar
-            if (method_exists($controller, 'setModuleInfo')) {
-                $controller->setModuleInfo($module);
+            // Aynı isimde yüklenmiş bir modül var mı kontrol et
+            if (isset($this->loaded_modules[$name])) {
+                $existingModule = $this->loaded_modules[$name]['info'];
+                $existingTheme = isset($existingModule['theme_path']) ? basename($existingModule['theme_path']) : '';
+                $newTheme = isset($module['theme_path']) ? basename($module['theme_path']) : '';
+                
+                // Eğer farklı temalara aitse, önceki modülü temizle
+                if ($existingTheme !== $newTheme && $existingTheme && $newTheme) {
+                    // Önceki modülü temizle
+                    unset($this->loaded_modules[$name]);
+                    // Route'ları temizle
+                    foreach ($this->routes as $type => &$routes) {
+                        $this->routes[$type] = array_filter($routes, function($route) use ($name) {
+                            return $route['module'] !== $name;
+                        });
+                    }
+                    
+                    // Admin menüsünden kaldır
+                    $this->admin_menus = array_filter($this->admin_menus, function($menu) use ($name) {
+                        return $menu['module'] !== $name;
+                    });
+                    
+                    error_log("Unloaded previous module {$name} from theme {$existingTheme} to load from theme {$newTheme}");
+                    // Sınıf zaten tanımlı, yeni dosyayı yüklemeden devam et (mevcut sınıfı kullan)
+                } else {
+                    // Aynı tema, sınıf zaten yüklü, yeni dosyayı yükleme
+                    error_log("Controller class {$controller_class} already exists for module {$name}. Using existing class.");
+                    // Mevcut controller'ı kullan
+                    if (isset($this->loaded_modules[$name]['controller'])) {
+                        $controller = $this->loaded_modules[$name]['controller'];
+                        // Modül bilgilerini güncelle
+                        $this->loaded_modules[$name]['info'] = $module;
+                        return true;
+                    }
+                }
+            } else {
+                // Sınıf tanımlı ama modül yüklenmemiş (muhtemelen başka bir temadan kaldı)
+                // Yeni dosyayı yüklemeden devam et (mevcut sınıfı kullan)
+                error_log("Warning: Controller class {$controller_class} already exists but module not loaded. Using existing class for module {$name}");
             }
             
-            // Aktivasyon hook'unu çağır
-            if (method_exists($controller, 'onLoad')) {
-                $controller->onLoad();
-            }
-            
-            $this->loaded_modules[$name] = [
-                'info' => $module,
-                'controller' => $controller
-            ];
-            
-            // Route'ları kaydet
-            $this->registerModuleRoutes($module, $controller);
-            
-            // Admin menüsünü kaydet
-            $this->registerAdminMenu($module);
-            
-            // Widget'ları kaydet
-            $this->registerWidgets($module);
-            
-            // Shortcode'ları kaydet
-            $this->registerShortcodes($module, $controller);
-            
-            return true;
+            // Sınıf zaten tanımlı, yeni dosyayı yükleme (PHP'de sınıfları silemeyiz)
+            // Mevcut sınıfı kullanmaya devam et
+        } else {
+            // Ana controller'ı yükle (sınıf henüz tanımlı değilse)
+            require_once $main_file;
         }
         
-        error_log("Module controller class not found: {$controller_class}");
-        return false;
+        if (!class_exists($controller_class)) {
+            error_log("Module controller class not found: {$controller_class} for module {$name}");
+            error_log("Module path: {$module['path']}");
+            error_log("Main file: {$main_file}");
+            return false;
+        }
+        
+        $controller = new $controller_class();
+        
+        // Modül bilgilerini controller'a aktar
+        if (method_exists($controller, 'setModuleInfo')) {
+            $controller->setModuleInfo($module);
+        }
+        
+        // Aktivasyon hook'unu çağır
+        if (method_exists($controller, 'onLoad')) {
+            $controller->onLoad();
+        }
+        
+        $this->loaded_modules[$name] = [
+            'info' => $module,
+            'controller' => $controller
+        ];
+        
+        // Route'ları kaydet
+        $this->registerModuleRoutes($module, $controller);
+        
+        // Admin menüsünü kaydet
+        $this->registerAdminMenu($module);
+        
+        // Widget'ları kaydet
+        $this->registerWidgets($module);
+        
+        // Shortcode'ları kaydet
+        $this->registerShortcodes($module, $controller);
+        
+        error_log("Module {$name} loaded successfully with controller {$controller_class}");
+        return true;
     }
     
     /**
@@ -455,6 +629,7 @@ class ModuleLoader {
      */
     private function registerModuleRoutes($module, $controller) {
         if (empty($module['routes'])) {
+            error_log("ModuleLoader::registerModuleRoutes - Module: {$module['name']} has no routes");
             return;
         }
         
@@ -474,11 +649,21 @@ class ModuleLoader {
             ];
             
             $type = $route['type'] ?? 'frontend';
+            
+            // Route dizisini başlat (eğer yoksa)
+            if (!isset($this->routes[$type])) {
+                $this->routes[$type] = [];
+            }
+            
             $this->routes[$type][] = $route_data;
             
             if ($debugMode) {
-                error_log("  Registered route: {$type} - {$route_data['path']} -> {$route_data['handler']}");
+                error_log("  Registered route: {$type} - {$route_data['path']} -> {$route_data['handler']} (method: {$route_data['method']})");
             }
+        }
+        
+        if ($debugMode) {
+            error_log("Total {$type} routes after registration: " . count($this->routes[$type]));
         }
     }
     
@@ -490,14 +675,21 @@ class ModuleLoader {
             return;
         }
         
+        $name = $module['name'];
+        
+        // Aynı modül için zaten bir menü varsa, önce onu kaldır (duplikasyonu önlemek için)
+        $this->admin_menus = array_filter($this->admin_menus, function($menu) use ($name) {
+            return $menu['module'] !== $name;
+        });
+        
         $menu = $module['admin_menu'];
         
         $this->admin_menus[] = [
-            'module' => $module['name'],
+            'module' => $name,
             'title' => $menu['title'] ?? $module['title'],
             'icon' => $menu['icon'] ?? 'extension',
             'position' => $menu['position'] ?? 100,
-            'slug' => 'module/' . $module['name'],
+            'slug' => 'module/' . $name,
             'submenu' => $menu['submenu'] ?? []
         ];
         
@@ -954,13 +1146,17 @@ class ModuleLoader {
         // Modül yüklü mü kontrol et
         $controller = $this->getModuleController($module_name);
         
-        // Controller yoksa, modülü yüklemeyi dene (aktifse)
+        // Controller yoksa, modülü yüklemeyi dene (aktifse veya tema modülü ise)
         if (!$controller) {
             $module = $this->getModule($module_name);
-            if ($module && $this->isModuleActiveInDB($module_name)) {
-                // Modülü yükle
-                $this->loadModule($module);
-                $controller = $this->getModuleController($module_name);
+            if ($module) {
+                // Tema modülü ise veritabanı kontrolü yapmadan yükle
+                $isThemeModule = isset($module['is_theme_module']) && $module['is_theme_module'];
+                if ($isThemeModule || $this->isModuleActiveInDB($module_name)) {
+                    // Modülü yükle
+                    $this->loadModule($module);
+                    $controller = $this->getModuleController($module_name);
+                }
             }
         }
         
@@ -992,15 +1188,52 @@ class ModuleLoader {
         // Path'i normalize et (baştaki ve sondaki slash'leri kaldır)
         $path = trim($path, '/');
         
+        // Aktif temayı al (sadece aktif temanın modüllerini kullanmak için)
+        $activeTheme = get_option('active_theme', 'realestate');
+        
         // Debug modu kontrolü
         $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
         
         if ($debugMode) {
-            error_log("ModuleLoader::handleFrontendRoute - Path: '$path'");
-            error_log("Total frontend routes: " . count($this->routes['frontend']));
+            error_log("ModuleLoader::handleFrontendRoute - Path: '$path', Active Theme: '$activeTheme'");
+            error_log("Total frontend routes: " . (isset($this->routes['frontend']) ? count($this->routes['frontend']) : 0));
+            if (isset($this->routes['frontend'])) {
+                foreach ($this->routes['frontend'] as $idx => $route) {
+                    error_log("  Route #{$idx}: module={$route['module']}, path={$route['path']}, handler={$route['handler']}");
+                }
+            }
         }
         
         foreach ($this->routes['frontend'] as $index => $route) {
+            // Modülün aktif temaya ait olup olmadığını kontrol et
+            $moduleName = $route['module'] ?? '';
+            $module = $this->getModule($moduleName);
+            
+            if ($module) {
+                // Tema modülü mü kontrol et
+                $isThemeModule = isset($module['is_theme_module']) && $module['is_theme_module'];
+                
+                if ($isThemeModule) {
+                    // Modülün tema path'inden tema adını çıkar
+                    $moduleThemePath = $module['theme_path'] ?? '';
+                    $moduleThemeName = '';
+                    if ($moduleThemePath) {
+                        $pathParts = explode('/', trim($moduleThemePath, '/'));
+                        $moduleThemeName = end($pathParts);
+                    }
+                    
+                    // Modül aktif temaya ait değilse, bu route'u atla
+                    if ($moduleThemeName !== $activeTheme) {
+                        if ($debugMode) {
+                            error_log("  Skipping route from inactive theme: {$moduleThemeName} (active: {$activeTheme})");
+                        }
+                        continue;
+                    }
+                } else {
+                    // Tema modülü değilse, genel modül (modules/ dizinindeki)
+                    // Bu modüller her zaman kullanılabilir
+                }
+            }
             // Route path'ini normalize et
             $routePath = trim($route['path'], '/');
             

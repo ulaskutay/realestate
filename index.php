@@ -74,7 +74,7 @@ require_once __DIR__ . '/core/ShortcodeParser.php';
 // Yardımcı fonksiyonları yükle
 require_once __DIR__ . '/includes/functions.php';
 
-// Modül sistemini başlat
+// Modül sistemini başlat (ThemeLoader'dan ÖNCE!)
 try {
     $moduleLoader = ModuleLoader::getInstance();
     $moduleLoader->init();
@@ -82,6 +82,10 @@ try {
 } catch (Exception $e) {
     error_log("Module loader error: " . $e->getMessage());
 }
+
+// ThemeLoader'ı yükle (tema modüllerinin yüklenmesi için)
+require_once __DIR__ . '/core/ThemeLoader.php';
+ThemeLoader::getInstance(); // Tema modüllerini yüklemek için
 
 // Modül frontend route'larını kontrol et
 $requestPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -238,13 +242,16 @@ if (strpos($requestPath, 'themes/') === 0) {
     }
 }
 
-// Önce modül route'larını dene
-try {
-    if ($moduleLoader->handleFrontendRoute($requestPath)) {
-        exit;
+// Önce modül route'larını dene (contact sayfası hariç - direkt HomeController kullanılacak)
+if ($requestPath !== 'contact' && $requestPath !== 'iletisim') {
+    try {
+        if ($moduleLoader->handleFrontendRoute($requestPath)) {
+            exit;
+        }
+    } catch (Exception $e) {
+        error_log("Module frontend route error: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
     }
-} catch (Exception $e) {
-    error_log("Module frontend route error: " . $e->getMessage());
 }
 
 // Router oluştur
@@ -261,11 +268,9 @@ $router->get('/blog/{slug}', 'HomeController@blogPost');
 // Sözleşme route'ları
 $router->get('/sozlesmeler/{slug}', 'AgreementController@show');
 
-// İletişim sayfası
+// İletişim sayfası (fallback - modül route'u çalışmazsa)
 $router->get('/contact', 'HomeController@contact');
 $router->get('/iletisim', 'HomeController@contact');
-$router->post('/contact', 'HomeController@contactSubmit');
-$router->post('/iletisim', 'HomeController@contactSubmit');
 
 // Teklif alma sayfası (özel route)
 $router->get('/teklif-al', 'HomeController@quoteRequest');

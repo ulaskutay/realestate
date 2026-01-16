@@ -41,6 +41,12 @@
     <link rel="apple-touch-icon" href="<?php echo esc_url($favicon); ?>">
     <?php endif; ?>
     
+    <!-- Font Awesome for social media icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    
+    <!-- Material Symbols -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    
     <!-- Preload fonts -->
     <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/fonts/inter/inter-400.woff2'); ?>" as="font" type="font/woff2" crossorigin="anonymous">
     
@@ -225,6 +231,9 @@
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
     </button>
     <?php endif; ?>
+    
+    <!-- Analytics Tracking -->
+    <script src="<?php echo ViewRenderer::assetUrl('frontend/js/analytics.js'); ?>" defer></script>
     
     <!-- Theme JS -->
     <?php if ($themeLoader && file_exists($themeLoader->getThemePath() . '/assets/js/theme.js')): ?>

@@ -1782,18 +1782,41 @@ if (!function_exists('get_header')) {
             try {
                 $themeLoader = ThemeLoader::getInstance();
                 if ($themeLoader && $themeLoader->hasActiveTheme()) {
+                    // Ayarları yenile (güncel favicon için) - her seferinde güncel tema ayarlarını almak için
+                    if (method_exists($themeLoader, 'refreshSettings')) {
+                        $themeLoader->refreshSettings();
+                    }
+                    
+                    // Aktif temanın favicon'unu al - önce tema ayarlarından
                     $favicon = $themeLoader->getFavicon();
+                    
+                    // Favicon hala boşsa veya null ise, get_site_favicon() kullan (tema kontrolü yapar)
+                    // Ancak get_site_favicon() de zaten $themeLoader->getFavicon() çağırıyor, bu yüzden 
+                    // burada direkt get_site_favicon() kullanmak yerine, branding ayarlarından kontrol et
+                    if (empty($favicon) || $favicon === null) {
+                        // Tema ayarlarında yoksa, global site favicon'unu kullan
+                        $favicon = get_site_favicon();
+                    }
+                    
                     $cssVars = $themeLoader->getCssVariablesTag();
                     $themeCss = $themeLoader->getCssUrl();
                     $primaryColor = $themeLoader->getPrimaryColor() ?: $primaryColor;
                     $secondaryColor = $themeLoader->getSecondaryColor() ?: $secondaryColor;
+                } else {
+                    // Tema yoksa direkt get_site_favicon() kullan
+                    $favicon = get_site_favicon();
                 }
             } catch (Exception $e) {
                 error_log('ThemeLoader error in get_header: ' . $e->getMessage());
+                // Hata durumunda fallback
+                $favicon = get_site_favicon();
             }
+        } else {
+            // ThemeLoader class'ı yoksa fallback
+            $favicon = get_site_favicon();
         }
         
-        // Fallback favicon
+        // Son fallback - eğer hala boşsa
         if (empty($favicon)) {
             $favicon = get_site_favicon();
         }

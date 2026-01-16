@@ -48,9 +48,32 @@ if (!empty($listing['realtor_id']) && !empty($listing['realtor_first_name'])) {
     $realtorName = trim(($listing['realtor_first_name'] ?? '') . ' ' . ($listing['realtor_last_name'] ?? ''));
     $realtorEmail = $listing['realtor_email'] ?? '';
     $realtorPhone = $listing['realtor_phone'] ?? '';
-    $realtorPhoto = $listing['realtor_photo'] ?? '';
+    $realtorPhoto = normalize_image_url($listing['realtor_photo'] ?? '');
     $realtorBio = $listing['realtor_bio'] ?? '';
     $realtorSlug = $listing['realtor_slug'] ?? '';
+}
+
+// Helper function to normalize image URLs
+function normalize_image_url($url) {
+    if (empty($url)) {
+        return '';
+    }
+    
+    // If already absolute URL, return as is
+    if (preg_match('/^https?:\/\//', $url)) {
+        return $url;
+    }
+    
+    // Remove leading slash if present (site_url handles it)
+    $path = ltrim($url, '/');
+    
+    // If path doesn't start with 'uploads/', add it
+    if (strpos($path, 'uploads/') !== 0) {
+        $path = 'uploads/' . $path;
+    }
+    
+    // Convert to absolute URL
+    return function_exists('site_url') ? site_url($path) : '/' . $path;
 }
 
 // Gallery images
@@ -65,11 +88,17 @@ if (!empty($listing['gallery'])) {
 // All images (featured + gallery)
 $allImages = [];
 if (!empty($listing['featured_image'])) {
-    $allImages[] = $listing['featured_image'];
+    $normalizedFeaturedImage = normalize_image_url($listing['featured_image']);
+    if (!empty($normalizedFeaturedImage)) {
+        $allImages[] = $normalizedFeaturedImage;
+    }
 }
-    foreach ($galleryImages as $img) {
-        if (!empty($img) && $img !== $listing['featured_image']) {
-            $allImages[] = $img;
+foreach ($galleryImages as $img) {
+    if (!empty($img)) {
+        $normalizedImg = normalize_image_url($img);
+        if (!empty($normalizedImg) && !in_array($normalizedImg, $allImages)) {
+            $allImages[] = $normalizedImg;
+        }
     }
 }
 
@@ -135,22 +164,20 @@ if (class_exists('RealEstateListingsModel')) {
                             </div>
                         <?php else: ?>
                             <!-- Çoklu görsel - Carousel Galeri -->
-                            <div class="relative w-full max-w-full" style="box-sizing: border-box;">
+                            <div class="relative w-full" style="box-sizing: border-box;">
                                 <!-- Ana Carousel Container -->
-                                <div class="relative w-full max-w-full aspect-[4/3] sm:aspect-[16/9] overflow-hidden group cursor-grab active:cursor-grabbing" id="gallery-carousel" style="box-sizing: border-box;">
-                                    <!-- Carousel Wrapper -->
-                                    <div class="flex transition-transform duration-500 ease-in-out h-full touch-pan-x w-full max-w-full" id="carousel-wrapper" style="transform: translateX(0%); box-sizing: border-box;">
+                                <div class="relative w-full aspect-[4/3] sm:aspect-[16/9] overflow-hidden group cursor-grab active:cursor-grabbing" id="gallery-carousel">
+                                    <!-- Carousel Wrapper - Genişlik JS ile ayarlanacak -->
+                                    <div class="h-full" id="carousel-wrapper" style="display: flex; transform: translateX(0); transition: transform 0.4s ease-out;">
                                         <?php foreach ($allImages as $index => $img): ?>
-                                        <div class="min-w-full w-full max-w-full h-full relative flex-shrink-0" style="box-sizing: border-box;">
-                                    <img src="<?php echo esc_url($img); ?>" 
+                                        <div class="carousel-slide h-full flex-shrink-0" data-index="<?php echo $index; ?>">
+                                            <img src="<?php echo esc_url($img); ?>" 
                                                  alt="<?php echo esc_attr($listing['title'] . ' - ' . ($index + 1)); ?>" 
-                                                 class="w-full h-full max-w-full max-h-full object-cover cursor-pointer"
+                                                 class="w-full h-full object-cover cursor-pointer"
                                                  onclick="openLightbox(<?php echo $index; ?>)"
-                                                 data-index="<?php echo $index; ?>"
-                                                 loading="<?php echo $index === 0 ? 'eager' : 'lazy'; ?>"
-                                                 style="display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: cover; box-sizing: border-box;">
-                                </div>
-                            <?php endforeach; ?>
+                                                 loading="<?php echo $index === 0 ? 'eager' : 'lazy'; ?>">
+                                        </div>
+                                        <?php endforeach; ?>
                                     </div>
                                     
                                     <!-- Navigasyon Butonları -->
@@ -322,7 +349,7 @@ if (class_exists('RealEstateListingsModel')) {
                             <a href="<?php echo esc_url($similarUrl); ?>" 
                                class="group block bg-gray-50 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300">
                                 <div class="relative aspect-[4/3] overflow-hidden">
-                                    <img src="<?php echo esc_url($similar['featured_image'] ?? 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400'); ?>" 
+                                    <img src="<?php echo esc_url(!empty($similar['featured_image']) ? normalize_image_url($similar['featured_image']) : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400'); ?>" 
                                          alt="<?php echo esc_attr($similar['title']); ?>" 
                                          class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
                                 </div>
@@ -530,193 +557,193 @@ if (class_exists('RealEstateListingsModel')) {
 <?php endif; ?>
 
 <script>
-// Gallery Images Array
+// ============================================
+// GALLERY CAROUSEL - Basit ve Çalışan Versiyon
+// ============================================
+
 const galleryImages = <?php echo json_encode($allImages ?? []); ?>;
-let currentImageIndex = 0;
-let touchStartX = 0;
-let touchEndX = 0;
+let currentIndex = 0;
 
-// Wait for DOM to be ready
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize gallery
-    if (galleryImages.length > 0) {
-        console.log('Gallery initialized with', galleryImages.length, 'images');
-        initCarousel();
-    }
-});
-
-// Initialize Carousel
-function initCarousel() {
+// Carousel'e git
+function goToSlide(index) {
     const carousel = document.getElementById('gallery-carousel');
-    if (!carousel) return;
-    
-    // Touch events for swipe
-    carousel.addEventListener('touchstart', handleTouchStart, { passive: true });
-    carousel.addEventListener('touchend', handleTouchEnd, { passive: true });
-    
-    // Mouse drag support
-    let isDragging = false;
-    let startX = 0;
-    let scrollLeft = 0;
-    
-    carousel.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        startX = e.pageX - carousel.offsetLeft;
-        carousel.style.cursor = 'grabbing';
-    });
-    
-    carousel.addEventListener('mouseleave', () => {
-        isDragging = false;
-        carousel.style.cursor = 'grab';
-    });
-    
-    carousel.addEventListener('mouseup', () => {
-        isDragging = false;
-        carousel.style.cursor = 'grab';
-    });
-    
-    carousel.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        const x = e.pageX - carousel.offsetLeft;
-        const walk = (x - startX) * 2;
-        
-        // Calculate which image to show based on drag distance
-        const imageWidth = carousel.offsetWidth;
-        const dragRatio = walk / imageWidth;
-        
-        if (Math.abs(dragRatio) > 0.3) {
-            if (dragRatio > 0) {
-                previousCarouselImage();
-            } else {
-                nextCarouselImage();
-            }
-            isDragging = false;
-        }
-    });
-}
-
-// Touch handlers
-function handleTouchStart(e) {
-    touchStartX = e.changedTouches[0].screenX;
-}
-
-function handleTouchEnd(e) {
-    touchEndX = e.changedTouches[0].screenX;
-    handleSwipe();
-}
-
-function handleSwipe() {
-    const swipeThreshold = 50;
-    const diff = touchStartX - touchEndX;
-    
-    if (Math.abs(diff) > swipeThreshold) {
-        if (diff > 0) {
-            // Swipe left - next image
-            nextCarouselImage();
-        } else {
-            // Swipe right - previous image
-            previousCarouselImage();
-        }
-    }
-}
-
-// Carousel Navigation Functions
-function goToCarouselImage(index) {
-    if (index < 0 || index >= galleryImages.length) return;
-    
-    currentImageIndex = index;
-    updateCarousel();
-}
-
-function nextCarouselImage() {
-    currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
-    updateCarousel();
-}
-
-function previousCarouselImage() {
-    currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
-    updateCarousel();
-}
-
-function updateCarousel() {
     const wrapper = document.getElementById('carousel-wrapper');
     const counter = document.getElementById('main-image-counter');
     
-    if (wrapper) {
-        const translateX = -currentImageIndex * 100;
-        wrapper.style.transform = `translateX(${translateX}%)`;
-    }
+    if (!carousel || !wrapper || galleryImages.length === 0) return;
     
+    // Index sınırları
+    if (index < 0) index = galleryImages.length - 1;
+    if (index >= galleryImages.length) index = 0;
+    currentIndex = index;
+    
+    // Carousel genişliğini al
+    const slideWidth = carousel.offsetWidth;
+    
+    // Transform uygula
+    wrapper.style.transform = `translateX(-${currentIndex * slideWidth}px)`;
+    
+    // Sayaç güncelle
     if (counter) {
-        counter.textContent = (currentImageIndex + 1) + ' / ' + galleryImages.length;
+        counter.textContent = `${currentIndex + 1} / ${galleryImages.length}`;
     }
     
-    // Update dots
+    // Dot'ları güncelle
     document.querySelectorAll('[id^="carousel-dot-"]').forEach((dot, i) => {
-        if (i === currentImageIndex) {
-            dot.classList.add('bg-white', 'w-6');
-            dot.classList.remove('bg-white/50', 'w-2');
+        if (i === currentIndex) {
+            dot.classList.remove('bg-white/50', 'w-1.5', 'sm:w-2');
+            dot.classList.add('bg-white', 'w-4', 'sm:w-6');
         } else {
-            dot.classList.remove('bg-white', 'w-6');
-            dot.classList.add('bg-white/50', 'w-2');
+            dot.classList.remove('bg-white', 'w-4', 'sm:w-6');
+            dot.classList.add('bg-white/50', 'w-1.5', 'sm:w-2');
         }
     });
 }
 
-// Open lightbox
-function openLightbox(index) {
-    if (!galleryImages || galleryImages.length === 0) {
-        console.warn('No gallery images available');
+// Carousel boyutlarını ayarla
+function setupCarousel() {
+    const carousel = document.getElementById('gallery-carousel');
+    const wrapper = document.getElementById('carousel-wrapper');
+    
+    if (!carousel || !wrapper || galleryImages.length === 0) return;
+    
+    const slideWidth = carousel.offsetWidth;
+    
+    // Eğer genişlik 0 ise, biraz bekleyip tekrar dene
+    if (slideWidth <= 0) {
+        setTimeout(setupCarousel, 50);
         return;
     }
     
-    // Use provided index or current carousel index
-    currentImageIndex = index !== undefined ? index : currentImageIndex;
-    if (currentImageIndex < 0) currentImageIndex = 0;
-    if (currentImageIndex >= galleryImages.length) currentImageIndex = galleryImages.length - 1;
+    const slides = wrapper.querySelectorAll('.carousel-slide');
     
-    // Update carousel to match lightbox index
-    updateCarousel();
+    // Wrapper genişliği
+    wrapper.style.width = `${slides.length * slideWidth}px`;
+    
+    // Her slide genişliği
+    slides.forEach(slide => {
+        slide.style.width = `${slideWidth}px`;
+    });
+    
+    // Mevcut pozisyonu güncelle (transition olmadan)
+    wrapper.style.transition = 'none';
+    goToSlide(currentIndex);
+    
+    // Transition'ı geri aç
+    requestAnimationFrame(() => {
+        wrapper.style.transition = 'transform 0.4s ease-out';
+    });
+}
+
+// Navigasyon
+function nextCarouselImage() {
+    goToSlide(currentIndex + 1);
+}
+
+function previousCarouselImage() {
+    goToSlide(currentIndex - 1);
+}
+
+function goToCarouselImage(index) {
+    goToSlide(index);
+}
+
+// Başlat
+document.addEventListener('DOMContentLoaded', () => {
+    if (galleryImages.length <= 1) return;
+    
+    const carousel = document.getElementById('gallery-carousel');
+    if (!carousel) return;
+    
+    // İlk kurulum - biraz bekle ki layout hazır olsun
+    requestAnimationFrame(() => {
+        setupCarousel();
+    });
+    
+    // Touch/Swipe desteği
+    let touchStartX = 0;
+    carousel.addEventListener('touchstart', e => {
+        touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    
+    carousel.addEventListener('touchend', e => {
+        const diff = touchStartX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) nextCarouselImage();
+            else previousCarouselImage();
+        }
+    }, { passive: true });
+    
+    // Mouse drag
+    let isDragging = false, startX = 0;
+    carousel.addEventListener('mousedown', e => {
+        isDragging = true;
+        startX = e.clientX;
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mouseup', e => {
+        if (!isDragging) return;
+        isDragging = false;
+        const diff = startX - e.clientX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) nextCarouselImage();
+            else previousCarouselImage();
+        }
+    });
+    
+    // Resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(setupCarousel, 100);
+    });
+    
+    // Görsel sürükleme engelle
+    carousel.querySelectorAll('img').forEach(img => {
+        img.ondragstart = () => false;
+    });
+});
+
+// ============================================
+// LIGHTBOX FUNCTIONS
+// ============================================
+
+function openLightbox(index) {
+    if (!galleryImages || galleryImages.length === 0) return;
+    
+    // Index'i ayarla
+    currentIndex = index !== undefined ? index : currentIndex;
+    if (currentIndex < 0) currentIndex = 0;
+    if (currentIndex >= galleryImages.length) currentIndex = galleryImages.length - 1;
+    
+    // Carousel'i güncelle
+    goToSlide(currentIndex);
     
     const lightbox = document.getElementById('gallery-lightbox');
     const lightboxImage = document.getElementById('lightbox-image');
     const lightboxCounter = document.getElementById('lightbox-counter');
     
-    if (!lightbox || !lightboxImage) {
-        console.error('Lightbox elements not found');
-        return;
-    }
+    if (!lightbox || !lightboxImage) return;
     
-    // Preload all images for faster navigation
-    galleryImages.forEach((img, i) => {
-        if (i !== currentImageIndex) {
-            const preloadImg = new Image();
-            preloadImg.src = img;
-        }
-    });
-    
-    // Set image immediately
-    lightboxImage.src = galleryImages[currentImageIndex];
-    lightboxImage.alt = '<?php echo esc_js($listing['title']); ?> - ' + (currentImageIndex + 1);
+    // Görseli ayarla
+    lightboxImage.src = galleryImages[currentIndex];
+    lightboxImage.alt = '<?php echo esc_js($listing['title']); ?> - ' + (currentIndex + 1);
     lightboxImage.style.opacity = '1';
     
-    // Update counter
+    // Sayaç güncelle
     if (lightboxCounter) {
-        lightboxCounter.textContent = (currentImageIndex + 1) + ' / ' + galleryImages.length;
+        lightboxCounter.textContent = currentIndex + 1;
     }
     
-    // Show lightbox
+    // Lightbox'ı göster
     lightbox.classList.remove('hidden');
     lightbox.classList.add('flex');
     document.body.style.overflow = 'hidden';
-    
-    // Prevent body scroll
     document.body.style.position = 'fixed';
     document.body.style.width = '100%';
 }
 
-// Close lightbox
 function closeLightbox() {
     const lightbox = document.getElementById('gallery-lightbox');
     if (lightbox) {
@@ -728,82 +755,55 @@ function closeLightbox() {
     }
 }
 
-// Next image
 function nextImage(e) {
     if (e) e.stopPropagation();
     if (!galleryImages || galleryImages.length === 0) return;
-    
-    currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+    currentIndex = (currentIndex + 1) % galleryImages.length;
     updateLightboxImage();
 }
 
-// Previous image
 function previousImage(e) {
     if (e) e.stopPropagation();
     if (!galleryImages || galleryImages.length === 0) return;
-    
-    currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+    currentIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
     updateLightboxImage();
 }
 
-// Preload next/previous images for faster transitions
-function preloadLightboxImages() {
-    if (!galleryImages || galleryImages.length <= 1) return;
-    
-    const nextIndex = (currentImageIndex + 1) % galleryImages.length;
-    const prevIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
-    
-    // Preload next and previous images
-    const nextImg = new Image();
-    nextImg.src = galleryImages[nextIndex];
-    
-    const prevImg = new Image();
-    prevImg.src = galleryImages[prevIndex];
-}
-
-// Update lightbox image with optimized fade effect
 function updateLightboxImage() {
     const lightboxImage = document.getElementById('lightbox-image');
     const lightboxCounter = document.getElementById('lightbox-counter');
     
     if (!lightboxImage) return;
     
-    // Preload next/previous images for future navigation
-    preloadLightboxImages();
-    
-    // Update counter immediately (no delay)
+    // Sayaç güncelle (sadece mevcut sayı, toplam HTML'de zaten var)
     if (lightboxCounter) {
-        lightboxCounter.textContent = (currentImageIndex + 1) + ' / ' + galleryImages.length;
+        lightboxCounter.textContent = currentIndex + 1;
     }
     
-    // Quick fade out
+    // Fade out
     lightboxImage.style.opacity = '0';
     
-    // Use requestAnimationFrame for immediate, smooth transition
+    // Görseli değiştir
     requestAnimationFrame(() => {
-        // Change image source
-        lightboxImage.src = galleryImages[currentImageIndex];
-        lightboxImage.alt = '<?php echo esc_js($listing['title']); ?> - ' + (currentImageIndex + 1);
+        lightboxImage.src = galleryImages[currentIndex];
+        lightboxImage.alt = '<?php echo esc_js($listing['title']); ?> - ' + (currentIndex + 1);
         
-        // Check if image is already cached/loaded
         if (lightboxImage.complete) {
-            // Image is ready, fade in immediately
             requestAnimationFrame(() => {
                 lightboxImage.style.opacity = '1';
             });
         } else {
-            // Wait for image to load, then fade in
             lightboxImage.onload = function() {
                 requestAnimationFrame(() => {
                     lightboxImage.style.opacity = '1';
                 });
-                lightboxImage.onload = null; // Clean up
+                lightboxImage.onload = null;
             };
         }
     });
     
-    // Sync carousel with lightbox
-    updateCarousel();
+    // Carousel'i senkronize et
+    goToSlide(currentIndex);
 }
 
 // Keyboard navigation
@@ -843,7 +843,7 @@ function shareProperty() {
             title: title,
             text: title + ' - ' + <?php echo json_encode($listing['location'] ?? ''); ?>,
             url: url
-        }).catch(err => console.log('Share error:', err));
+        }).catch(err => {});
     } else {
         // Fallback: Copy to clipboard
         navigator.clipboard.writeText(url).then(() => {

@@ -44,7 +44,15 @@ class ModuleController extends Controller {
         
         // Modülleri birleştir
         foreach ($modules as $name => &$module) {
-            if (isset($dbModules[$name])) {
+            // Tema modülleri için özel işlem
+            if (!empty($module['is_theme_module'])) {
+                // Tema modülleri her zaman aktif sayılır
+                $module['is_active'] = true;
+                $module['installed'] = false; // Tema modülleri veritabanında değil
+                if (isset($dbModules[$name])) {
+                    $module['db'] = $dbModules[$name];
+                }
+            } elseif (isset($dbModules[$name])) {
                 $module['db'] = $dbModules[$name];
                 $module['is_active'] = (bool)$dbModules[$name]['is_active'];
                 $module['is_system'] = (bool)$dbModules[$name]['is_system'];
@@ -58,7 +66,7 @@ class ModuleController extends Controller {
         
         // Kategorize et (tema modüllerini de ayır)
         $systemModules = array_filter($modules, fn($m) => $m['is_system'] ?? false);
-        $themeModules = array_filter($modules, fn($m) => !empty($m['is_theme_module']) && ($m['installed'] ?? false));
+        $themeModules = array_filter($modules, fn($m) => !empty($m['is_theme_module']));
         $installedModules = array_filter($modules, fn($m) => ($m['installed'] ?? false) && !($m['is_system'] ?? false) && empty($m['is_theme_module']));
         $availableModules = array_filter($modules, fn($m) => !($m['installed'] ?? false) && empty($m['is_theme_module']));
         

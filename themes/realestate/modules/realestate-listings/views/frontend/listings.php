@@ -41,7 +41,7 @@ $totalListings = count($listings ?? []);
     <section class="bg-gradient-to-br from-blue-600 to-blue-700 text-white py-12 lg:py-16">
         <div class="container mx-auto px-4 lg:px-6">
             <div class="max-w-4xl">
-                <h1 class="text-4xl lg:text-5xl font-bold mb-4">
+                <h1 class="text-4xl lg:text-5xl font-bold mb-4 text-white">
                     <?php echo esc_html(__('Emlak İlanları')); ?>
                 </h1>
                 <p class="text-xl text-blue-100">

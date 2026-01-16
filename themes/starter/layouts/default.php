@@ -44,6 +44,9 @@
     <link rel="apple-touch-icon" href="<?php echo esc_url($favicon); ?>">
     <?php endif; ?>
     
+    <!-- Font Awesome for social media icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    
     <!-- Preload only critical fonts (Inter 400 for body text) -->
     <link rel="preload" href="<?php echo ViewRenderer::assetUrl('assets/fonts/inter/inter-400.woff2'); ?>" as="font" type="font/woff2" crossorigin="anonymous">
     
