@@ -77,7 +77,14 @@ class TranslationModuleController {
         if (function_exists('add_action')) {
             add_action('init', [$this->languageService, 'initLanguage']);
             add_action('wp_head', [$this->frontendHandler, 'outputLanguageMeta']);
+            
+            // Language switcher için multiple hook pozisyonları
+            // Sadece ilk tetiklenen çalışacak (FrontendHandler içinde flag kontrolü var)
+            add_action('theme_navigation_after_menu', [$this->frontendHandler, 'renderLanguageSwitcher']);
+            add_action('theme_navigation_before_menu', [$this->frontendHandler, 'renderLanguageSwitcher']);
             add_action('theme_header_after_menu', [$this->frontendHandler, 'renderLanguageSwitcher']);
+            add_action('theme_header_after_navigation', [$this->frontendHandler, 'renderLanguageSwitcher']);
+            add_action('theme_header_before_navigation', [$this->frontendHandler, 'renderLanguageSwitcher']);
         }
         
         // Register filters
@@ -176,6 +183,21 @@ class TranslationModuleController {
             $this->languageService->detectLanguage(); // Dil algılamayı başlat
         }
         return $this->languageService->getCurrentLanguage();
+    }
+    
+    /**
+     * Get LanguageService instance (for Router to set language directly)
+     */
+    public function getLanguageService() {
+        if (!$this->languageService) {
+            $this->ensureInitialized();
+            $this->loadSettings();
+            if (!$this->model) {
+                $this->model = new TranslationModel();
+            }
+            $this->languageService = new LanguageService($this->settings, $this->model);
+        }
+        return $this->languageService;
     }
     
     /**

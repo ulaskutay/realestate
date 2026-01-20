@@ -77,6 +77,9 @@ $siteLogo = $themeLoader->getLogo();
                         </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
+                
+                <!-- Language Switcher Hook (Desktop) -->
+                <?php do_action('theme_navigation_after_menu'); ?>
             </div>
 
             <!-- Right Side Actions -->
@@ -135,6 +138,12 @@ $siteLogo = $themeLoader->getLogo();
                     <?php echo esc_html(__($item['title'])); ?>
                 </a>
             <?php endforeach; ?>
+            
+            <!-- Language Switcher Hook (Mobile) -->
+            <div class="px-4 py-2">
+                <?php do_action('theme_navigation_after_menu'); ?>
+            </div>
+            
             <?php if ($showCta): ?>
                 <a href="<?php echo esc_url($ctaLink); ?>" 
                    class="block mx-4 mt-4 px-6 py-2 bg-primary text-white rounded-lg font-medium text-center hover:bg-opacity-90 transition-all">

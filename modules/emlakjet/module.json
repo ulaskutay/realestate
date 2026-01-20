@@ -1,0 +1,37 @@
+{
+    "name": "emlakjet",
+    "title": "Emlakjet Entegrasyonu",
+    "version": "1.0.0",
+    "description": "Emlakjet platformu ile çift yönlü ilan senkronizasyonu. İlanları Emlakjet'e gönderme ve Emlakjet'ten çekme özellikleri.",
+    "author": "Codetic",
+    "website": "https://example.com",
+    "requires_php": "7.4",
+    "requires_cms": "1.0",
+    "main_file": "Controller.php",
+    "admin_menu": {
+        "title": "Emlakjet",
+        "icon": "sync",
+        "position": 40
+    },
+    "routes": [
+        {
+            "type": "frontend",
+            "path": "api/emlakjet/cron-sync",
+            "handler": "cronSync",
+            "method": "GET"
+        },
+        {
+            "type": "frontend",
+            "path": "api/emlakjet/webhook",
+            "handler": "webhook",
+            "method": "POST"
+        }
+    ],
+    "shortcodes": [],
+    "widgets": [],
+    "settings": true,
+    "hooks": {
+        "actions": ["listing_created", "listing_updated", "listing_deleted", "listing_published"],
+        "filters": []
+    }
+}

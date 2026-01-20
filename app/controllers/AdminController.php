@@ -388,6 +388,13 @@ class AdminController extends Controller {
                 $message = 'Spam koruma ayarları başarıyla kaydedildi.';
                 $messageType = 'success';
             }
+            
+            // AI Ayarları (Groq API)
+            if (isset($_POST['save_ai_settings'])) {
+                update_option('groq_api_key', trim($_POST['groq_api_key'] ?? ''));
+                $message = 'AI ayarları başarıyla kaydedildi.';
+                $messageType = 'success';
+            }
         }
         
         // Mevcut ayarları getir
@@ -422,6 +429,8 @@ class AdminController extends Controller {
                 'company_kep' => get_option('company_kep', ''),
                 // Honeypot Ayarları
                 'honeypot_enabled' => get_option('honeypot_enabled', 1),
+                // AI Ayarları
+                'groq_api_key' => get_option('groq_api_key', ''),
             ]
         ];
         

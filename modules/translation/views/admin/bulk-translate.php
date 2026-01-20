@@ -106,8 +106,12 @@
             btn.disabled = true;
             btn.textContent = 'Temizleniyor...';
             
+            const formData = new FormData();
+            formData.append('action', 'delete_broken');
+            
             fetch('<?php echo admin_url('module/translation/cleanup_translations'); ?>', {
-                method: 'POST'
+                method: 'POST',
+                body: formData
             })
             .then(response => {
                 return response.text().then(text => {

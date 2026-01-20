@@ -842,7 +842,20 @@ function _render_cms_form($form) {
             <div class="form-fields">
                 <?php if (!empty($form['fields'])): ?>
                     <?php foreach ($form['fields'] as $field): ?>
-                        <?php if ($field['status'] !== 'active') continue; ?>
+                        <?php 
+                        // Status kontrolü - hem status hem is_active kontrol et
+                        $isActive = true; // Varsayılan aktif
+                        if (isset($field['status'])) {
+                            $isActive = ($field['status'] === 'active');
+                        } elseif (isset($field['is_active'])) {
+                            $isActive = ($field['is_active'] == 1 || $field['is_active'] === true);
+                        }
+                        if (!$isActive) continue; 
+                        
+                        // DEBUG: Field bilgilerini log'a yaz
+                        $debugType = $field['type'] ?? $field['field_type'] ?? 'NONE';
+                        error_log("Frontend Form Field - name: " . ($field['name'] ?? 'unknown') . ", type: " . $debugType . ", status: " . ($field['status'] ?? 'N/A'));
+                        ?>
                         <?php _render_form_field($field); ?>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -952,18 +965,26 @@ function _render_cms_form($form) {
  * Internal: Form alanını render eder
  */
 function _render_form_field($field) {
+    // Field type'ı kontrol et - hem 'type' hem 'field_type' olabilir
+    $fieldType = trim($field['type'] ?? $field['field_type'] ?? 'text');
+    
+    // DEBUG: Field type değerini kontrol et
+    if (($field['name'] ?? '') === 'phone') {
+        error_log("_render_form_field PHONE - name: " . ($field['name'] ?? 'unknown') . ", type: " . ($field['type'] ?? 'N/A') . ", field_type: " . ($field['field_type'] ?? 'N/A') . ", final fieldType: " . $fieldType);
+    }
+    
     $widthClass = 'field-width-' . ($field['width'] ?? 'full');
     $requiredClass = $field['required'] ? 'field-required' : '';
     $customClass = $field['css_class'] ?? '';
     
     // Layout elemanları
-    if (in_array($field['type'], ['heading', 'paragraph', 'divider'])) {
+    if (in_array($fieldType, ['heading', 'paragraph', 'divider'])) {
         _render_layout_element($field);
         return;
     }
     ?>
     <div class="form-field <?php echo esc_attr($widthClass); ?> <?php echo esc_attr($requiredClass); ?> <?php echo esc_attr($customClass); ?>">
-        <?php if ($field['type'] !== 'hidden'): ?>
+        <?php if ($fieldType !== 'hidden'): ?>
             <label class="field-label" for="field-<?php echo esc_attr($field['name']); ?>">
                 <?php echo esc_html($field['label']); ?>
                 <?php if ($field['required']): ?><span class="required-mark">*</span><?php endif; ?>
@@ -972,78 +993,78 @@ function _render_form_field($field) {
         
         <div class="field-input">
             <?php
-            switch ($field['type']) {
-                case 'text': case 'email': case 'phone': case 'number': case 'date': case 'time': case 'datetime':
-                    $inputType = $field['type'];
-                    if ($field['type'] === 'phone') $inputType = 'tel';
-                    if ($field['type'] === 'datetime') $inputType = 'datetime-local';
-                    ?>
-                    <input type="<?php echo esc_attr($inputType); ?>" 
-                           id="field-<?php echo esc_attr($field['name']); ?>"
-                           name="<?php echo esc_attr($field['name']); ?>" 
-                           placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
-                           value="<?php echo esc_attr($field['default_value'] ?? ''); ?>"
-                           <?php echo $field['required'] ? 'required' : ''; ?>>
-                    <?php break;
-                    
-                case 'textarea':
-                    ?>
-                    <textarea id="field-<?php echo esc_attr($field['name']); ?>"
-                              name="<?php echo esc_attr($field['name']); ?>" 
-                              placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
-                              rows="4"
-                              <?php echo $field['required'] ? 'required' : ''; ?>><?php echo esc_html($field['default_value'] ?? ''); ?></textarea>
-                    <?php break;
-                    
-                case 'select':
-                    ?>
-                    <select id="field-<?php echo esc_attr($field['name']); ?>"
-                            name="<?php echo esc_attr($field['name']); ?>" 
-                            <?php echo $field['required'] ? 'required' : ''; ?>>
-                        <option value=""><?php echo esc_html($field['placeholder'] ?? 'Seçiniz...'); ?></option>
-                        <?php if (!empty($field['options'])): ?>
-                            <?php foreach ($field['options'] as $option): ?>
-                                <option value="<?php echo esc_attr($option['value'] ?? $option); ?>"><?php echo esc_html($option['label'] ?? $option); ?></option>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </select>
-                    <?php break;
-                    
-                case 'checkbox':
-                    ?>
-                    <div class="checkbox-group">
-                        <?php if (!empty($field['options'])): foreach ($field['options'] as $i => $option): ?>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="<?php echo esc_attr($field['name']); ?>[]" value="<?php echo esc_attr($option['value'] ?? $option); ?>">
-                                <span><?php echo esc_html($option['label'] ?? $option); ?></span>
-                            </label>
-                        <?php endforeach; endif; ?>
-                    </div>
-                    <?php break;
-                    
-                case 'radio':
-                    ?>
-                    <div class="radio-group">
-                        <?php if (!empty($field['options'])): foreach ($field['options'] as $i => $option): ?>
-                            <label class="radio-label">
-                                <input type="radio" name="<?php echo esc_attr($field['name']); ?>" value="<?php echo esc_attr($option['value'] ?? $option); ?>">
-                                <span><?php echo esc_html($option['label'] ?? $option); ?></span>
-                            </label>
-                        <?php endforeach; endif; ?>
-                    </div>
-                    <?php break;
-                    
-                case 'file':
-                    ?>
-                    <input type="file" id="field-<?php echo esc_attr($field['name']); ?>" name="<?php echo esc_attr($field['name']); ?>" <?php echo $field['required'] ? 'required' : ''; ?>>
-                    <?php break;
-                    
-                case 'hidden':
-                    ?>
-                    <input type="hidden" name="<?php echo esc_attr($field['name']); ?>" value="<?php echo esc_attr($field['default_value'] ?? ''); ?>">
-                    <?php break;
+            // Input türleri (text, email, phone, tel, number, date, time, datetime)
+            $inputTypes = ['text', 'email', 'phone', 'tel', 'number', 'date', 'time', 'datetime'];
+            
+            // Field type boş veya null ise text olarak kabul et
+            if (empty($fieldType) || $fieldType === null) {
+                $fieldType = 'text';
             }
+            
+            // Telefon field için debug
+            if (($field['name'] ?? '') === 'phone') {
+                echo '<!-- DEBUG: phone field - fieldType=' . htmlspecialchars($fieldType) . ', in_array=' . (in_array($fieldType, $inputTypes) ? 'true' : 'false') . ' -->';
+            }
+            
+            if (in_array($fieldType, $inputTypes)):
+                $inputType = $fieldType;
+                if ($fieldType === 'phone' || $fieldType === 'tel') $inputType = 'tel';
+                if ($fieldType === 'datetime') $inputType = 'datetime-local';
             ?>
+                <input type="<?php echo esc_attr($inputType); ?>" 
+                       id="field-<?php echo esc_attr($field['name']); ?>"
+                       name="<?php echo esc_attr($field['name']); ?>" 
+                       placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
+                       value="<?php echo esc_attr($field['default_value'] ?? ''); ?>"
+                       <?php echo $field['required'] ? 'required' : ''; ?>>
+            <?php elseif ($fieldType === 'textarea'): ?>
+                <textarea id="field-<?php echo esc_attr($field['name']); ?>"
+                          name="<?php echo esc_attr($field['name']); ?>" 
+                          placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
+                          rows="4"
+                          <?php echo $field['required'] ? 'required' : ''; ?>><?php echo esc_html($field['default_value'] ?? ''); ?></textarea>
+            <?php elseif ($fieldType === 'select'): ?>
+                <select id="field-<?php echo esc_attr($field['name']); ?>"
+                        name="<?php echo esc_attr($field['name']); ?>" 
+                        <?php echo $field['required'] ? 'required' : ''; ?>>
+                    <option value=""><?php echo esc_html($field['placeholder'] ?? 'Seçiniz...'); ?></option>
+                    <?php if (!empty($field['options'])): ?>
+                        <?php foreach ($field['options'] as $option): ?>
+                            <option value="<?php echo esc_attr($option['value'] ?? $option); ?>"><?php echo esc_html($option['label'] ?? $option); ?></option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </select>
+            <?php elseif ($fieldType === 'checkbox'): ?>
+                <div class="checkbox-group">
+                    <?php if (!empty($field['options'])): foreach ($field['options'] as $i => $option): ?>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="<?php echo esc_attr($field['name']); ?>[]" value="<?php echo esc_attr($option['value'] ?? $option); ?>">
+                            <span><?php echo esc_html($option['label'] ?? $option); ?></span>
+                        </label>
+                    <?php endforeach; endif; ?>
+                </div>
+            <?php elseif ($fieldType === 'radio'): ?>
+                <div class="radio-group">
+                    <?php if (!empty($field['options'])): foreach ($field['options'] as $i => $option): ?>
+                        <label class="radio-label">
+                            <input type="radio" name="<?php echo esc_attr($field['name']); ?>" value="<?php echo esc_attr($option['value'] ?? $option); ?>">
+                            <span><?php echo esc_html($option['label'] ?? $option); ?></span>
+                        </label>
+                    <?php endforeach; endif; ?>
+                </div>
+            <?php elseif ($fieldType === 'file'): ?>
+                <input type="file" id="field-<?php echo esc_attr($field['name']); ?>" name="<?php echo esc_attr($field['name']); ?>" <?php echo $field['required'] ? 'required' : ''; ?>>
+            <?php elseif ($fieldType === 'hidden'): ?>
+                <input type="hidden" name="<?php echo esc_attr($field['name']); ?>" value="<?php echo esc_attr($field['default_value'] ?? ''); ?>">
+            <?php else: ?>
+                <!-- Bilinmeyen tip için varsayılan text input -->
+                <input type="text" 
+                       id="field-<?php echo esc_attr($field['name']); ?>"
+                       name="<?php echo esc_attr($field['name']); ?>" 
+                       placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
+                       value="<?php echo esc_attr($field['default_value'] ?? ''); ?>"
+                       <?php echo $field['required'] ? 'required' : ''; ?>>
+            <?php endif; ?>
         </div>
         
         <?php if (!empty($field['help_text'])): ?>

@@ -89,6 +89,36 @@
                         </div>
                     </header>
 
+                    <!-- Şablonlar -->
+                    <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-background-light dark:bg-background-dark p-4 sm:p-6 mb-6">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">Hızlı Başlangıç Şablonları</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Hazır şablonlardan birini seçerek hızlıca form oluşturabilirsiniz.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- CRM Lead Formu Şablonu -->
+                            <a href="<?php echo admin_url('forms/create-from-crm-template'); ?>" class="group relative p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary transition-all bg-white dark:bg-gray-800 cursor-pointer">
+                                <div class="flex items-start gap-3">
+                                    <div class="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                        <span class="material-symbols-outlined text-primary text-2xl">people</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="font-semibold text-gray-900 dark:text-white mb-1">CRM Lead Formu</h4>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Emlak sektörü için CRM entegrasyonlu form. Gönderimler otomatik olarak CRM'de lead olarak oluşturulur.</p>
+                                        <div class="flex flex-wrap gap-1 mt-2">
+                                            <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">Ad Soyad</span>
+                                            <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">Telefon</span>
+                                            <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">E-posta</span>
+                                            <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">Emlak Tipi</span>
+                                            <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">Lokasyon</span>
+                                            <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">Bütçe</span>
+                                            <span class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">Oda Sayısı</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
                     <!-- Form -->
                     <form action="<?php echo admin_url('forms/store'); ?>" method="POST" class="space-y-6">
                         

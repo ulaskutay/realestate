@@ -570,6 +570,9 @@ if (strpos($page, 'forms') === 0) {
         } else if (count($parts) === 2 && $parts[0] === 'forms' && $parts[1] === 'create') {
             // Yeni form oluşturma formu
             $controller->create();
+        } else if (count($parts) === 2 && $parts[0] === 'forms' && $parts[1] === 'create-from-crm-template') {
+            // CRM Lead Formu şablonundan oluştur
+            $controller->createFromCrmTemplate();
         } else if (count($parts) === 2 && $parts[0] === 'forms' && $parts[1] === 'store') {
             // Form kaydetme
             $controller->store();

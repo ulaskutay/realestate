@@ -16,6 +16,9 @@ class FrontendHandler {
     private $model;
     private $settings;
     
+    // Static flag: Language switcher sadece bir kez render edilmeli
+    private static $switcherRendered = false;
+    
     public function __construct($translationService, $languageService, $model, $settings) {
         $this->translationService = $translationService;
         $this->languageService = $languageService;
@@ -25,11 +28,22 @@ class FrontendHandler {
     
     /**
      * Filter content - translates content
+     * Handles HTML content by parsing and translating text nodes only
      * 
      * @param string $content Content to translate
      * @return string Translated content
      */
     public function filterContent($content) {
+        if (empty($content) || !is_string($content)) {
+            return $content;
+        }
+        
+        // HTML içerik kontrolü - HTML ise özel işlem yap
+        if ($this->translationService->isHtmlContent($content)) {
+            return $this->translationService->translateHtmlContent($content);
+        }
+        
+        // Normal text içerik için standart çeviri
         return $this->translationService->translate($content);
     }
     
@@ -63,8 +77,14 @@ class FrontendHandler {
     
     /**
      * Render language switcher
+     * Sadece bir kez render edilir (birden fazla hook'tan koruma)
      */
     public function renderLanguageSwitcher() {
+        // Eğer zaten render edildiyse, tekrar render etme
+        if (self::$switcherRendered) {
+            return;
+        }
+        
         $languages = $this->model->getActiveLanguages();
         if (empty($languages) || count($languages) < 2) {
             return; // Sadece 1 dil varsa gösterme
@@ -78,17 +98,22 @@ class FrontendHandler {
         $basePath = $currentPath;
         if (!empty($pathParts[0]) && strlen($pathParts[0]) === 2 && $this->model->isValidLanguage($pathParts[0])) {
             array_shift($pathParts);
-            $basePath = '/' . implode('/', $pathParts);
+            // PathParts'ı yeniden birleştir - eğer boşsa boş string
+            if (empty($pathParts)) {
+                $basePath = '';
+            } else {
+                $basePath = '/' . implode('/', array_filter($pathParts)); // Boş elemanları filtrele
+            }
         }
         
-        // basePath'i normalize et
-        $basePath = rtrim($basePath, '/');
-        if (empty($basePath)) {
-            $basePath = '';
-        }
+        // basePath'i normalize et - baştaki ve sondaki slash'leri temizle
+        $basePath = trim($basePath, '/');
         
         $defaultLang = $this->settings['default_language'] ?? 'tr';
         $currentLang = $this->languageService->getCurrentLanguage();
+        
+        // Debug: Language switcher path hesaplama
+        error_log("LanguageSwitcher: currentPath='$currentPath', basePath='$basePath', currentLang='$currentLang', defaultLang='$defaultLang'");
         
         // Unique ID oluştur (desktop ve mobile için farklı olmalı)
         $uniqueId = 'lang-switcher-' . uniqid();
@@ -107,12 +132,20 @@ class FrontendHandler {
                     <?php
                     // Varsayılan dil için prefix kullanma, diğerleri için /lang/path şeklinde
                     if ($lang['code'] === $defaultLang) {
-                        $langUrl = $basePath ?: '/';
+                        // Varsayılan dil için prefix yok
+                        $langUrl = $basePath ? '/' . $basePath : '/';
                     } else {
-                        $langUrl = '/' . $lang['code'] . $basePath;
-                        if ($langUrl === '/' . $lang['code']) {
-                            $langUrl = '/' . $lang['code'] . '/';
+                        // Diğer diller için /lang/path şeklinde
+                        $langUrl = '/' . $lang['code'];
+                        if (!empty($basePath)) {
+                            $langUrl .= '/' . $basePath;
+                        } else {
+                            $langUrl .= '/';
                         }
+                    }
+                    // URL'i normalize et - sondaki slash'i kaldır (ana sayfa hariç)
+                    if ($langUrl !== '/') {
+                        $langUrl = rtrim($langUrl, '/');
                     }
                     $isActive = $lang['code'] === $currentLang;
                     ?>
@@ -162,6 +195,9 @@ class FrontendHandler {
         })();
         </script>
         <?php
+        
+        // Render edildi olarak işaretle
+        self::$switcherRendered = true;
     }
     
     /**
@@ -217,6 +253,8 @@ class FrontendHandler {
     
     /**
      * Filter section settings recursively
+     * Only skips truly technical values (URLs, colors, numbers, etc.)
+     * All other text values are translated
      * 
      * @param array $settings Settings array
      * @param string $sectionId Section ID
@@ -236,13 +274,19 @@ class FrontendHandler {
         }
         
         foreach ($settings as $key => $value) {
-            // Çevirilmemesi gereken key'leri atla
-            if (in_array($key, ['icon', 'css', 'url', 'gradient', 'color', 'bg_color', 'text_color', 'border_color', 'image', 'video', 'link', 'target', 'class', 'id', 'style', 'width', 'height', 'size', 'position', 'alignment', 'animation', 'delay', 'duration', 'easing', 'opacity', 'z_index', 'margin', 'padding', 'border', 'border_radius', 'box_shadow', 'text_shadow', 'font_family', 'font_size', 'font_weight', 'line_height', 'letter_spacing', 'text_transform', 'text_decoration', 'text_align', 'vertical_align', 'display', 'flex_direction', 'flex_wrap', 'justify_content', 'align_items', 'align_self', 'gap', 'order', 'flex', 'flex_grow', 'flex_shrink', 'flex_basis', 'grid_template_columns', 'grid_template_rows', 'grid_column', 'grid_row', 'grid_area', 'grid_gap', 'object_fit', 'object_position', 'overflow', 'overflow_x', 'overflow_y', 'cursor', 'pointer_events', 'user_select', 'visibility', 'transform', 'transform_origin', 'backface_visibility', 'perspective', 'perspective_origin', 'transform_style', 'transition', 'transition_property', 'transition_duration', 'transition_timing_function', 'transition_delay', 'animation', 'animation_name', 'animation_duration', 'animation_timing_function', 'animation_delay', 'animation_iteration_count', 'animation_direction', 'animation_fill_mode', 'animation_play_state', 'will_change', 'contain', 'isolation', 'mix_blend_mode', 'filter', 'backdrop_filter', 'clip_path', 'mask', 'mask_image', 'mask_mode', 'mask_repeat', 'mask_position', 'mask_size', 'mask_origin', 'mask_clip', 'mask_composite', 'mask_type', 'mask_border', 'mask_border_source', 'mask_border_slice', 'mask_border_width', 'mask_border_outset', 'mask_border_repeat', 'mask_border_mode', 'mask_box_image', 'mask_box_image_source', 'mask_box_image_slice', 'mask_box_image_width', 'mask_box_image_outset', 'mask_box_image_repeat', 'mask_box_image_mode'])) {
-                continue;
-            }
-            
             if (is_string($value) && !empty($value)) {
-                $settings[$key] = $this->translationService->translate($value);
+                // Teknik değer kontrolü (shouldNotTranslate metodunu kullan)
+                // BulkTranslateService'teki mantık ile aynı
+                if ($this->shouldNotTranslate($value)) {
+                    continue; // Teknik değer, çevirme
+                }
+                
+                // HTML içerik ise özel işlem yap
+                if ($this->translationService->isHtmlContent($value)) {
+                    $settings[$key] = $this->translationService->translateHtmlContent($value);
+                } else {
+                    $settings[$key] = $this->translationService->translate($value);
+                }
             } elseif (is_array($value)) {
                 $settings[$key] = $this->filterSectionSettings($value, $sectionId);
             }
@@ -252,7 +296,88 @@ class FrontendHandler {
     }
     
     /**
+     * Check if value should not be translated (technical values only)
+     * Same logic as BulkTranslateService::shouldNotTranslate()
+     * 
+     * @param string $value Value to check
+     * @return bool True if should NOT translate
+     */
+    private function shouldNotTranslate($value) {
+        if ($value === null || !is_string($value)) {
+            return true;
+        }
+        
+        $value = trim($value);
+        
+        // Boş değer
+        if (empty($value)) {
+            return true;
+        }
+        
+        // Çok kısa metinler (1 karakter)
+        if (strlen($value) <= 1) {
+            return true;
+        }
+        
+        // URL kontrolü - sadece gerçek URL'ler
+        if (preg_match('/^(https?:\/\/|mailto:|tel:)/', $value)) {
+            return true;
+        }
+        
+        // Renk kodları - Hex (#ffffff, #fff)
+        if (preg_match('/^#[0-9a-fA-F]{3,8}$/i', $value)) {
+            return true;
+        }
+        
+        // Renk kodları - RGB/RGBA/HSL/HSLA
+        if (preg_match('/^(rgb|rgba|hsl|hsla)\s*\(/i', $value)) {
+            return true;
+        }
+        
+        // CSS değerleri (10px, 1.5rem, 100%, 50vh, 50deg)
+        if (preg_match('/^[\d.]+(px|rem|em|%|vh|vw|ch|ex|cm|mm|in|pt|pc|deg|rad|turn|s|ms)$/', $value)) {
+            return true;
+        }
+        
+        // Sayısal değerler
+        if (is_numeric($value) && preg_match('/^-?[\d.]+$/', $value)) {
+            return true;
+        }
+        
+        // Boolean/Null değerler
+        if (in_array(strtolower($value), ['true', 'false', 'yes', 'no', 'null', 'undefined', 'none'])) {
+            return true;
+        }
+        
+        // JSON benzeri (tek satır JSON)
+        if ((substr($value, 0, 1) === '{' && substr($value, -1) === '}') ||
+            (substr($value, 0, 1) === '[' && substr($value, -1) === ']')) {
+            return true;
+        }
+        
+        // Email adresi
+        if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
+            return true;
+        }
+        
+        // Dosya uzantıları (.jpg, .pdf, .css, .js vb.)
+        if (preg_match('/^\.?[a-z0-9]{1,5}$/i', $value) && preg_match('/\.(jpg|jpeg|png|gif|svg|webp|ico|pdf|doc|docx|xls|xlsx|zip|mp4|mp3|wav|css|js|php|html|woff|woff2|ttf|eot)$/i', $value)) {
+            return true;
+        }
+        
+        // Sadece özel karakterler (hiç harf/sayı yok)
+        if (preg_match('/^[^a-zA-Z0-9]+$/', $value)) {
+            return true;
+        }
+        
+        // Diğer tüm durumlarda çevir
+        return false;
+    }
+    
+    /**
      * Filter section items recursively
+     * Only skips truly technical values (URLs, colors, numbers, etc.)
+     * All other text values are translated
      * 
      * @param array $items Items array
      * @param string $sectionId Section ID
@@ -274,13 +399,18 @@ class FrontendHandler {
         foreach ($items as &$item) {
             if (is_array($item)) {
                 foreach ($item as $key => $value) {
-                    // Çevirilmemesi gereken key'leri atla
-                    if (in_array($key, ['icon', 'css', 'url', 'gradient', 'color', 'image', 'video', 'link', 'target', 'class', 'id', 'style'])) {
-                        continue;
-                    }
-                    
                     if (is_string($value) && !empty($value)) {
-                        $item[$key] = $this->translationService->translate($value);
+                        // Teknik değer kontrolü
+                        if ($this->shouldNotTranslate($value)) {
+                            continue; // Teknik değer, çevirme
+                        }
+                        
+                        // HTML içerik ise özel işlem yap
+                        if ($this->translationService->isHtmlContent($value)) {
+                            $item[$key] = $this->translationService->translateHtmlContent($value);
+                        } else {
+                            $item[$key] = $this->translationService->translate($value);
+                        }
                     } elseif (is_array($value)) {
                         $item[$key] = $this->filterSectionItems($value, $sectionId);
                     }

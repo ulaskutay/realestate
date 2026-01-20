@@ -365,6 +365,56 @@ class RealEstateListingsController extends Controller {
         return $text;
     }
     
+    /**
+     * Admin: AI ile açıklama oluştur (AJAX)
+     */
+    public function admin_generate_description() {
+        $this->checkPermission('realestate-listings.create');
+        
+        header('Content-Type: application/json');
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Sadece POST istekleri kabul edilir'
+            ]);
+            return;
+        }
+        
+        // AIService'i yükle
+        require_once __DIR__ . '/../../../../app/services/AIService.php';
+        
+        // İlan bilgilerini al
+        $listingData = [
+            'title' => trim($_POST['title'] ?? ''),
+            'location' => trim($_POST['location'] ?? ''),
+            'price' => floatval($_POST['price'] ?? 0),
+            'property_type' => trim($_POST['property_type'] ?? 'house'),
+            'listing_status' => trim($_POST['listing_status'] ?? 'sale'),
+            'bedrooms' => intval($_POST['bedrooms'] ?? 0),
+            'bathrooms' => intval($_POST['bathrooms'] ?? 0),
+            'living_rooms' => intval($_POST['living_rooms'] ?? 0),
+            'rooms' => intval($_POST['rooms'] ?? 0),
+            'area' => floatval($_POST['area'] ?? 0),
+            'area_unit' => trim($_POST['area_unit'] ?? 'sqm')
+        ];
+        
+        // Başlık zorunlu
+        if (empty($listingData['title'])) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'İlan başlığı zorunludur'
+            ]);
+            return;
+        }
+        
+        // AIService'i çağır
+        $aiService = new AIService();
+        $result = $aiService->generateListingDescription($listingData);
+        
+        echo json_encode($result);
+    }
+    
     private function renderModuleView($viewName, $data = []) {
         $viewPath = $this->moduleInfo['path'] . '/views/' . $viewName . '.php';
         

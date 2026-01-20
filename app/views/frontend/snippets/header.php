@@ -3,6 +3,47 @@
 $headerMenu = get_menu('header');
 $menuItems = $headerMenu['items'] ?? [];
 
+// Dil bilgilerini al
+$languages = [];
+$currentLang = function_exists('get_current_language') ? get_current_language() : 'tr';
+$defaultLang = function_exists('get_default_language') ? get_default_language() : 'tr';
+
+// Aktif dilleri veritabanından al
+try {
+    if (class_exists('Database')) {
+        $db = Database::getInstance();
+        $languages = $db->fetchAll("SELECT * FROM languages WHERE is_active = 1 ORDER BY code ASC");
+    }
+} catch (Exception $e) {
+    // Veritabanı hatası durumunda boş dizi
+    $languages = [];
+}
+
+// Mevcut URL'i al ve dil prefix'ini çıkar
+$currentUrl = $_SERVER['REQUEST_URI'] ?? '/';
+$currentPath = parse_url($currentUrl, PHP_URL_PATH);
+$pathParts = explode('/', trim($currentPath, '/'));
+
+// Dil kodunu path'ten çıkar
+$basePath = $currentPath;
+if (!empty($pathParts[0]) && strlen($pathParts[0]) === 2) {
+    // İlk segment dil kodu olabilir
+    $potentialLang = strtolower($pathParts[0]);
+    foreach ($languages as $lang) {
+        if ($lang['code'] === $potentialLang) {
+            array_shift($pathParts);
+            $basePath = '/' . implode('/', $pathParts);
+            break;
+        }
+    }
+}
+
+// basePath'i normalize et
+$basePath = rtrim($basePath, '/');
+if (empty($basePath)) {
+    $basePath = '';
+}
+
 // Recursive menü render fonksiyonu (3+ seviye desteği)
 function renderDesktopMenuItem($item, $level = 0) {
     $hasChildren = !empty($item['children']);
@@ -165,14 +206,54 @@ function renderMobileMenuItem($item, $level = 0) {
 
       <!-- Right Side -->
       <div class="flex items-center gap-4">
-        <!-- Language Switcher (Desktop) -->
-        <div class="hidden lg:block">
-          <?php 
-          if (function_exists('do_action')) {
-            do_action('theme_header_after_menu');
-          }
-          ?>
+        <!-- Language Switcher Hook (Translation Modülü) -->
+        <div style="display: none !important;">
+          <?php do_action('theme_navigation_after_menu'); ?>
         </div>
+        
+        <!-- Language Switcher (Desktop) - Fallback if translation module not active -->
+        <?php if (!empty($languages) && count($languages) > 1): ?>
+        <div class="hidden lg:block" style="display: none !important;">
+          <div class="relative group/lang-switcher">
+            <button type="button" class="flex items-center gap-1.5 px-3 py-2 text-gray-700 hover:text-purple-600 font-medium transition-colors rounded-lg">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
+              </svg>
+              <span class="text-sm font-medium"><?php echo strtoupper($currentLang); ?></span>
+              <svg class="w-4 h-4 transition-transform group-hover/lang-switcher:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            
+            <!-- Dropdown Menu -->
+            <div class="absolute right-0 top-full mt-2 opacity-0 invisible group-hover/lang-switcher:opacity-100 group-hover/lang-switcher:visible transition-all duration-200 z-50">
+              <div class="bg-white rounded-lg shadow-lg border border-gray-100 py-2 min-w-[160px]">
+                <?php foreach ($languages as $lang): ?>
+                  <?php
+                  // URL oluştur
+                  if ($lang['code'] === $defaultLang) {
+                    $langUrl = $basePath ?: '/';
+                  } else {
+                    $langUrl = '/' . $lang['code'] . $basePath;
+                    if ($langUrl === '/' . $lang['code']) {
+                      $langUrl = '/' . $lang['code'] . '/';
+                    }
+                  }
+                  $isActive = $lang['code'] === $currentLang;
+                  ?>
+                  <a href="<?php echo esc_url($langUrl); ?>" 
+                     class="flex items-center gap-2.5 px-4 py-2.5 text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors <?php echo $isActive ? 'bg-purple-50 text-purple-600 font-medium' : ''; ?>">
+                    <?php if (!empty($lang['flag'])): ?>
+                      <span class="text-lg"><?php echo esc_html($lang['flag']); ?></span>
+                    <?php endif; ?>
+                    <span class="text-sm"><?php echo esc_html($lang['native_name'] ?? $lang['name'] ?? strtoupper($lang['code'])); ?></span>
+                  </a>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
         
         <button class="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center hover:bg-purple-700 transition-colors">
           <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -201,14 +282,44 @@ function renderMobileMenuItem($item, $level = 0) {
           <a href="<?php echo ViewRenderer::siteUrl('blog'); ?>" class="py-2 text-gray-700 hover:text-purple-600 font-medium">Blog</a>
         <?php endif; ?>
         
-        <!-- Language Switcher (Mobile) -->
-        <div class="pt-4 border-t border-gray-100">
-          <?php 
-          if (function_exists('do_action')) {
-            do_action('theme_header_after_menu');
-          }
-          ?>
+        <!-- Language Switcher Hook (Mobile - Translation Modülü) -->
+        <div class="px-4 py-2" style="display: none !important;">
+          <?php do_action('theme_navigation_after_menu'); ?>
         </div>
+        
+        <!-- Language Switcher (Mobile) -->
+        <?php if (!empty($languages) && count($languages) > 1): ?>
+        <div class="pt-4 border-t border-gray-100" style="display: none !important;">
+          <div class="lang-switcher-mobile">
+            <div class="flex flex-col gap-2">
+              <span class="text-sm font-medium text-gray-500 mb-1">Dil / Language</span>
+              <div class="flex flex-wrap gap-2">
+                <?php foreach ($languages as $lang): ?>
+                  <?php
+                  // URL oluştur
+                  if ($lang['code'] === $defaultLang) {
+                    $langUrl = $basePath ?: '/';
+                  } else {
+                    $langUrl = '/' . $lang['code'] . $basePath;
+                    if ($langUrl === '/' . $lang['code']) {
+                      $langUrl = '/' . $lang['code'] . '/';
+                    }
+                  }
+                  $isActive = $lang['code'] === $currentLang;
+                  ?>
+                  <a href="<?php echo esc_url($langUrl); ?>" 
+                     class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors <?php echo $isActive ? 'bg-purple-600 text-white font-medium' : 'bg-gray-100 text-gray-700 hover:bg-purple-50 hover:text-purple-600'; ?>">
+                    <?php if (!empty($lang['flag'])): ?>
+                      <span><?php echo esc_html($lang['flag']); ?></span>
+                    <?php endif; ?>
+                    <span><?php echo esc_html($lang['native_name'] ?? $lang['name'] ?? strtoupper($lang['code'])); ?></span>
+                  </a>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
       </div>
     </div>
   </nav>

@@ -1,0 +1,105 @@
+/* CRM Module Styles */
+
+.crm-lead-card {
+    transition: all 0.2s ease;
+}
+
+.crm-lead-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.crm-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.crm-status-new {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.crm-status-contacted {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.crm-status-quoted {
+    background-color: #e9d5ff;
+    color: #6b21a8;
+}
+
+.crm-status-closed {
+    background-color: #a7f3d0;
+    color: #064e3b;
+}
+
+.crm-status-cancelled {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Kanban Styles */
+.kanban-column {
+    min-height: 400px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.kanban-card {
+    cursor: move;
+    transition: all 0.2s ease;
+}
+
+.kanban-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.kanban-card.dragging {
+    opacity: 0.5;
+}
+
+.kanban-column.drag-over {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-color: #3b82f6;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .crm-status-new {
+        background-color: rgba(234, 179, 8, 0.2);
+        color: #fbbf24;
+    }
+    
+    .crm-status-contacted {
+        background-color: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+    }
+    
+    .crm-status-quoted {
+        background-color: rgba(168, 85, 247, 0.2);
+        color: #a78bfa;
+    }
+    
+    .crm-status-closed {
+        background-color: rgba(5, 150, 105, 0.2);
+        color: #6ee7b7;
+    }
+    
+    .crm-status-cancelled {
+        background-color: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .kanban-column {
+        min-height: 300px;
+        max-height: 400px;
+    }
+}

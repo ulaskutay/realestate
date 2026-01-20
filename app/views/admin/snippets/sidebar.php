@@ -85,6 +85,8 @@ function can_view($module) {
                 $canViewDesign = current_user_can('themes.edit_code');
                 $canViewModules = can_view('modules');
                 $canViewSettings = can_view('settings');
+                $canViewListings = can_view('realestate-listings');
+                $canViewAgents = can_view('realestate-agents');
                 
                 // İçerik alt menüsü için aktif kontrol (Yazılar ve Sözleşmeler)
                 $contentActive = strpos($currentPage, 'posts') === 0 || strpos($currentPage, 'agreements') === 0;
@@ -94,6 +96,22 @@ function can_view($module) {
                 $designActive = strpos($currentPage, 'design') === 0 || strpos($currentPage, 'sliders') === 0 || strpos($currentPage, 'menus') === 0 || strpos($currentPage, 'themes') === 0;
                 $showDesignMenu = $canViewThemes || $canViewSliders || $canViewMenus || $canViewDesign;
                 ?>
+                
+                <!-- İlanlar -->
+                <?php if ($canViewListings): ?>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg <?php echo strpos($currentPage, 'realestate-listings') === 0 || strpos($currentPage, 'module/realestate-listings') === 0 ? 'bg-primary/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'; ?>" href="<?php echo admin_url('module/realestate-listings'); ?>">
+                    <span class="material-symbols-outlined <?php echo strpos($currentPage, 'realestate-listings') === 0 || strpos($currentPage, 'module/realestate-listings') === 0 ? 'text-primary' : 'text-gray-600 dark:text-gray-300'; ?> text-2xl">home_work</span>
+                    <p class="<?php echo strpos($currentPage, 'realestate-listings') === 0 || strpos($currentPage, 'module/realestate-listings') === 0 ? 'text-primary' : 'text-gray-800 dark:text-white'; ?> text-sm font-medium">İlanlar</p>
+                </a>
+                <?php endif; ?>
+                
+                <!-- Danışmanlar -->
+                <?php if ($canViewAgents): ?>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg <?php echo strpos($currentPage, 'realestate-agents') === 0 || strpos($currentPage, 'module/realestate-agents') === 0 ? 'bg-primary/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'; ?>" href="<?php echo admin_url('module/realestate-agents'); ?>">
+                    <span class="material-symbols-outlined <?php echo strpos($currentPage, 'realestate-agents') === 0 || strpos($currentPage, 'module/realestate-agents') === 0 ? 'text-primary' : 'text-gray-600 dark:text-gray-300'; ?> text-2xl">support_agent</span>
+                    <p class="<?php echo strpos($currentPage, 'realestate-agents') === 0 || strpos($currentPage, 'module/realestate-agents') === 0 ? 'text-primary' : 'text-gray-800 dark:text-white'; ?> text-sm font-medium">Danışmanlar</p>
+                </a>
+                <?php endif; ?>
                 
                 <!-- İçerik (Açılır Menü) - Yazılar & Sözleşmeler -->
                 <?php if ($showContentMenu): ?>

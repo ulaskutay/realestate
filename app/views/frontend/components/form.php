@@ -237,19 +237,27 @@ function render_form_html($form) {
  */
 if (!function_exists('render_form_field')) {
 function render_form_field($field) {
+    // Field type'ı kontrol et - hem 'type' hem 'field_type' olabilir, trim et
+    $fieldType = trim($field['type'] ?? $field['field_type'] ?? 'text');
+    
+    // Field type boş ise text olarak kabul et
+    if (empty($fieldType)) {
+        $fieldType = 'text';
+    }
+    
     $widthClass = 'field-width-' . ($field['width'] ?? 'full');
     $requiredClass = $field['required'] ? 'field-required' : '';
     $customClass = $field['css_class'] ?? '';
     
     // Layout elemanları
-    if (in_array($field['type'], ['heading', 'paragraph', 'divider'])) {
+    if (in_array($fieldType, ['heading', 'paragraph', 'divider'])) {
         render_form_layout_element($field);
         return;
     }
     
     ?>
-    <div class="form-field <?php echo esc_attr($widthClass); ?> <?php echo esc_attr($requiredClass); ?> <?php echo esc_attr($customClass); ?>" data-field-type="<?php echo esc_attr($field['type']); ?>">
-        <?php if ($field['type'] !== 'hidden'): ?>
+    <div class="form-field <?php echo esc_attr($widthClass); ?> <?php echo esc_attr($requiredClass); ?> <?php echo esc_attr($customClass); ?>" data-field-type="<?php echo esc_attr($fieldType); ?>">
+        <?php if ($fieldType !== 'hidden'): ?>
             <label class="field-label" for="field-<?php echo esc_attr($field['name']); ?>">
                 <?php echo esc_html($field['label']); ?>
                 <?php if ($field['required']): ?>
@@ -260,17 +268,18 @@ function render_form_field($field) {
         
         <div class="field-input">
             <?php
-            switch ($field['type']) {
+            switch ($fieldType) {
                 case 'text':
                 case 'email':
                 case 'phone':
+                case 'tel':
                 case 'number':
                 case 'date':
                 case 'time':
                 case 'datetime':
-                    $inputType = $field['type'];
-                    if ($field['type'] === 'phone') $inputType = 'tel';
-                    if ($field['type'] === 'datetime') $inputType = 'datetime-local';
+                    $inputType = $fieldType;
+                    if ($fieldType === 'phone' || $fieldType === 'tel') $inputType = 'tel';
+                    if ($fieldType === 'datetime') $inputType = 'datetime-local';
                     ?>
                     <input type="<?php echo esc_attr($inputType); ?>" 
                            id="field-<?php echo esc_attr($field['name']); ?>"
@@ -360,6 +369,18 @@ function render_form_field($field) {
                     <input type="hidden" 
                            name="<?php echo esc_attr($field['name']); ?>" 
                            value="<?php echo esc_attr($field['default_value'] ?? ''); ?>">
+                    <?php
+                    break;
+                    
+                default:
+                    // Bilinmeyen tip için varsayılan text input
+                    ?>
+                    <input type="text" 
+                           id="field-<?php echo esc_attr($field['name']); ?>"
+                           name="<?php echo esc_attr($field['name']); ?>" 
+                           placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
+                           value="<?php echo esc_attr($field['default_value'] ?? ''); ?>"
+                           <?php echo $field['required'] ? 'required' : ''; ?>>
                     <?php
                     break;
             }

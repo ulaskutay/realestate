@@ -744,5 +744,136 @@ class HomeController extends Controller
         $renderer->setLayout('default');
         $this->view('frontend/404', ['title' => 'Sayfa Bulunamadı', 'current_page' => '404']);
     }
+
+    /**
+     * Arama sayfası
+     * Yazılar, sayfalar ve emlak ilanlarında arama yapar
+     */
+    public function search()
+    {
+        // Arama terimini al
+        $query = trim($_GET['q'] ?? '');
+        
+        // ViewRenderer'ı al ve layout ayarla
+        require_once __DIR__ . '/../../core/ViewRenderer.php';
+        $renderer = ViewRenderer::getInstance();
+        $renderer->setLayout('default');
+        
+        // Arama terimi yoksa boş sonuç göster
+        if (empty($query)) {
+            $data = [
+                'title' => 'Arama',
+                'query' => '',
+                'posts' => [],
+                'pages' => [],
+                'listings' => [],
+                'totalResults' => 0,
+                'current_page' => 'search'
+            ];
+            $this->view('frontend/search', $data);
+            return;
+        }
+        
+        // Post model'ini yükle
+        require_once __DIR__ . '/../models/Post.php';
+        $postModel = new Post();
+        
+        // Yazılarda ara
+        $posts = $postModel->search($query, 20);
+        
+        // Çeviri filter'larını uygula
+        if (function_exists('apply_filters')) {
+            foreach ($posts as &$post) {
+                $post['title'] = apply_filters('post_title', $post['title']);
+                if (!empty($post['excerpt'])) {
+                    $post['excerpt'] = apply_filters('post_excerpt', $post['excerpt']);
+                }
+            }
+            unset($post);
+        }
+        
+        // Page model'ini yükle
+        require_once __DIR__ . '/../models/Page.php';
+        $pageModel = new Page();
+        
+        // Sayfalarda ara (Page model'i de posts tablosunu kullanıyor, type='page' ile)
+        $keyword = '%' . $query . '%';
+        $db = Database::getInstance();
+        $pages = $db->fetchAll(
+            "SELECT p.*, 
+                    u.username as author_name
+             FROM `posts` p
+             LEFT JOIN `users` u ON p.author_id = u.id
+             WHERE p.type = 'page'
+             AND (p.title LIKE ? OR p.content LIKE ? OR p.excerpt LIKE ?)
+             AND p.status = 'published'
+             AND p.visibility = 'public'
+             ORDER BY p.created_at DESC
+             LIMIT 20",
+            [$keyword, $keyword, $keyword]
+        );
+        
+        // Çeviri filter'larını uygula
+        if (function_exists('apply_filters')) {
+            foreach ($pages as &$page) {
+                $page['title'] = apply_filters('page_title', $page['title']);
+                if (!empty($page['excerpt'])) {
+                    $page['excerpt'] = apply_filters('page_excerpt', $page['excerpt']);
+                }
+            }
+            unset($page);
+        }
+        
+        // Emlak ilanlarında ara (eğer modül yüklüyse)
+        $listings = [];
+        try {
+            if (class_exists('ModuleLoader')) {
+                $moduleLoader = ModuleLoader::getInstance();
+                $listingsModule = $moduleLoader->getModule('realestate-listings');
+                
+                if ($listingsModule && $listingsModule['status'] === 'active') {
+                    // Listings model'ini yükle
+                    $listingsModelPath = __DIR__ . '/../../themes/realestate/modules/realestate-listings/Model.php';
+                    if (file_exists($listingsModelPath)) {
+                        require_once $listingsModelPath;
+                        if (class_exists('RealEstateListingsModel')) {
+                            $listingsModel = new RealEstateListingsModel();
+                            
+                            // İlanlarda arama yap (location, title, description alanlarında)
+                            $listings = $db->fetchAll(
+                                "SELECT l.*, 
+                                        r.id as realtor_id, r.first_name as realtor_first_name, r.last_name as realtor_last_name,
+                                        r.slug as realtor_slug
+                                 FROM `realestate_listings` l
+                                 LEFT JOIN `realestate_agents` r ON l.realtor_id = r.id
+                                 WHERE l.status = 'published'
+                                 AND (l.title LIKE ? OR l.description LIKE ? OR l.location LIKE ?)
+                                 ORDER BY l.is_featured DESC, l.created_at DESC
+                                 LIMIT 20",
+                                [$keyword, $keyword, $keyword]
+                            );
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Listings search error: " . $e->getMessage());
+        }
+        
+        // Toplam sonuç sayısı
+        $totalResults = count($posts) + count($pages) + count($listings);
+        
+        $data = [
+            'title' => 'Arama Sonuçları: ' . htmlspecialchars($query),
+            'query' => $query,
+            'posts' => $posts,
+            'pages' => $pages,
+            'listings' => $listings,
+            'totalResults' => $totalResults,
+            'current_page' => 'search'
+        ];
+        
+        $this->view('frontend/search', $data);
+    }
 }
 

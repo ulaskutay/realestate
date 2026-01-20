@@ -545,6 +545,52 @@
                         </div>
                     </section>
 
+                    <!-- AI Settings -->
+                    <section class="mb-8">
+                        <div class="rounded-xl border border-gray-200 dark:border-white/10 p-6 bg-background-light dark:bg-background-dark">
+                            <div class="flex items-center gap-3 mb-6">
+                                <span class="material-symbols-outlined text-primary text-2xl">auto_awesome</span>
+                                <h2 class="text-gray-900 dark:text-white text-xl font-semibold leading-normal">Yapay Zeka Ayarları</h2>
+                            </div>
+                            <p class="text-gray-500 dark:text-gray-400 text-sm mb-6">Emlak ilan açıklamalarını otomatik olarak oluşturmak için Groq Cloud API kullanılmaktadır. Ücretsiz hesap oluşturarak API anahtarınızı alabilirsiniz.</p>
+                            
+                            <form method="POST" action="" class="space-y-6">
+                                <!-- Groq API Key -->
+                                <div class="flex flex-col gap-2">
+                                    <label for="groq_api_key" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">Groq API Anahtarı</label>
+                                    <input 
+                                        type="password" 
+                                        id="groq_api_key" 
+                                        name="groq_api_key" 
+                                        value="<?php echo esc_attr($settings['groq_api_key'] ?? ''); ?>"
+                                        placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                        class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm"
+                                    />
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs">
+                                        <a href="https://console.groq.com" target="_blank" class="text-primary hover:underline">Groq Console</a> adresinden ücretsiz hesap oluşturarak API anahtarınızı alabilirsiniz. 
+                                        API anahtarı güvenli bir şekilde saklanır ve sadece ilan açıklamaları oluştururken kullanılır.
+                                    </p>
+                                    <div class="mt-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                        <p class="text-sm text-blue-800 dark:text-blue-200">
+                                            <strong>💡 İpucu:</strong> Groq Cloud ücretsiz katmanında günde binlerce istek yapabilirsiniz. 
+                                            İlan açıklamalarınızı saniyeler içinde oluşturabilirsiniz.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-end pt-4 border-t border-gray-200 dark:border-white/10">
+                                    <button 
+                                        type="submit" 
+                                        name="save_ai_settings"
+                                        class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors font-medium"
+                                    >
+                                        AI Ayarlarını Kaydet
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+
                     <!-- Spam Protection Settings -->
                     <section class="mb-8">
                         <div class="rounded-xl border border-gray-200 dark:border-white/10 p-6 bg-background-light dark:bg-background-dark">

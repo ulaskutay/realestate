@@ -63,6 +63,12 @@ class Router {
         // Başındaki ve sonundaki slash'leri temizle
         $path = trim($path, '/');
         
+        // Debug: Orijinal path
+        $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
+        if ($debugMode && (strpos($path, 'ilanlar') !== false || strpos($path, 'danismanlar') !== false)) {
+            error_log("Router getCurrentPath: Original path after trim: '$path'");
+        }
+        
         // Translation modülü aktifse, URL'deki dil kodunu çıkar (örn: /en/page-slug -> /page-slug)
         if (class_exists('ModuleLoader')) {
             $moduleLoader = ModuleLoader::getInstance();
@@ -74,7 +80,27 @@ class Router {
                     require_once __DIR__ . '/../modules/translation/models/TranslationModel.php';
                     $translationModel = new TranslationModel();
                     if ($translationModel->isValidLanguage($pathParts[0])) {
-                        $langCode = $pathParts[0];
+                        $langCode = strtolower($pathParts[0]);
+                        
+                        // DİL TESPİTİNİ YAP - Router dil kodunu çıkarmadan ÖNCE!
+                        // Translation modülünün dil tespitini tetikle ve dil kodunu MANUEL SET ET
+                        if (method_exists($translationModule, 'getLanguageService')) {
+                            // LanguageService'i al ve dil kodunu set et
+                            $languageService = $translationModule->getLanguageService();
+                            if ($languageService && method_exists($languageService, 'setCurrentLanguage')) {
+                                // Dil kodunu set et - bu cache'i bypass eder
+                                $languageService->setCurrentLanguage($langCode);
+                                
+                                // Debug: Dil set edildi
+                                $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
+                                if ($debugMode) {
+                                    error_log("Router: Language set to '$langCode' via setCurrentLanguage()");
+                                }
+                            }
+                        } elseif (method_exists($translationModule, 'getCurrentLanguage')) {
+                            // Fallback: getCurrentLanguage detectLanguage'ı çağıracak
+                            $translationModule->getCurrentLanguage();
+                        }
                         
                         // Varsayılan dil için redirect yap (örn: /tr/about -> /about)
                         $defaultLang = get_module_setting('translation', 'default_language', 'tr');
@@ -86,16 +112,35 @@ class Router {
                             exit;
                         }
                         
-                        // Dil kodunu çıkar
+                        // Dil kodunu çıkar (dil tespiti yapıldıktan SONRA)
                         array_shift($pathParts);
-                        $path = implode('/', $pathParts);
+                        
+                        // Path'i yeniden oluştur - eğer pathParts boşsa boş string, değilse birleştir
+                        if (empty($pathParts)) {
+                            $path = '';
+                        } else {
+                            $path = implode('/', array_filter($pathParts)); // Boş elemanları filtrele
+                        }
                         $path = trim($path, '/');
+                        
+                        // Debug: Dil kodu çıkarıldıktan sonra path (her zaman log'la)
+                        error_log("Router: Language code '$langCode' removed, pathParts: " . json_encode($pathParts) . ", new path: '$path'");
                     }
                 }
             }
         }
         
-        return $path ?: '/';
+        // Path boşsa '/' döndür (ana sayfa için)
+        // Ama eğer path boş değilse, path'i döndür
+        $finalPath = $path ?: '/';
+        
+        // Debug: Final path
+        $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
+        if ($debugMode && (strpos($finalPath, 'ilanlar') !== false || strpos($finalPath, 'danismanlar') !== false || $finalPath === '/')) {
+            error_log("Router getCurrentPath: Final path: '$finalPath'");
+        }
+        
+        return $finalPath;
     }
     
     /**
@@ -137,6 +182,10 @@ class Router {
             $routePattern = '#^' . $routePattern . '$#';
             
             if (preg_match($routePattern, $currentPath, $matches)) {
+                // Debug: Parametreli route eşleşti
+                if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                    error_log("Router matchRoute: Pattern '$routePattern' matched path '$currentPath', matches: " . json_encode($matches));
+                }
                 return $matches;
             }
         }
@@ -154,9 +203,15 @@ class Router {
         // Debug modu kontrolü (sadece geliştirme ortamında)
         $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
         
-        if ($debugMode) {
-            error_log("Router dispatch - Method: $method, Current Path: $currentPath");
+        // Özel debug: ilanlar ve danismanlar için
+        $specialDebug = (strpos($currentPath, 'ilanlar') !== false || strpos($currentPath, 'danismanlar') !== false);
+        
+        if ($debugMode || $specialDebug) {
+            error_log("Router dispatch - Method: $method, Current Path: '$currentPath'");
             error_log("Total routes: " . count($this->routes));
+            if ($specialDebug) {
+                error_log("Special debug for: $currentPath");
+            }
         }
         
         foreach ($this->routes as $index => $route) {
@@ -170,14 +225,16 @@ class Router {
             
             $match = $this->matchRoute($route['path'], $currentPath);
             
-            if ($debugMode && $currentPath === 'rezervasyon') {
-                error_log("  Route path normalized: '" . trim($route['path'], '/') . "'");
-                error_log("  Current path normalized: '" . trim($currentPath, '/') . "'");
+            if ($specialDebug || ($debugMode && ($currentPath === 'rezervasyon' || $currentPath === 'ilanlar' || $currentPath === 'danismanlar'))) {
+                error_log("  Route #$index: path='" . trim($route['path'], '/') . "', currentPath='" . trim($currentPath, '/') . "'");
                 error_log("  Match result: " . ($match ? 'YES' : 'NO'));
+                if ($match && is_array($match)) {
+                    error_log("  Match params: " . json_encode($match));
+                }
             }
             
             if ($match) {
-                if ($debugMode) {
+                if ($debugMode || $specialDebug) {
                     error_log("Route matched! Handler: {$route['handler']}");
                 }
                 

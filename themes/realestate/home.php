@@ -186,12 +186,21 @@ function renderHomeSection($sectionId, $sectionsMap, $defaultSections, $themeLoa
         'items' => !empty($dbItems) ? $dbItems : ($default['items'] ?? [])
     ];
     
+    // Translation filter'larını uygula - Dil değiştirme için gerekli
+    if (function_exists('apply_filters')) {
+        $section['title'] = apply_filters('theme_section_title', $section['title'], $sectionId);
+        $section['subtitle'] = apply_filters('theme_section_subtitle', $section['subtitle'], $sectionId);
+        $section['content'] = apply_filters('theme_section_content', $section['content'], $sectionId);
+        $section['settings'] = apply_filters('theme_section_settings', $section['settings'], $sectionId);
+        $section['items'] = apply_filters('theme_section_items', $section['items'], $sectionId);
+    }
+    
     echo $themeLoader->renderComponent($sectionId, ['section' => $section]);
 }
 
 // Section'ları sıralı render et - HER ZAMAN Varsayılan sıralamayı kullan
 // Bu sıralama sabittir ve veritabanındaki sort_order değerlerinden bağımsızdır
-$sectionOrder = ['hero', 'featured-listings', 'consultants', 'why-choose-us', 'blog-preview', 'testimonials', 'cta'];
+$sectionOrder = ['hero', 'featured-listings', 'consultants', 'why-choose-us', 'testimonials', 'blog-preview', 'cta'];
 
 // Section'ları render et - Her zaman varsayılan sıralamaya göre
 foreach ($sectionOrder as $sectionId) {

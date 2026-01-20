@@ -119,6 +119,146 @@ class FormController extends Controller {
     }
     
     /**
+     * CRM Lead Formu şablonundan form oluştur
+     */
+    public function createFromCrmTemplate() {
+        $this->checkAuth();
+        
+        // Form oluştur
+        $formData = [
+            'name' => 'CRM Lead Formu',
+            'description' => 'Emlak sektörü için CRM entegrasyonlu lead formu. Bu formdan gelen gönderimler otomatik olarak CRM\'de lead olarak oluşturulur.',
+            'success_message' => 'Formunuz başarıyla gönderildi! En kısa sürede size dönüş yapacağız.',
+            'email_notification' => 1,
+            'email_subject' => 'Yeni Lead Formu Gönderimi',
+            'submit_button_text' => 'Gönder',
+            'submit_button_color' => '#137fec',
+            'form_style' => 'modern',
+            'layout' => 'vertical',
+            'status' => 'active'
+        ];
+        
+        $formId = $this->formModel->createForm($formData);
+        
+        if (!$formId) {
+            $_SESSION['form_message'] = 'Form oluşturulurken hata oluştu!';
+            $_SESSION['form_message_type'] = 'error';
+            $this->redirect(admin_url('forms'));
+            return;
+        }
+        
+        // Field'ları oluştur (CRM mapping'ine uygun isimlerle)
+        $fields = [
+            [
+                'form_id' => $formId,
+                'field_type' => 'text',
+                'field_name' => 'name',
+                'field_label' => 'Ad Soyad',
+                'placeholder' => 'Adınız ve soyadınız',
+                'is_required' => 1,
+                'order' => 1
+            ],
+            [
+                'form_id' => $formId,
+                'field_type' => 'tel',
+                'field_name' => 'phone',
+                'field_label' => 'Telefon',
+                'placeholder' => '05XX XXX XX XX',
+                'is_required' => 1,
+                'order' => 2
+            ],
+            [
+                'form_id' => $formId,
+                'field_type' => 'email',
+                'field_name' => 'email',
+                'field_label' => 'E-posta',
+                'placeholder' => 'ornek@email.com',
+                'is_required' => 0,
+                'order' => 3
+            ],
+            [
+                'form_id' => $formId,
+                'field_type' => 'select',
+                'field_name' => 'property_type',
+                'field_label' => 'Emlak Tipi',
+                'placeholder' => 'Seçiniz',
+                'is_required' => 0,
+                'options' => [
+                    'Satılık Daire',
+                    'Kiralık Daire',
+                    'Satılık Villa',
+                    'Kiralık Villa',
+                    'Satılık Arsa',
+                    'Kiralık Arsa',
+                    'Satılık İşyeri',
+                    'Kiralık İşyeri'
+                ],
+                'order' => 4
+            ],
+            [
+                'form_id' => $formId,
+                'field_type' => 'text',
+                'field_name' => 'location',
+                'field_label' => 'Lokasyon',
+                'placeholder' => 'İlçe, Mahalle',
+                'is_required' => 0,
+                'order' => 5
+            ],
+            [
+                'form_id' => $formId,
+                'field_type' => 'text',
+                'field_name' => 'budget',
+                'field_label' => 'Bütçe',
+                'placeholder' => 'Örn: 500.000 - 1.000.000 TL',
+                'is_required' => 0,
+                'order' => 6
+            ],
+            [
+                'form_id' => $formId,
+                'field_type' => 'select',
+                'field_name' => 'room_count',
+                'field_label' => 'Oda Sayısı',
+                'placeholder' => 'Seçiniz',
+                'is_required' => 0,
+                'options' => [
+                    '1+0',
+                    '1+1',
+                    '2+1',
+                    '3+1',
+                    '4+1',
+                    '5+1',
+                    '6+1',
+                    'Daha fazla'
+                ],
+                'order' => 7
+            ],
+            [
+                'form_id' => $formId,
+                'field_type' => 'textarea',
+                'field_name' => 'message',
+                'field_label' => 'Mesajınız',
+                'placeholder' => 'Eklemek istediğiniz bilgiler...',
+                'is_required' => 0,
+                'order' => 8
+            ]
+        ];
+        
+        // Field'ları ekle
+        foreach ($fields as $fieldData) {
+            try {
+                $this->fieldModel->createField($fieldData);
+            } catch (Exception $e) {
+                error_log("CRM Template field creation error: " . $e->getMessage());
+            }
+        }
+        
+        $_SESSION['form_message'] = 'CRM Lead Formu şablonu başarıyla oluşturuldu! Form alanlarını düzenleyebilirsiniz.';
+        $_SESSION['form_message_type'] = 'success';
+        
+        $this->redirect(admin_url('forms/edit/' . $formId));
+    }
+    
+    /**
      * Form düzenleme formu
      */
     public function edit($id) {
@@ -746,19 +886,22 @@ class FormController extends Controller {
      * Tek bir form alanını render eder
      */
     private function renderField($field) {
+        // Field type'ı kontrol et - hem 'type' hem 'field_type' olabilir, trim et
+        $fieldType = trim($field['type'] ?? $field['field_type'] ?? 'text');
+        
         $widthClass = 'field-width-' . ($field['width'] ?? 'full');
         $requiredClass = $field['required'] ? 'field-required' : '';
         $customClass = $field['css_class'] ?? '';
         
         // Layout elemanları
-        if (in_array($field['type'], ['heading', 'paragraph', 'divider'])) {
+        if (in_array($fieldType, ['heading', 'paragraph', 'divider'])) {
             $this->renderLayoutElement($field);
             return;
         }
         
         ?>
-        <div class="form-field <?php echo esc_attr($widthClass); ?> <?php echo esc_attr($requiredClass); ?> <?php echo esc_attr($customClass); ?>" data-field-type="<?php echo esc_attr($field['type']); ?>">
-            <?php if ($field['type'] !== 'hidden'): ?>
+        <div class="form-field <?php echo esc_attr($widthClass); ?> <?php echo esc_attr($requiredClass); ?> <?php echo esc_attr($customClass); ?>" data-field-type="<?php echo esc_attr($fieldType); ?>">
+            <?php if ($fieldType !== 'hidden'): ?>
                 <label class="field-label">
                     <?php echo esc_html($field['label']); ?>
                     <?php if ($field['required']): ?>
@@ -769,17 +912,18 @@ class FormController extends Controller {
             
             <div class="field-input">
                 <?php
-                switch ($field['type']) {
+                switch ($fieldType) {
                     case 'text':
                     case 'email':
                     case 'phone':
+                    case 'tel':
                     case 'number':
                     case 'date':
                     case 'time':
                     case 'datetime':
-                        $inputType = $field['type'];
-                        if ($field['type'] === 'phone') $inputType = 'tel';
-                        if ($field['type'] === 'datetime') $inputType = 'datetime-local';
+                        $inputType = $fieldType;
+                        if ($fieldType === 'phone' || $fieldType === 'tel') $inputType = 'tel';
+                        if ($fieldType === 'datetime') $inputType = 'datetime-local';
                         ?>
                         <input type="<?php echo esc_attr($inputType); ?>" 
                                name="<?php echo esc_attr($field['name']); ?>" 
@@ -968,30 +1112,59 @@ class FormController extends Controller {
                 }
                 if (!$isActive) continue;
                 
-                if (in_array($field['type'], ['heading', 'paragraph', 'divider'])) continue;
+                // Field type'ı kontrol et - hem 'type' hem 'field_type' olabilir, trim et
+                $fieldType = trim($field['type'] ?? $field['field_type'] ?? 'text');
+                
+                // Field type boş ise text olarak kabul et
+                if (empty($fieldType)) {
+                    $fieldType = 'text';
+                }
+                
+                if (in_array($fieldType, ['heading', 'paragraph', 'divider'])) continue;
                 
                 $value = $_POST[$field['name']] ?? null;
                 
+                // String değerleri trim et
+                if (is_string($value)) {
+                    $value = trim($value);
+                }
+                
                 // Zorunlu alan kontrolü
                 $isRequired = (int)($field['required'] ?? 0) === 1;
-                if ($isRequired && empty($value)) {
+                if ($isRequired && (empty($value) || (is_string($value) && trim($value) === ''))) {
                     $errors[$field['name']] = $field['label'] . ' alanı zorunludur.';
                     continue;
                 }
                 
-                // Tip bazlı validasyon
-                if (!empty($value)) {
-                    switch ($field['type']) {
-                        case 'email':
-                            if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                                $errors[$field['name']] = 'Geçerli bir e-posta adresi giriniz.';
-                            }
-                            break;
-                        case 'number':
-                            if (!is_numeric($value)) {
-                                $errors[$field['name']] = 'Geçerli bir sayı giriniz.';
-                            }
-                            break;
+                // Tip bazlı validasyon - sadece değer varsa ve boş değilse
+                // ÖNEMLİ: Field name kontrolü önce gelsin, field type ikinci sırada
+                if (!empty($value) && is_string($value) && trim($value) !== '') {
+                    $fieldName = strtolower(trim($field['name'] ?? ''));
+                    $fieldTypeLower = strtolower(trim($fieldType));
+                    
+                    // E-posta validasyonu - field name "email" ise veya field type "email" ise
+                    if ($fieldName === 'email' || $fieldName === 'e-posta' || $fieldTypeLower === 'email') {
+                        if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                            $errors[$field['name']] = 'Geçerli bir e-posta adresi giriniz.';
+                        }
+                    }
+                    // Telefon validasyonu - field name "phone" veya "telefon" ise veya field type "phone"/"tel" ise
+                    elseif ($fieldName === 'phone' || $fieldName === 'telefon' || $fieldTypeLower === 'phone' || $fieldTypeLower === 'tel') {
+                        // Telefon numarası validasyonu - esnek format kontrolü
+                        // Sadece rakamları say (boşluk, tire, parantez, + gibi karakterleri çıkar)
+                        $digitOnly = preg_replace('/[^0-9]/', '', $value);
+                        $digitCount = strlen($digitOnly);
+                        
+                        // Minimum 10 rakam olmalı (Türk telefon numaraları için)
+                        if ($digitCount < 10) {
+                            $errors[$field['name']] = 'Geçerli bir telefon numarası giriniz. (En az 10 rakam)';
+                        }
+                    }
+                    // Sayı validasyonu - sadece field type kontrol et
+                    elseif ($fieldTypeLower === 'number') {
+                        if (!is_numeric($value)) {
+                            $errors[$field['name']] = 'Geçerli bir sayı giriniz.';
+                        }
                     }
                 }
                 
@@ -1027,6 +1200,14 @@ class FormController extends Controller {
             } catch (Exception $e) {
                 // Sayaç hatası kritik değil, devam et
                 error_log('Form increment count error: ' . $e->getMessage());
+            }
+            
+            // Form submission hook'unu tetikle (CRM modülü için)
+            if (function_exists('do_action')) {
+                $submission = $this->submissionModel->findDecoded($submissionId);
+                if ($submission) {
+                    do_action('form_submitted', $formId, $submission);
+                }
             }
             
             // E-posta bildirimi gönder

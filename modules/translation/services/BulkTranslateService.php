@@ -23,7 +23,9 @@ class BulkTranslateService {
     }
     
     /**
-     * Check if text should be translated (more flexible than shouldNotTranslateValue)
+     * Check if text should be translated
+     * Sadece gerçekten teknik değerleri filtreler (class, id, style, url, renk vb.)
+     * Diğer tüm metinler çevrilir
      * 
      * @param string $value Text to check
      * @return bool True if should NOT translate, false if should translate
@@ -40,48 +42,42 @@ class BulkTranslateService {
             return true;
         }
         
-        // Çok kısa metinler (1 karakter) - sadece gerçekten anlamsız olanlar
-        // 2+ karakter metinler çevrilmeli (örn: "OK", "Başla", "Gö" gibi)
+        // Çok kısa metinler (1 karakter)
         if (strlen($value) <= 1) {
             return true;
         }
         
-        // URL kontrolü - sadece gerçek URL'ler (http/https ile başlayan veya sadece / ile başlayıp uzun olmayan)
-        // Kısa metinler (örn: "Ana Sayfa", "Blog") URL değil, çevrilmeli
-        if (strlen($value) > 3 && preg_match('/^(https?:\/\/|mailto:|tel:)/', $value)) {
-            return true;
-        }
-        // Sadece tek karakter veya çok kısa path'ler (örn: "/", "/a") atlanmalı
-        if (preg_match('/^\/[a-z0-9]{1,2}$/', $value)) {
+        // URL kontrolü - sadece gerçek URL'ler (http/https/mailto/tel ile başlayan)
+        if (preg_match('/^(https?:\/\/|mailto:|tel:)/', $value)) {
             return true;
         }
         
-        // Hex renk kontrolü
-        if (preg_match('/^#[0-9a-fA-F]{3,8}$/', $value)) {
+        // Renk kodları - Hex (#ffffff, #fff)
+        if (preg_match('/^#[0-9a-fA-F]{3,8}$/i', $value)) {
             return true;
         }
         
-        // RGB/RGBA/HSL renk kontrolü
-        if (preg_match('/^(rgb|rgba|hsl|hsla)\s*\(/', $value)) {
+        // Renk kodları - RGB/RGBA/HSL/HSLA
+        if (preg_match('/^(rgb|rgba|hsl|hsla)\s*\(/i', $value)) {
             return true;
         }
         
-        // CSS değerleri (10px, 1.5rem, 100%, 50vh)
+        // CSS değerleri (10px, 1.5rem, 100%, 50vh, 50deg)
         if (preg_match('/^[\d.]+(px|rem|em|%|vh|vw|ch|ex|cm|mm|in|pt|pc|deg|rad|turn|s|ms)$/', $value)) {
             return true;
         }
         
-        // Sayısal değerler
-        if (is_numeric($value)) {
+        // Sayısal değerler (sadece sayılar, float dahil)
+        if (is_numeric($value) && preg_match('/^-?[\d.]+$/', $value)) {
             return true;
         }
         
-        // Boolean benzeri
-        if (in_array(strtolower($value), ['true', 'false', 'yes', 'no', 'null', 'undefined'])) {
+        // Boolean/Null değerler
+        if (in_array(strtolower($value), ['true', 'false', 'yes', 'no', 'null', 'undefined', 'none'])) {
             return true;
         }
         
-        // JSON benzeri
+        // JSON benzeri (tek satır JSON)
         if ((substr($value, 0, 1) === '{' && substr($value, -1) === '}') ||
             (substr($value, 0, 1) === '[' && substr($value, -1) === ']')) {
             return true;
@@ -92,55 +88,30 @@ class BulkTranslateService {
             return true;
         }
         
-        // Dosya uzantıları
-        if (preg_match('/\.(jpg|jpeg|png|gif|svg|webp|ico|pdf|doc|docx|xls|xlsx|zip|mp4|mp3|wav|css|js|php|html)$/i', $value)) {
+        // Dosya uzantıları (.jpg, .pdf, .css, .js vb.)
+        if (preg_match('/^\.?[a-z0-9]{1,5}$/i', $value) && preg_match('/\.(jpg|jpeg|png|gif|svg|webp|ico|pdf|doc|docx|xls|xlsx|zip|mp4|mp3|wav|css|js|php|html|woff|woff2|ttf|eot)$/i', $value)) {
             return true;
         }
         
-        // Tailwind CSS class'ları - SADECE gerçekten teknik görünen değerler
-        // Uzun metinler (15+ karakter) muhtemelen gerçek içerik, çevrilmeli
-        if (strlen($value) > 15) {
-            return false; // Uzun metinler çevrilmeli
-        }
-        
-        // Sadece çok kısa değerler için kontrol et (15 karakter altı)
-        // VE sadece gerçekten Tailwind class gibi görünen değerler
-        if (strlen($value) < 15) {
-            $tailwindPrefixes = [
-                'from-', 'to-', 'via-', 'bg-', 'text-', 'border-', 'ring-', 'outline-',
-                'rounded', 'shadow', 'blur', 'opacity-', 'backdrop-',
-                'px-', 'py-', 'pt-', 'pb-', 'pl-', 'pr-', 'p-',
-                'mx-', 'my-', 'mt-', 'mb-', 'ml-', 'mr-', 'm-',
-                'w-', 'h-', 'min-w-', 'min-h-', 'max-w-', 'max-h-',
-                'gap-', 'space-x-', 'space-y-',
-                'items-', 'justify-', 'self-', 'place-',
-                'font-', 'leading-', 'tracking-',
-                'z-', 'top-', 'left-', 'right-', 'bottom-', 'inset-',
-                'overflow-', 'cursor-', 'pointer-events-', 'select-',
-                'transition-', 'duration-', 'ease-', 'delay-',
-                'transform', 'scale-', 'rotate-', 'translate-', 'skew-', 'origin-',
-                'animate-', 'motion-', 'flex', 'grid', 'block', 'inline', 'hidden'
-            ];
-            
-            // Sadece başında Tailwind prefix'i olan ve boşluksuz değerler
-            foreach ($tailwindPrefixes as $prefix) {
-                if (strpos($value, $prefix) === 0 && !preg_match('/\s/', $value)) {
-                    return true;
-                }
-            }
-            
-            // Tailwind renk class'ları (violet-500, slate-900/50) - sadece çok kısa ve boşluksuz olanlar
-            // 10 karakterden uzun olanlar muhtemelen gerçek içerik, çevrilmeli
-            if (strlen($value) <= 10 && preg_match('/^[a-z]+-\d{2,3}(\/\d+)?$/', $value) && !preg_match('/\s/', $value)) {
-                return true;
+        // CSS class/id pattern - SADECE boşluksuz ve çok kısa olanlar (class="flex", id="nav")
+        // Uzun metinler gerçek içerik olabilir
+        if (strlen($value) <= 50 && !preg_match('/\s/', $value)) {
+            // CSS class/id benzeri pattern (sadece harf, sayı, tire, underscore)
+            // Ama anlamlı kelimeler içermiyorsa
+            if (preg_match('/^[a-z0-9_-]+$/i', $value)) {
+                // Eğer boşluk varsa, muhtemelen gerçek içerik
+                // Eğer çok kısa ve sadece teknik karakterler ise, class/id olabilir
+                // Ama anlamlı kelimeler içeriyorsa (örn: "Ana Sayfa", "Contact") çevrilmeli
+                // Bu kontrolü atlıyoruz - sadece boşluksuz ve çok kısa olanlar zaten yukarıda kontrol edildi
             }
         }
         
-        // Sadece özel karakterler
-        if (preg_match('/^[\s\-_\.\/\\\\:;,!@#$%^&*()+=\[\]{}|<>?~`]+$/', $value)) {
+        // Sadece özel karakterler (hiç harf/sayı yok)
+        if (preg_match('/^[^a-zA-Z0-9]+$/', $value)) {
             return true;
         }
         
+        // Diğer tüm durumlarda çevir
         return false;
     }
     
@@ -172,6 +143,13 @@ class BulkTranslateService {
             
             // Type'ı normalize et - frontend'de tutarlı lookup için
             $normalizedType = $this->translationService->normalizeTranslationType($type);
+            
+            // ÖNEMLİ: Veritabanında zaten çeviri var mı kontrol et - varsa API çağrısı yapma (token tasarrufu)
+            $existingTranslation = $this->translationService->getTranslation($normalizedType, $textHash, $targetLang, $text);
+            if ($existingTranslation && !empty($existingTranslation['translated_text'])) {
+                // Çeviri zaten var, API çağrısı yapma
+                return ['translated' => true, 'skipped' => false, 'translated_text' => $existingTranslation['translated_text'], 'cached' => true];
+            }
             
             // HTML içerik tespiti
             $isHtml = $this->translationService->isHtmlContent($text);
@@ -469,9 +447,10 @@ class BulkTranslateService {
      * @param mixed $data Data to translate (array, object, or string)
      * @param string $targetLang Target language
      * @param string $sourceLang Source language
+     * @param int &$translationCount Reference to translation count (output parameter)
      * @return mixed Translated data
      */
-    public function translateSettingsRecursive($data, $targetLang, $sourceLang) {
+    public function translateSettingsRecursive($data, $targetLang, $sourceLang, &$translationCount = 0) {
         if (is_array($data)) {
             $translated = [];
             foreach ($data as $key => $value) {
@@ -480,7 +459,7 @@ class BulkTranslateService {
                 
                 // Value'yu recursive olarak çevir
                 if (is_array($value) || is_object($value)) {
-                    $translated[$translatedKey] = $this->translateSettingsRecursive($value, $targetLang, $sourceLang);
+                    $translated[$translatedKey] = $this->translateSettingsRecursive($value, $targetLang, $sourceLang, $translationCount);
                 } else if (is_string($value) && !empty(trim($value))) {
                     // String değer - teknik değerleri atla
                     if (!$this->shouldNotTranslate($value)) {
@@ -494,6 +473,7 @@ class BulkTranslateService {
                                     $wordResult = $this->translateAndSave($word, 'title', $targetLang, $sourceLang);
                                     if ($wordResult['translated'] && !empty($wordResult['translated_text'])) {
                                         $translatedWords[] = $wordResult['translated_text'];
+                                        $translationCount++; // Çeviri sayısını artır
                                     } else {
                                         $translatedWords[] = $word;
                                     }
@@ -506,6 +486,7 @@ class BulkTranslateService {
                             $result = $this->translateAndSave($value, 'content', $targetLang, $sourceLang);
                             if ($result['translated'] && !empty($result['translated_text'])) {
                                 $translated[$translatedKey] = $result['translated_text'];
+                                $translationCount++; // Çeviri sayısını artır
                             } else {
                                 $translated[$translatedKey] = $value; // Çevrilemediyse orijinal
                             }
@@ -521,13 +502,14 @@ class BulkTranslateService {
         } else if (is_object($data)) {
             // Object'i array'e çevir, çevir, sonra tekrar object yap
             $array = (array) $data;
-            $translated = $this->translateSettingsRecursive($array, $targetLang, $sourceLang);
+            $translated = $this->translateSettingsRecursive($array, $targetLang, $sourceLang, $translationCount);
             return (object) $translated;
         } else if (is_string($data) && !empty(trim($data))) {
             // Tekil string
             if (!$this->shouldNotTranslate($data)) {
                 $result = $this->translateAndSave($data, 'content', $targetLang, $sourceLang);
                 if ($result['translated'] && !empty($result['translated_text'])) {
+                    $translationCount++; // Çeviri sayısını artır
                     return $result['translated_text'];
                 }
             }

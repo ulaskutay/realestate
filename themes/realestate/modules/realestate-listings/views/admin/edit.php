@@ -86,11 +86,19 @@ include $rootPath . '/app/views/admin/snippets/header.php';
                                     </div>
 
                                     <div>
-                                        <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                            Açıklama
-                                        </label>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                Açıklama
+                                            </label>
+                                            <button type="button" id="generate-ai-description" 
+                                                    class="flex items-center gap-2 px-3 py-1.5 text-sm bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all shadow-sm">
+                                                <span class="material-symbols-outlined text-base">auto_awesome</span>
+                                                <span>AI ile Oluştur</span>
+                                            </button>
+                                        </div>
                                         <textarea id="description" name="description" rows="6"
                                                   class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"><?php echo esc_html($listing['description']); ?></textarea>
+                                        <div id="ai-description-status" class="hidden mt-2 text-sm"></div>
                                     </div>
                                 </div>
                             </div>
@@ -415,6 +423,92 @@ function updateGalleryInput() {
 // Sayfa yüklendiğinde önizlemeyi güncelle
 document.addEventListener('DOMContentLoaded', function() {
     updateGalleryPreview();
+    
+    // AI Açıklama Oluşturma
+    const generateBtn = document.getElementById('generate-ai-description');
+    const descriptionTextarea = document.getElementById('description');
+    const statusDiv = document.getElementById('ai-description-status');
+    
+    if (generateBtn && descriptionTextarea) {
+        generateBtn.addEventListener('click', function() {
+            // Form verilerini topla
+            const formData = {
+                title: document.getElementById('title')?.value || '',
+                location: document.getElementById('location')?.value || '',
+                price: document.getElementById('price')?.value || 0,
+                property_type: document.getElementById('property_type')?.value || 'house',
+                listing_status: document.getElementById('listing_status')?.value || 'sale',
+                bedrooms: document.getElementById('bedrooms')?.value || 0,
+                bathrooms: document.getElementById('bathrooms')?.value || 0,
+                living_rooms: document.getElementById('living_rooms')?.value || 0,
+                rooms: document.getElementById('rooms')?.value || 0,
+                area: document.getElementById('area')?.value || 0,
+                area_unit: document.getElementById('area_unit')?.value || 'sqm'
+            };
+            
+            // Başlık kontrolü
+            if (!formData.title.trim()) {
+                showAIStatus('error', 'Lütfen önce ilan başlığını girin.');
+                return;
+            }
+            
+            // Loading state
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<span class="material-symbols-outlined text-base animate-spin">sync</span><span>Oluşturuluyor...</span>';
+            statusDiv.classList.remove('hidden');
+            statusDiv.className = 'mt-2 p-3 rounded-lg text-sm bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200';
+            statusDiv.textContent = 'AI açıklama oluşturuluyor, lütfen bekleyin...';
+            
+            // AJAX çağrısı
+            fetch('<?php echo admin_url('module/realestate-listings/generate-description'); ?>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Başarılı - açıklamayı yaz
+                    descriptionTextarea.value = data.description;
+                    showAIStatus('success', 'Açıklama başarıyla oluşturuldu! İstediğiniz gibi düzenleyebilirsiniz.');
+                    
+                    // Textarea'ya odaklan ve scroll et
+                    descriptionTextarea.focus();
+                    descriptionTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    // Hata
+                    showAIStatus('error', data.error || 'Açıklama oluşturulurken bir hata oluştu.');
+                }
+            })
+            .catch(error => {
+                showAIStatus('error', 'Bağlantı hatası: ' + error.message);
+            })
+            .finally(() => {
+                // Button'u eski haline getir
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<span class="material-symbols-outlined text-base">auto_awesome</span><span>AI ile Oluştur</span>';
+            });
+        });
+    }
+    
+    function showAIStatus(type, message) {
+        statusDiv.classList.remove('hidden');
+        if (type === 'success') {
+            statusDiv.className = 'mt-2 p-3 rounded-lg text-sm bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200';
+        } else {
+            statusDiv.className = 'mt-2 p-3 rounded-lg text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200';
+        }
+        statusDiv.textContent = message;
+        
+        // 5 saniye sonra gizle (başarılı durumda)
+        if (type === 'success') {
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 5000);
+        }
+    }
 });
 </script>
 

@@ -1,0 +1,31 @@
+{
+    "name": "crm",
+    "title": "CRM Yönetimi",
+    "version": "1.0.0",
+    "description": "Emlak sektörü için kapsamlı CRM modülü. Meta Lead Ads entegrasyonu, müşteri yönetimi, lead takibi, e-posta ve WhatsApp entegrasyonu.",
+    "author": "Codetic",
+    "website": "https://example.com",
+    "requires_php": "7.4",
+    "requires_cms": "1.0",
+    "main_file": "Controller.php",
+    "admin_menu": {
+        "title": "CRM",
+        "icon": "people",
+        "position": 30
+    },
+    "routes": [
+        {
+            "type": "frontend",
+            "path": "api/crm/meta-webhook",
+            "handler": "metaWebhook",
+            "method": "POST"
+        }
+    ],
+    "shortcodes": [],
+    "widgets": [],
+    "settings": true,
+    "hooks": {
+        "actions": ["form_submitted"],
+        "filters": []
+    }
+}

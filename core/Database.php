@@ -62,7 +62,7 @@ class Database {
      */
     public function fetch($sql, $params = []) {
         $stmt = $this->query($sql, $params);
-        return $stmt->fetch();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
     /**
@@ -70,7 +70,9 @@ class Database {
      */
     public function fetchAll($sql, $params = []) {
         $stmt = $this->query($sql, $params);
-        return $stmt->fetchAll();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Eğer false dönerse boş array döndür
+        return $result === false ? [] : $result;
     }
     
     /**

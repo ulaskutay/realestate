@@ -22,13 +22,33 @@ class ThemeStringExtractor {
     
     public function __construct($themePath = null) {
         if ($themePath === null) {
-            // Varsayılan tema yolu
+            // Aktif temayı al
+            $activeTheme = null;
+            
+            // ThemeManager'dan aktif temayı al
+            if (class_exists('ThemeManager')) {
+                try {
+                    $themeManager = ThemeManager::getInstance();
+                    $activeTheme = $themeManager->getActiveTheme();
+                } catch (Exception $e) {
+                    error_log("ThemeStringExtractor: ThemeManager error: " . $e->getMessage());
+                }
+            }
+            
+            // ThemeManager çalışmıyorsa option'dan al
+            if (!$activeTheme && function_exists('get_option')) {
+                $themeSlug = get_option('active_theme', 'realestate');
+            } else {
+                $themeSlug = $activeTheme['slug'] ?? 'realestate';
+            }
+            
+            // Tema yolu oluştur
             // __DIR__ = /home/codeticc/public_html/modules/translation/services
             // dirname(__DIR__) = /home/codeticc/public_html/modules/translation
             // dirname(dirname(__DIR__)) = /home/codeticc/public_html/modules
             // dirname(dirname(dirname(__DIR__))) = /home/codeticc/public_html
-            // dirname(dirname(dirname(__DIR__))) . '/themes/codetic' = /home/codeticc/public_html/themes/codetic
-            $this->basePath = dirname(dirname(dirname(__DIR__))) . '/themes/codetic';
+            // dirname(dirname(dirname(__DIR__))) . '/themes/' . $themeSlug = /home/codeticc/public_html/themes/realestate
+            $this->basePath = dirname(dirname(dirname(__DIR__))) . '/themes/' . $themeSlug;
         } else {
             $this->basePath = $themePath;
         }
@@ -37,7 +57,7 @@ class ThemeStringExtractor {
     /**
      * Tema dosyalarını tara ve hardcoded metinleri extract et
      * 
-     * @param string|null $themePath Tema yolu (null ise varsayılan codetic teması)
+     * @param string|null $themePath Tema yolu (null ise aktif tema kullanılır)
      * @return array Extract edilen metinler ['text' => count]
      */
     public function extractFromTheme($themePath = null) {

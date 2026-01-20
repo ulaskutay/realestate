@@ -425,12 +425,13 @@ function renderPreviewField($field) {
                 case 'text':
                 case 'email':
                 case 'phone':
+                case 'tel':
                 case 'number':
                 case 'date':
                 case 'time':
                 case 'datetime':
                     $inputType = $field['type'];
-                    if ($field['type'] === 'phone') $inputType = 'tel';
+                    if ($field['type'] === 'phone' || $field['type'] === 'tel') $inputType = 'tel';
                     if ($field['type'] === 'datetime') $inputType = 'datetime-local';
                     ?>
                     <input type="<?php echo esc_attr($inputType); ?>" 

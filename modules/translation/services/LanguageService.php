@@ -34,8 +34,15 @@ class LanguageService {
      * URL structure: /en/page-slug, /de/page-slug, /tr/page-slug
      */
     public function detectLanguage() {
-        // Cache kontrolü - zaten algılandıysa tekrar çalıştırma
+        // Cache kontrolü - ama eğer session'da farklı bir dil varsa, yeniden kontrol et
         if ($this->languageDetected && !empty($this->currentLanguage)) {
+            // Session'dan kontrol et - eğer farklıysa güncelle
+            if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['current_language'])) {
+                if ($_SESSION['current_language'] !== $this->currentLanguage) {
+                    $this->currentLanguage = $_SESSION['current_language'];
+                    return;
+                }
+            }
             return;
         }
         
@@ -59,11 +66,25 @@ class LanguageService {
                     $_SESSION['current_language'] = $langCode;
                 }
                 $this->languageDetected = true;
+                
+                // Debug
+                error_log("LanguageService: Language detected from URL: '$langCode'");
                 return;
             }
         }
         
-        // 2. URL'de dil yoksa -> HER ZAMAN Varsayılan dil kullan
+        // 2. Session'dan kontrol et
+        if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['current_language'])) {
+            $sessionLang = $_SESSION['current_language'];
+            if ($this->model->isValidLanguage($sessionLang)) {
+                $this->currentLanguage = $sessionLang;
+                $this->languageDetected = true;
+                error_log("LanguageService: Language from session: '$sessionLang'");
+                return;
+            }
+        }
+        
+        // 3. URL'de dil yoksa -> HER ZAMAN Varsayılan dil kullan
         // IP, browser veya session'a bakmadan direkt varsayılan dil
         $this->currentLanguage = $defaultLang;
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -72,6 +93,7 @@ class LanguageService {
         
         // Cache flag'i set et
         $this->languageDetected = true;
+        error_log("LanguageService: Using default language: '$defaultLang'");
     }
     
     /**

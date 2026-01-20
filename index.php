@@ -279,6 +279,9 @@ $router->get('/quote-request', 'HomeController@quoteRequest');
 // Rezervasyon sayfası
 $router->get('/rezervasyon', 'HomeController@reservation');
 
+// Arama sayfası
+$router->get('/search', 'HomeController@search');
+
 // Form gönderimi (frontend)
 $router->post('/forms/submit', 'FormController@submit');
 

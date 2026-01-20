@@ -459,13 +459,16 @@ class AdminHandler {
                         $decoded = json_decode($value, true);
                         if (json_last_error() === JSON_ERROR_NONE && (is_array($decoded) || is_object($decoded))) {
                             // Recursive olarak çevir
-                            $translatedValue = $this->bulkTranslateService->translateSettingsRecursive($decoded, $targetLang, $sourceLang);
+                            $optionTranslationCount = 0;
+                            $translatedValue = $this->bulkTranslateService->translateSettingsRecursive($decoded, $targetLang, $sourceLang, $optionTranslationCount);
                             if ($translatedValue !== $decoded) {
                                 // Çeviri yapıldı, kaydet
                                 $this->db->execute(
                                     "UPDATE theme_options SET option_value = ? WHERE id = ?",
                                     [json_encode($translatedValue, JSON_UNESCAPED_UNICODE), $option['id']]
                                 );
+                                // Her bir çeviriyi sayacak ekle
+                                $totalTranslated += $optionTranslationCount;
                             }
                         } else if (is_string($value) && !empty(trim($value))) {
                             // Tekil string değer
@@ -560,14 +563,16 @@ class AdminHandler {
                         if (!empty($section['items'])) {
                             $itemsDecoded = json_decode($section['items'], true);
                             if (json_last_error() === JSON_ERROR_NONE && (is_array($itemsDecoded) || is_object($itemsDecoded))) {
-                                $translatedItems = $this->bulkTranslateService->translateSettingsRecursive($itemsDecoded, $targetLang, $sourceLang);
+                                $itemsTranslationCount = 0;
+                                $translatedItems = $this->bulkTranslateService->translateSettingsRecursive($itemsDecoded, $targetLang, $sourceLang, $itemsTranslationCount);
                                 if ($translatedItems !== $itemsDecoded) {
                                     // Çeviri yapıldı, kaydet
                                     $this->db->query(
                                         "UPDATE page_sections SET items = ? WHERE id = ?",
                                         [json_encode($translatedItems, JSON_UNESCAPED_UNICODE), $section['id']]
                                     );
-                                    $totalTranslated++;
+                                    // Her bir çeviriyi sayacak ekle (recursive içinde yapılan tüm çeviriler)
+                                    $totalTranslated += $itemsTranslationCount;
                                 }
                             }
                         }
@@ -576,14 +581,16 @@ class AdminHandler {
                         if (!empty($section['settings'])) {
                             $settingsDecoded = json_decode($section['settings'], true);
                             if (json_last_error() === JSON_ERROR_NONE && (is_array($settingsDecoded) || is_object($settingsDecoded))) {
-                                $translatedSettings = $this->bulkTranslateService->translateSettingsRecursive($settingsDecoded, $targetLang, $sourceLang);
+                                $settingsTranslationCount = 0;
+                                $translatedSettings = $this->bulkTranslateService->translateSettingsRecursive($settingsDecoded, $targetLang, $sourceLang, $settingsTranslationCount);
                                 if ($translatedSettings !== $settingsDecoded) {
                                     // Çeviri yapıldı, kaydet
                                     $this->db->query(
                                         "UPDATE page_sections SET settings = ? WHERE id = ?",
                                         [json_encode($translatedSettings, JSON_UNESCAPED_UNICODE), $section['id']]
                                     );
-                                    $totalTranslated++;
+                                    // Her bir çeviriyi sayacak ekle (recursive içinde yapılan tüm çeviriler)
+                                    $totalTranslated += $settingsTranslationCount;
                                 }
                             }
                         }
@@ -962,39 +969,87 @@ class AdminHandler {
             header('Content-Type: application/json');
             
             try {
+                $deleteAll = isset($_POST['delete_all']) && $_POST['delete_all'] === '1';
                 $action = $_POST['action'] ?? '';
                 
-                if ($action === 'delete_broken') {
-                    // Bozuk çevirileri sil (teknik değerler, URL'ler, class isimleri vb.)
-                    // Bu mantık BulkTranslateService'deki shouldNotTranslate() ile aynı
-                    $deleted = 0;
+                // Tüm çevirileri sil
+                if ($deleteAll) {
+                    // Önce kayıt sayısını al
+                    $countResult = $this->db->fetch("SELECT COUNT(*) as total FROM translations");
+                    $totalRecords = $countResult['total'] ?? 0;
                     
-                    // Basit bir yaklaşım: Çok kısa çevirileri veya sadece özel karakter içerenleri sil
-                    $translations = $this->db->fetchAll("SELECT * FROM translations");
-                    foreach ($translations as $translation) {
-                        $text = $translation['translated_text'];
-                        if (strlen($text) <= 1 || preg_match('/^[\s\-_\.\/\\\\:;,!@#$%^&*()+=\[\]{}|<>?~`]+$/', $text)) {
-                            $this->model->deleteTranslation($translation['id']);
-                            $deleted++;
-                        }
-                    }
+                    // Sonra tümünü sil
+                    $this->db->query("DELETE FROM translations");
                     
                     echo json_encode([
                         'success' => true,
-                        'message' => "$deleted çeviri silindi. Yeniden toplu çeviri yapabilirsiniz."
+                        'message' => "Tüm çeviriler silindi. ($totalRecords kayıt)"
                     ]);
                     exit;
                 }
                 
-                echo json_encode(['success' => false, 'message' => 'Geçersiz işlem']);
+                // Bozuk çevirileri temizle (teknik değerler, URL'ler, class isimleri vb.)
+                // BulkTranslateService'deki shouldNotTranslate() mantığını kullan
+                $deleted = 0;
+                $translations = $this->db->fetchAll("SELECT * FROM translations WHERE target_language != '' AND target_language IS NOT NULL");
+                
+                foreach ($translations as $translation) {
+                    $translatedText = $translation['translated_text'] ?? '';
+                    $sourceText = $translation['source_text'] ?? '';
+                    
+                    // BulkTranslateService'in shouldNotTranslate mantığını kullan
+                    // Eğer kaynak metin çevrilmemeli ise ve çevrilmiş ise, bu bozuk bir çeviridir
+                    if ($this->bulkTranslateService->shouldNotTranslate($sourceText)) {
+                        // Kaynak metin teknik bir değer, çevrilmemeli - sil
+                        $this->model->deleteTranslation($translation['id']);
+                        $deleted++;
+                        continue;
+                    }
+                    
+                    // Çevrilmiş metin de teknik bir değer görünüyorsa sil
+                    if ($this->bulkTranslateService->shouldNotTranslate($translatedText)) {
+                        $this->model->deleteTranslation($translation['id']);
+                        $deleted++;
+                        continue;
+                    }
+                    
+                    // Çok kısa veya boş çevirileri sil
+                    $translatedTextTrimmed = trim($translatedText);
+                    if (empty($translatedTextTrimmed) || strlen($translatedTextTrimmed) <= 1) {
+                        $this->model->deleteTranslation($translation['id']);
+                        $deleted++;
+                        continue;
+                    }
+                    
+                    // Sadece özel karakter içeren çevirileri sil
+                    if (preg_match('/^[\s\-_\.\/\\\\:;,!@#$%^&*()+=\[\]{}|<>?~`]+$/', $translatedTextTrimmed)) {
+                        $this->model->deleteTranslation($translation['id']);
+                        $deleted++;
+                    }
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => "$deleted bozuk çeviri temizlendi. Yeniden toplu çeviri yapabilirsiniz."
+                ]);
+                exit;
+                
             } catch (Exception $e) {
+                error_log("Cleanup translations error: " . $e->getMessage());
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Hata: ' . htmlspecialchars($e->getMessage())
+                    'message' => 'Hata: ' . htmlspecialchars($e->getMessage()),
+                    'error_details' => $e->getTraceAsString()
                 ]);
             }
             exit;
         }
+        
+        // GET request için form göster
+        $this->adminView('bulk-translate', [
+            'title' => 'Toplu Çeviri',
+            'languages' => $this->model->getActiveLanguages()
+        ]);
     }
     
     /**
