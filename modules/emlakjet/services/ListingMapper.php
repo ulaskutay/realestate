@@ -7,15 +7,55 @@
 class ListingMapper {
     private $settings;
     
-    // Property type mapping
+    // Property type mapping - Genişletilmiş mapping
     private $propertyTypeMap = [
+        // İngilizce -> Türkçe
         'house' => 'konut',
         'apartment' => 'daire',
+        'flat' => 'daire',
         'villa' => 'villa',
         'commercial' => 'ticari',
         'land' => 'arsa',
         'office' => 'ofis',
-        'shop' => 'dükkan'
+        'shop' => 'dükkan',
+        'store' => 'dükkan',
+        'warehouse' => 'depo',
+        'factory' => 'fabrika',
+        'building' => 'bina',
+        'residence' => 'konut',
+        'penthouse' => 'penthouse',
+        'duplex' => 'dubleks',
+        'triplex' => 'tripleks',
+        'maisonette' => 'maisonette',
+        'studio' => 'stüdyo',
+        'loft' => 'loft',
+        // Türkçe alternatifler (fallback için)
+        'konut' => 'konut',
+        'daire' => 'daire',
+        'arsa' => 'arsa',
+        'ticari' => 'ticari',
+        'ofis' => 'ofis',
+        'dükkan' => 'dükkan'
+    ];
+    
+    // Reverse mapping için Türkçe -> İngilizce
+    private $reversePropertyTypeMap = [
+        'konut' => 'house',
+        'daire' => 'apartment',
+        'villa' => 'villa',
+        'ticari' => 'commercial',
+        'arsa' => 'land',
+        'ofis' => 'office',
+        'dükkan' => 'shop',
+        'depo' => 'warehouse',
+        'fabrika' => 'factory',
+        'bina' => 'building',
+        'penthouse' => 'penthouse',
+        'dubleks' => 'duplex',
+        'tripleks' => 'triplex',
+        'maisonette' => 'maisonette',
+        'stüdyo' => 'studio',
+        'loft' => 'loft'
     ];
     
     // Listing status mapping
@@ -117,18 +157,78 @@ class ListingMapper {
     }
     
     /**
-     * Property type mapping
+     * Property type mapping - Geliştirilmiş fallback mekanizması
      */
     private function mapPropertyType($type) {
-        return $this->propertyTypeMap[strtolower($type)] ?? 'konut';
+        if (empty($type)) {
+            return 'konut'; // Varsayılan
+        }
+        
+        $typeLower = strtolower(trim($type));
+        
+        // Direkt mapping kontrolü
+        if (isset($this->propertyTypeMap[$typeLower])) {
+            return $this->propertyTypeMap[$typeLower];
+        }
+        
+        // Kısmi eşleşme kontrolü (ör: "apartment_2" -> "apartment")
+        foreach ($this->propertyTypeMap as $key => $value) {
+            if (strpos($typeLower, $key) !== false || strpos($key, $typeLower) !== false) {
+                return $value;
+            }
+        }
+        
+        // Fallback: Türkçe karakterleri temizle ve tekrar dene
+        $normalized = $this->normalizeString($typeLower);
+        if (isset($this->propertyTypeMap[$normalized])) {
+            return $this->propertyTypeMap[$normalized];
+        }
+        
+        // Son çare: varsayılan değer
+        error_log("Emlakjet: Bilinmeyen property type '{$type}', 'konut' olarak kullanılıyor");
+        return 'konut';
     }
     
     /**
-     * Reverse property type mapping
+     * Reverse property type mapping - Geliştirilmiş
      */
     private function reverseMapPropertyType($type) {
-        $reverseMap = array_flip($this->propertyTypeMap);
-        return $reverseMap[strtolower($type)] ?? 'house';
+        if (empty($type)) {
+            return 'house'; // Varsayılan
+        }
+        
+        $typeLower = strtolower(trim($type));
+        
+        // Direkt reverse mapping kontrolü
+        if (isset($this->reversePropertyTypeMap[$typeLower])) {
+            return $this->reversePropertyTypeMap[$typeLower];
+        }
+        
+        // Kısmi eşleşme kontrolü
+        foreach ($this->reversePropertyTypeMap as $key => $value) {
+            if (strpos($typeLower, $key) !== false || strpos($key, $typeLower) !== false) {
+                return $value;
+            }
+        }
+        
+        // Fallback: Normalize et ve tekrar dene
+        $normalized = $this->normalizeString($typeLower);
+        if (isset($this->reversePropertyTypeMap[$normalized])) {
+            return $this->reversePropertyTypeMap[$normalized];
+        }
+        
+        // Son çare: varsayılan değer
+        error_log("Emlakjet: Bilinmeyen reverse property type '{$type}', 'house' olarak kullanılıyor");
+        return 'house';
+    }
+    
+    /**
+     * String normalizasyonu (Türkçe karakterleri temizle)
+     */
+    private function normalizeString($str) {
+        $turkish = ['ş', 'Ş', 'ı', 'İ', 'ğ', 'Ğ', 'ü', 'Ü', 'ö', 'Ö', 'ç', 'Ç'];
+        $english = ['s', 's', 'i', 'i', 'g', 'g', 'u', 'u', 'o', 'o', 'c', 'c'];
+        return str_replace($turkish, $english, $str);
     }
     
     /**
@@ -147,7 +247,13 @@ class ListingMapper {
     }
     
     /**
-     * Lokasyon parse et (string -> array)
+     * Lokasyon parse et (string -> array) - Geliştirilmiş parser
+     * Farklı formatları destekler:
+     * - "İstanbul, Kadıköy, Acıbadem"
+     * - "İstanbul / Kadıköy / Acıbadem"
+     * - "İstanbul-Kadıköy-Acıbadem"
+     * - "Kadıköy, İstanbul"
+     * - "İstanbul"
      */
     private function parseLocation($locationString) {
         if (empty($locationString)) {
@@ -158,15 +264,81 @@ class ListingMapper {
             ];
         }
         
-        // Basit parsing (İstanbul, Kadıköy, Acıbadem formatı)
-        $parts = explode(',', $locationString);
-        $parts = array_map('trim', $parts);
+        // Eğer zaten array ise, direkt döndür
+        if (is_array($locationString)) {
+            return [
+                'city' => $locationString['city'] ?? '',
+                'district' => $locationString['district'] ?? '',
+                'neighborhood' => $locationString['neighborhood'] ?? ''
+            ];
+        }
         
-        return [
-            'city' => $parts[0] ?? '',
-            'district' => $parts[1] ?? '',
-            'neighborhood' => $parts[2] ?? ''
+        // Farklı ayırıcıları normalize et
+        $normalized = str_replace(['/', '-', '|'], ',', $locationString);
+        
+        // Virgülle ayır ve temizle
+        $parts = explode(',', $normalized);
+        $parts = array_map('trim', $parts);
+        $parts = array_filter($parts, function($part) {
+            return !empty($part);
+        });
+        $parts = array_values($parts); // Index'leri sıfırla
+        
+        // Türkiye'nin büyük şehirlerini tespit et (şehir genelde ilk veya son olur)
+        $majorCities = [
+            'istanbul', 'ankara', 'izmir', 'bursa', 'antalya', 'adana', 'gaziantep',
+            'konya', 'kayseri', 'mersin', 'eskisehir', 'diyarbakir', 'samsun',
+            'denizli', 'sanliurfa', 'adapazari', 'malatya', 'kahramanmaras',
+            'erzurum', 'van', 'batman', 'elazig', 'istanbul', 'ankara', 'izmir'
         ];
+        
+        $result = [
+            'city' => '',
+            'district' => '',
+            'neighborhood' => ''
+        ];
+        
+        if (count($parts) === 1) {
+            // Tek parça varsa, şehir olarak kabul et
+            $result['city'] = $parts[0];
+        } elseif (count($parts) === 2) {
+            // İki parça varsa
+            $firstLower = mb_strtolower($parts[0], 'UTF-8');
+            $secondLower = mb_strtolower($parts[1], 'UTF-8');
+            
+            // İlk parça büyük şehir ise
+            if (in_array($firstLower, $majorCities)) {
+                $result['city'] = $parts[0];
+                $result['district'] = $parts[1];
+            } else {
+                // İkinci parça büyük şehir ise
+                $result['city'] = $parts[1];
+                $result['district'] = $parts[0];
+            }
+        } elseif (count($parts) >= 3) {
+            // Üç veya daha fazla parça varsa
+            $firstLower = mb_strtolower($parts[0], 'UTF-8');
+            $lastLower = mb_strtolower($parts[count($parts) - 1], 'UTF-8');
+            
+            // İlk parça büyük şehir ise
+            if (in_array($firstLower, $majorCities)) {
+                $result['city'] = $parts[0];
+                $result['district'] = $parts[1] ?? '';
+                $result['neighborhood'] = implode(', ', array_slice($parts, 2));
+            } elseif (in_array($lastLower, $majorCities)) {
+                // Son parça büyük şehir ise
+                $result['city'] = $parts[count($parts) - 1];
+                $result['district'] = $parts[0] ?? '';
+                $result['neighborhood'] = implode(', ', array_slice($parts, 1, -1));
+            } else {
+                // Varsayılan: ilk şehir, ikinci ilçe, geri kalanı mahalle
+                $result['city'] = $parts[0];
+                $result['district'] = $parts[1] ?? '';
+                $result['neighborhood'] = implode(', ', array_slice($parts, 2));
+            }
+        }
+        
+        return $result;
     }
     
     /**
@@ -269,26 +441,119 @@ class ListingMapper {
     }
     
     /**
-     * Emlakjet verisini validate et
+     * Emlakjet verisini validate et - Geliştirilmiş validation
      */
     private function validateEmlakjetData(&$data) {
-        // Zorunlu alanlar
-        if (empty($data['title'])) {
-            throw new Exception('İlan başlığı zorunludur');
+        $errors = [];
+        
+        // 1. Başlık kontrolü
+        if (empty($data['title']) || trim($data['title']) === '') {
+            $errors[] = 'İlan başlığı zorunludur ve boş olamaz';
+        } elseif (mb_strlen($data['title'], 'UTF-8') < 10) {
+            $errors[] = 'İlan başlığı en az 10 karakter olmalıdır';
+        } elseif (mb_strlen($data['title'], 'UTF-8') > 200) {
+            $errors[] = 'İlan başlığı en fazla 200 karakter olabilir';
+            $data['title'] = mb_substr($data['title'], 0, 200, 'UTF-8');
         }
         
-        if (empty($data['price']) || $data['price'] <= 0) {
-            throw new Exception('İlan fiyatı geçerli olmalıdır');
+        // 2. Fiyat kontrolü
+        $price = floatval($data['price'] ?? 0);
+        if ($price <= 0) {
+            $errors[] = 'İlan fiyatı 0\'dan büyük olmalıdır';
+        } elseif ($price < 1000) {
+            // Çok düşük fiyat uyarısı (belki TL yerine başka birim kullanılmış)
+            error_log("Emlakjet: Düşük fiyat uyarısı - " . $price . " TL - " . ($data['title'] ?? 'N/A'));
+        } elseif ($price > 1000000000) {
+            // Çok yüksek fiyat kontrolü (muhtemelen hata)
+            $errors[] = 'İlan fiyatı çok yüksek görünüyor (1 milyar TL\'den fazla). Lütfen kontrol edin.';
         }
         
-        if (empty($data['location']['city'])) {
-            throw new Exception('İlan lokasyonu (şehir) zorunludur');
+        // 3. Lokasyon kontrolü
+        if (empty($data['location']) || !is_array($data['location'])) {
+            $errors[] = 'İlan lokasyonu zorunludur ve array formatında olmalıdır';
+        } else {
+            if (empty($data['location']['city']) || trim($data['location']['city']) === '') {
+                $errors[] = 'İlan lokasyonu (şehir) zorunludur';
+            }
+            
+            // İlçe kontrolü (opsiyonel ama önerilir)
+            if (empty($data['location']['district'])) {
+                error_log("Emlakjet: İlan lokasyonunda ilçe bilgisi yok - " . ($data['title'] ?? 'N/A'));
+            }
         }
         
-        // Minimum görsel kontrolü (opsiyonel)
-        if (empty($data['images']) || count($data['images']) === 0) {
-            // Görsel zorunlu değilse uyarı ver
-            error_log("Emlakjet: İlan görseli yok - " . $data['title']);
+        // 4. Property type kontrolü
+        $validPropertyTypes = ['konut', 'daire', 'villa', 'ticari', 'arsa', 'ofis', 'dükkan', 'depo', 'fabrika', 'bina'];
+        if (!empty($data['property_type']) && !in_array($data['property_type'], $validPropertyTypes)) {
+            error_log("Emlakjet: Geçersiz property type - " . $data['property_type'] . " - " . ($data['title'] ?? 'N/A'));
+            // Fallback olarak 'konut' kullan
+            $data['property_type'] = 'konut';
+        }
+        
+        // 5. Listing type kontrolü
+        $validListingTypes = ['satilik', 'kiralik'];
+        if (!empty($data['listing_type']) && !in_array($data['listing_type'], $validListingTypes)) {
+            error_log("Emlakjet: Geçersiz listing type - " . $data['listing_type'] . " - " . ($data['title'] ?? 'N/A'));
+            // Fallback olarak 'satilik' kullan
+            $data['listing_type'] = 'satilik';
+        }
+        
+        // 6. Alan kontrolü
+        $area = floatval($data['area'] ?? 0);
+        if ($area < 0) {
+            $errors[] = 'İlan alanı negatif olamaz';
+            $data['area'] = 0;
+        } elseif ($area > 0 && $area < 10) {
+            // Çok küçük alan uyarısı (belki birim hatası)
+            error_log("Emlakjet: Çok küçük alan uyarısı - " . $area . " m² - " . ($data['title'] ?? 'N/A'));
+        } elseif ($area > 100000) {
+            // Çok büyük alan kontrolü (muhtemelen hata)
+            error_log("Emlakjet: Çok büyük alan uyarısı - " . $area . " m² - " . ($data['title'] ?? 'N/A'));
+        }
+        
+        // 7. Oda sayıları kontrolü
+        $bedrooms = intval($data['bedrooms'] ?? 0);
+        $bathrooms = intval($data['bathrooms'] ?? 0);
+        $livingRooms = intval($data['living_rooms'] ?? 0);
+        $rooms = intval($data['rooms'] ?? 0);
+        
+        if ($bedrooms < 0) $data['bedrooms'] = 0;
+        if ($bathrooms < 0) $data['bathrooms'] = 0;
+        if ($livingRooms < 0) $data['living_rooms'] = 0;
+        if ($rooms < 0) $data['rooms'] = 0;
+        
+        if ($bedrooms > 50 || $bathrooms > 50 || $livingRooms > 20 || $rooms > 100) {
+            error_log("Emlakjet: Olağandışı oda sayıları - Yatak: {$bedrooms}, Banyo: {$bathrooms}, Salon: {$livingRooms}, Oda: {$rooms} - " . ($data['title'] ?? 'N/A'));
+        }
+        
+        // 8. Görsel kontrolü (opsiyonel ama önerilir)
+        if (empty($data['images']) || !is_array($data['images']) || count($data['images']) === 0) {
+            error_log("Emlakjet: İlan görseli yok - " . ($data['title'] ?? 'N/A'));
+        } else {
+            // Görsel URL'lerini kontrol et
+            foreach ($data['images'] as $index => $imageUrl) {
+                if (empty($imageUrl) || !filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                    error_log("Emlakjet: Geçersiz görsel URL - Index: {$index} - " . ($data['title'] ?? 'N/A'));
+                    // Geçersiz URL'leri kaldır
+                    unset($data['images'][$index]);
+                }
+            }
+            // Array'i yeniden indexle
+            $data['images'] = array_values($data['images']);
+        }
+        
+        // 9. Açıklama kontrolü (opsiyonel)
+        if (!empty($data['description'])) {
+            $descLength = mb_strlen($data['description'], 'UTF-8');
+            if ($descLength > 10000) {
+                error_log("Emlakjet: Açıklama çok uzun - " . $descLength . " karakter - " . ($data['title'] ?? 'N/A'));
+                $data['description'] = mb_substr($data['description'], 0, 10000, 'UTF-8');
+            }
+        }
+        
+        // Hataları fırlat
+        if (!empty($errors)) {
+            throw new Exception('Validation hataları: ' . implode(', ', $errors));
         }
     }
     

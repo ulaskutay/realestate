@@ -335,6 +335,13 @@ class EmlakjetModuleController {
         $status = $_GET['status'] ?? '';
         $search = $_GET['search'] ?? '';
         
+        // Tablo kontrolü
+        $tableExists = $this->checkTableExists();
+        $tableInfo = null;
+        if ($tableExists) {
+            $tableInfo = $this->getTableInfo();
+        }
+        
         $listings = $this->getListingsWithSyncStatus($status, $search, $perPage, $offset);
         $total = $this->getListingsCount($status, $search);
         $totalPages = ceil($total / $perPage);
@@ -346,7 +353,9 @@ class EmlakjetModuleController {
             'totalPages' => $totalPages,
             'total' => $total,
             'status' => $status,
-            'search' => $search
+            'search' => $search,
+            'tableExists' => $tableExists,
+            'tableInfo' => $tableInfo
         ]);
     }
     
@@ -361,58 +370,95 @@ class EmlakjetModuleController {
             $action = $_POST['action'] ?? '';
             $listingIds = $_POST['listing_ids'] ?? [];
             $direction = $_POST['direction'] ?? 'push';
+            $syncType = $_POST['sync_type'] ?? 'all';
             
             if ($action === 'sync') {
                 $results = [];
                 
-                if (empty($listingIds)) {
-                    // Tüm bekleyen ilanları senkronize et
-                    $results = $this->syncService->syncAllPending();
-                } else {
+                // sync_type'a göre işlem yap
+                // Eğer listing_ids boş değilse ve sync_type 'selected' ise, seçili ilanları senkronize et
+                if ($syncType === 'selected' && !empty($listingIds)) {
+                    // Seçili ilanları senkronize et
                     // Seçili ilanları senkronize et
                     $synced = 0;
                     $failed = 0;
+                    $resultList = [];
+                    
                     foreach ($listingIds as $listingId) {
-                        if ($direction === 'push') {
-                            $result = $this->syncService->syncListingToEmlakjet($listingId);
-                        } else {
-                            $emlakjetListing = $this->emlakjetListingModel->findByListingId($listingId);
-                            if ($emlakjetListing && $emlakjetListing['emlakjet_id']) {
-                                $result = $this->syncService->syncListingFromEmlakjet($emlakjetListing['emlakjet_id']);
-                            } else {
-                                $result = ['success' => false, 'error' => 'Emlakjet ID bulunamadı'];
-                            }
+                        $listingId = (int)$listingId;
+                        if ($listingId <= 0) {
+                            $failed++;
+                            $resultList[] = ['success' => false, 'error' => 'Geçersiz ilan ID'];
+                            continue;
                         }
                         
-                        if ($result['success'] ?? false) {
-                            $synced++;
-                        } else {
+                        try {
+                            if ($direction === 'push') {
+                                $result = $this->syncService->syncListingToEmlakjet($listingId);
+                            } else {
+                                $emlakjetListing = $this->emlakjetListingModel->findByListingId($listingId);
+                                if ($emlakjetListing && $emlakjetListing['emlakjet_id']) {
+                                    $result = $this->syncService->syncListingFromEmlakjet($emlakjetListing['emlakjet_id']);
+                                } else {
+                                    $result = ['success' => false, 'error' => 'Emlakjet ID bulunamadı'];
+                                }
+                            }
+                            
+                            if ($result['success'] ?? false) {
+                                $synced++;
+                            } else {
+                                $failed++;
+                            }
+                            $resultList[] = $result;
+                        } catch (Exception $e) {
                             $failed++;
+                            $resultList[] = [
+                                'success' => false,
+                                'error' => $e->getMessage()
+                            ];
                         }
-                        $results[] = $result;
                     }
                     
                     $results = [
                         'synced' => $synced,
                         'failed' => $failed,
                         'total' => count($listingIds),
-                        'results' => $results
+                        'results' => $resultList
                     ];
+                } else {
+                    // Tüm bekleyen ilanları senkronize et
+                    $results = $this->syncService->syncAllPending();
                 }
                 
                 // AJAX isteği ise JSON döndür
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
                     header('Content-Type: application/json');
+                    $message = 'Senkronizasyon tamamlandı';
+                    if (isset($results['synced']) && isset($results['failed'])) {
+                        $message = sprintf('Senkronizasyon tamamlandı: %d başarılı, %d başarısız', $results['synced'], $results['failed']);
+                    }
                     echo json_encode([
                         'success' => true,
-                        'message' => 'Senkronizasyon tamamlandı',
+                        'message' => $message,
                         'data' => $results
                     ]);
                     exit;
                 }
                 
-                $_SESSION['flash_message'] = 'Senkronizasyon tamamlandı';
-                $_SESSION['flash_type'] = 'success';
+                // Flash mesajı oluştur
+                if (isset($results['synced']) && isset($results['failed'])) {
+                    $message = sprintf('Senkronizasyon tamamlandı: %d başarılı, %d başarısız', $results['synced'], $results['failed']);
+                    if ($results['failed'] > 0) {
+                        $_SESSION['flash_type'] = 'warning';
+                    } else {
+                        $_SESSION['flash_type'] = 'success';
+                    }
+                } else {
+                    $message = 'Senkronizasyon tamamlandı';
+                    $_SESSION['flash_type'] = 'success';
+                }
+                
+                $_SESSION['flash_message'] = $message;
                 $this->redirect('sync');
                 return;
             }
@@ -509,94 +555,216 @@ class EmlakjetModuleController {
      * Senkronizasyon durumu ile ilanları getir
      */
     private function getListingsWithSyncStatus($status = '', $search = '', $limit = 20, $offset = 0) {
-        require_once dirname(dirname(__DIR__)) . '/themes/realestate/modules/realestate-listings/Model.php';
-        $listingModel = new RealEstateListingsModel();
-        
-        $sql = "SELECT l.*, 
-                ej.id as emlakjet_sync_id,
-                ej.emlakjet_id,
-                ej.sync_status,
-                ej.last_sync_at,
-                ej.last_error
-                FROM `realestate_listings` l
-                LEFT JOIN `emlakjet_listings` ej ON l.id = ej.listing_id
-                WHERE 1=1";
-        
-        $params = [];
-        
-        if (!empty($status)) {
-            if ($status === 'synced') {
-                $sql .= " AND ej.sync_status = 'synced'";
-            } elseif ($status === 'pending') {
-                $sql .= " AND (ej.sync_status = 'pending' OR ej.sync_status IS NULL)";
-            } elseif ($status === 'failed') {
-                $sql .= " AND ej.sync_status = 'failed'";
+        try {
+            // Önce realestate_listings tablosunun var olup olmadığını kontrol et
+            $checkTable = "SHOW TABLES LIKE 'realestate_listings'";
+            $tableExists = $this->db->fetch($checkTable);
+            
+            if (!$tableExists || $tableExists === false) {
+                error_log("Emlakjet: realestate_listings table does not exist");
+                return [];
             }
+            
+            // Tabloda kaç kayıt olduğunu kontrol et (debug için)
+            $countSql = "SELECT COUNT(*) as total FROM `realestate_listings`";
+            $countResult = $this->db->fetch($countSql);
+            $totalCount = $countResult['total'] ?? 0;
+            error_log("Emlakjet: realestate_listings table has {$totalCount} records");
+            
+            // Eğer tablo boşsa direkt boş dizi döndür
+            if ($totalCount == 0) {
+                error_log("Emlakjet: realestate_listings table is empty");
+                return [];
+            }
+            
+            // Basit sorgu ile başla - tüm ilanları getir
+            $sql = "SELECT l.*, 
+                    ej.id as emlakjet_sync_id,
+                    ej.emlakjet_id,
+                    COALESCE(ej.sync_status, 'pending') as sync_status,
+                    ej.last_sync_at,
+                    ej.last_error
+                    FROM `realestate_listings` l
+                    LEFT JOIN `emlakjet_listings` ej ON l.id = ej.listing_id
+                    WHERE 1=1";
+            
+            $params = [];
+            
+            if (!empty($status)) {
+                if ($status === 'synced') {
+                    $sql .= " AND ej.sync_status = 'synced'";
+                } elseif ($status === 'pending') {
+                    $sql .= " AND (ej.sync_status = 'pending' OR ej.sync_status IS NULL)";
+                } elseif ($status === 'failed') {
+                    $sql .= " AND ej.sync_status = 'failed'";
+                }
+            }
+            
+            if (!empty($search)) {
+                $sql .= " AND (l.title LIKE ? OR l.location LIKE ?)";
+                $searchPattern = '%' . $search . '%';
+                $params[] = $searchPattern;
+                $params[] = $searchPattern;
+            }
+            
+            $sql .= " ORDER BY l.created_at DESC";
+            
+            // LIMIT ve OFFSET ekle - direkt SQL'e ekle (parametre olarak değil)
+            $sqlWithLimit = $sql . " LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
+            
+            // Debug: SQL ve parametreleri logla
+            error_log("Emlakjet getListingsWithSyncStatus SQL: " . $sqlWithLimit);
+            error_log("Emlakjet getListingsWithSyncStatus Params: " . json_encode($params));
+            error_log("Emlakjet getListingsWithSyncStatus Params count: " . count($params));
+            
+            // Parametreli sorgu - Eğer params boşsa direkt query kullan (test sorgusu gibi çalışır)
+            if (empty($params)) {
+                // Parametre yoksa direkt query kullan (test sorgusu gibi çalışır)
+                $stmt = $this->db->getConnection()->query($sqlWithLimit);
+                $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } else {
+                // Parametre varsa prepare kullan
+                $stmt = $this->db->getConnection()->prepare($sqlWithLimit);
+                foreach ($params as $index => $param) {
+                    $paramType = is_int($param) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                    $stmt->bindValue($index + 1, $param, $paramType);
+                }
+                $stmt->execute();
+                $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+            
+            // Debug için log
+            error_log("Emlakjet getListingsWithSyncStatus: Query executed. Results count: " . count($results));
+            if (!empty($results)) {
+                error_log("Emlakjet getListingsWithSyncStatus: First result ID: " . ($results[0]['id'] ?? 'N/A'));
+                error_log("Emlakjet getListingsWithSyncStatus: First result title: " . ($results[0]['title'] ?? 'N/A'));
+            } else {
+                error_log("Emlakjet getListingsWithSyncStatus: No results returned. SQL was: " . $sqlWithLimit);
+            }
+            
+            return $results;
+        } catch (Exception $e) {
+            error_log("Emlakjet getListingsWithSyncStatus error: " . $e->getMessage());
+            error_log("Emlakjet getListingsWithSyncStatus trace: " . $e->getTraceAsString());
+            return [];
         }
-        
-        if (!empty($search)) {
-            $sql .= " AND (l.title LIKE ? OR l.location LIKE ?)";
-            $searchPattern = '%' . $search . '%';
-            $params[] = $searchPattern;
-            $params[] = $searchPattern;
-        }
-        
-        $sql .= " ORDER BY l.created_at DESC LIMIT ? OFFSET ?";
-        $params[] = $limit;
-        $params[] = $offset;
-        
-        $stmt = $this->db->getConnection()->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     /**
      * İlan sayısı
      */
     private function getListingsCount($status = '', $search = '') {
-        $sql = "SELECT COUNT(*) as count
-                FROM `realestate_listings` l
-                LEFT JOIN `emlakjet_listings` ej ON l.id = ej.listing_id
-                WHERE 1=1";
-        
-        $params = [];
-        
-        if (!empty($status)) {
-            if ($status === 'synced') {
-                $sql .= " AND ej.sync_status = 'synced'";
-            } elseif ($status === 'pending') {
-                $sql .= " AND (ej.sync_status = 'pending' OR ej.sync_status IS NULL)";
-            } elseif ($status === 'failed') {
-                $sql .= " AND ej.sync_status = 'failed'";
+        try {
+            // Önce realestate_listings tablosunun var olup olmadığını kontrol et
+            $checkTable = "SHOW TABLES LIKE 'realestate_listings'";
+            $tableExists = $this->db->fetch($checkTable);
+            
+            if (!$tableExists || $tableExists === false) {
+                error_log("Emlakjet getListingsCount: realestate_listings table does not exist");
+                return 0;
             }
+            
+            $sql = "SELECT COUNT(*) as count
+                    FROM `realestate_listings` l
+                    LEFT JOIN `emlakjet_listings` ej ON l.id = ej.listing_id
+                    WHERE 1=1";
+            
+            $params = [];
+            
+            if (!empty($status)) {
+                if ($status === 'synced') {
+                    $sql .= " AND ej.sync_status = 'synced'";
+                } elseif ($status === 'pending') {
+                    $sql .= " AND (ej.sync_status = 'pending' OR ej.sync_status IS NULL)";
+                } elseif ($status === 'failed') {
+                    $sql .= " AND ej.sync_status = 'failed'";
+                }
+            }
+            
+            if (!empty($search)) {
+                $sql .= " AND (l.title LIKE ? OR l.location LIKE ?)";
+                $searchPattern = '%' . $search . '%';
+                $params[] = $searchPattern;
+                $params[] = $searchPattern;
+            }
+            
+            $stmt = $this->db->getConnection()->prepare($sql);
+            $stmt->execute($params);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $count = $result['count'] ?? 0;
+            error_log("Emlakjet getListingsCount: Found {$count} listings");
+            return $count;
+        } catch (Exception $e) {
+            error_log("Emlakjet getListingsCount error: " . $e->getMessage());
+            return 0;
         }
-        
-        if (!empty($search)) {
-            $sql .= " AND (l.title LIKE ? OR l.location LIKE ?)";
-            $searchPattern = '%' . $search . '%';
-            $params[] = $searchPattern;
-            $params[] = $searchPattern;
+    }
+    
+    /**
+     * Tablo var mı kontrol et
+     */
+    private function checkTableExists() {
+        try {
+            $checkTable = "SHOW TABLES LIKE 'realestate_listings'";
+            $result = $this->db->fetch($checkTable);
+            return $result !== false && !empty($result);
+        } catch (Exception $e) {
+            error_log("Emlakjet checkTableExists error: " . $e->getMessage());
+            return false;
         }
-        
-        $stmt = $this->db->getConnection()->prepare($sql);
-        $stmt->execute($params);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $result['count'] ?? 0;
+    }
+    
+    /**
+     * Tablo bilgilerini getir
+     */
+    private function getTableInfo() {
+        try {
+            $countSql = "SELECT COUNT(*) as total FROM `realestate_listings`";
+            $countResult = $this->db->fetch($countSql);
+            $total = $countResult['total'] ?? 0;
+            
+            $publishedSql = "SELECT COUNT(*) as total FROM `realestate_listings` WHERE status = 'published'";
+            $publishedResult = $this->db->fetch($publishedSql);
+            $published = $publishedResult['total'] ?? 0;
+            
+            return [
+                'total' => $total,
+                'published' => $published,
+                'draft' => $total - $published
+            ];
+        } catch (Exception $e) {
+            error_log("Emlakjet getTableInfo error: " . $e->getMessage());
+            return null;
+        }
     }
     
     /**
      * Bekleyen ilanları getir
      */
     private function getPendingListings() {
-        $sql = "SELECT l.*, ej.sync_status, ej.last_error
-                FROM `realestate_listings` l
-                LEFT JOIN `emlakjet_listings` ej ON l.id = ej.listing_id
-                WHERE l.status = 'published'
-                AND (ej.sync_status = 'pending' OR ej.sync_status IS NULL OR ej.sync_status = 'failed')
-                ORDER BY l.created_at DESC
-                LIMIT 50";
-        
-        return $this->db->fetchAll($sql);
+        try {
+            // Önce realestate_listings tablosunun var olup olmadığını kontrol et
+            $checkTable = "SHOW TABLES LIKE 'realestate_listings'";
+            $tableExists = $this->db->fetch($checkTable);
+            
+            if (!$tableExists) {
+                error_log("Emlakjet: realestate_listings table does not exist");
+                return [];
+            }
+            
+            $sql = "SELECT l.*, ej.sync_status, ej.last_error
+                    FROM `realestate_listings` l
+                    LEFT JOIN `emlakjet_listings` ej ON l.id = ej.listing_id
+                    WHERE l.status = 'published'
+                    AND (ej.sync_status = 'pending' OR ej.sync_status IS NULL OR ej.sync_status = 'failed')
+                    ORDER BY l.created_at DESC
+                    LIMIT 50";
+            
+            return $this->db->fetchAll($sql);
+        } catch (Exception $e) {
+            error_log("Emlakjet getPendingListings error: " . $e->getMessage());
+            return [];
+        }
     }
     
     /**

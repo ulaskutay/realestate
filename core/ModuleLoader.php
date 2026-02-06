@@ -372,8 +372,12 @@ class ModuleLoader {
         $themePath = $themeManager->getThemesPath() . '/' . $activeTheme['slug'];
         $themeModules = $this->scanThemeModules($themePath);
         
-        // Tema modüllerini all_modules'e ekle (öncelikli - override eder)
+        // Tema modüllerini all_modules'e ekle; aynı isimde ÖZEL modül (modules/) varsa onu EZME
         foreach ($themeModules as $name => $module) {
+            $existing = $this->all_modules[$name] ?? null;
+            if ($existing && empty($existing['is_theme_module'])) {
+                continue; // Özel modülü koru, tema modülü ile üzerine yazma
+            }
             $this->all_modules[$name] = $module;
         }
     }
@@ -1132,53 +1136,81 @@ class ModuleLoader {
      * Admin modül route'unu işler
      */
     public function handleAdminRoute($page) {
-        // module/module-name/action/param şeklinde parse et
-        $parts = explode('/', $page);
-        
-        if (count($parts) < 2 || $parts[0] !== 'module') {
-            return false;
-        }
-        
-        $module_name = $parts[1];
-        $action = $parts[2] ?? 'index';
-        $params = array_slice($parts, 3);
-        
-        // Modül yüklü mü kontrol et
-        $controller = $this->getModuleController($module_name);
-        
-        // Controller yoksa, modülü yüklemeyi dene (aktifse veya tema modülü ise)
-        if (!$controller) {
-            $module = $this->getModule($module_name);
-            if ($module) {
-                // Tema modülü ise veritabanı kontrolü yapmadan yükle
-                $isThemeModule = isset($module['is_theme_module']) && $module['is_theme_module'];
-                if ($isThemeModule || $this->isModuleActiveInDB($module_name)) {
-                    // Modülü yükle
-                    $this->loadModule($module);
-                    $controller = $this->getModuleController($module_name);
+        try {
+            // module/module-name/action/param şeklinde parse et
+            $parts = explode('/', $page);
+            
+            if (count($parts) < 2 || $parts[0] !== 'module') {
+                return false;
+            }
+            
+            $module_name = $parts[1];
+            $action = $parts[2] ?? 'index';
+            $params = array_slice($parts, 3);
+            
+            // Modül yüklü mü kontrol et
+            $controller = $this->getModuleController($module_name);
+            
+            // Controller yoksa, modülü yüklemeyi dene (aktifse veya tema modülü ise)
+            if (!$controller) {
+                $module = $this->getModule($module_name);
+                if ($module) {
+                    // Tema modülü ise veritabanı kontrolü yapmadan yükle
+                    $isThemeModule = isset($module['is_theme_module']) && $module['is_theme_module'];
+                    if ($isThemeModule || $this->isModuleActiveInDB($module_name)) {
+                        // Modülü yükle
+                        $this->loadModule($module);
+                        $controller = $this->getModuleController($module_name);
+                    }
                 }
             }
-        }
-        
-        if (!$controller) {
+            
+            if (!$controller) {
+                error_log("ModuleLoader::handleAdminRoute - Controller not found for module: $module_name");
+                return false;
+            }
+            
+            // Admin action'ı çağır
+            $method = 'admin_' . str_replace('-', '_', $action);
+            
+            if (method_exists($controller, $method)) {
+                try {
+                    call_user_func_array([$controller, $method], $params);
+                    return true;
+                } catch (Exception $e) {
+                    error_log("ModuleLoader::handleAdminRoute - Exception in $module_name::$method: " . $e->getMessage());
+                    error_log("Stack trace: " . $e->getTraceAsString());
+                    // Exception'ı tekrar fırlat ki admin.php'deki catch bloğu yakalasın
+                    throw $e;
+                }
+            }
+            
+            // Fallback: normal action
+            if (method_exists($controller, $action)) {
+                try {
+                    call_user_func_array([$controller, $action], $params);
+                    return true;
+                } catch (Exception $e) {
+                    error_log("ModuleLoader::handleAdminRoute - Exception in $module_name::$action: " . $e->getMessage());
+                    error_log("Stack trace: " . $e->getTraceAsString());
+                    // Exception'ı tekrar fırlat ki admin.php'deki catch bloğu yakalasın
+                    throw $e;
+                }
+            }
+            
+            error_log("ModuleLoader::handleAdminRoute - Method not found: $module_name::$method or $module_name::$action");
             return false;
+        } catch (Exception $e) {
+            error_log("ModuleLoader::handleAdminRoute - Exception: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            // Exception'ı tekrar fırlat ki admin.php'deki catch bloğu yakalasın
+            throw $e;
+        } catch (Error $e) {
+            error_log("ModuleLoader::handleAdminRoute - Fatal Error: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            // Error'ı tekrar fırlat ki admin.php'deki catch bloğu yakalasın
+            throw $e;
         }
-        
-        // Admin action'ı çağır
-        $method = 'admin_' . str_replace('-', '_', $action);
-        
-        if (method_exists($controller, $method)) {
-            call_user_func_array([$controller, $method], $params);
-            return true;
-        }
-        
-        // Fallback: normal action
-        if (method_exists($controller, $action)) {
-            call_user_func_array([$controller, $action], $params);
-            return true;
-        }
-        
-        return false;
     }
     
     /**

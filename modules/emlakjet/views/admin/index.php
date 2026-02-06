@@ -24,6 +24,10 @@ $failedSyncs = $failedSyncs ?? [];
         </p>
     </div>
     <div class="flex items-center gap-2">
+        <a href="<?php echo admin_url('module/emlakjet/settings'); ?>" class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+            <span class="material-symbols-outlined text-xl">settings</span>
+            <span class="text-sm font-medium">Ayarlar</span>
+        </a>
         <a href="<?php echo admin_url('module/emlakjet/sync'); ?>" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
             <span class="material-symbols-outlined text-xl">sync</span>
             <span class="text-sm font-medium">Senkronize Et</span>

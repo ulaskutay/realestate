@@ -181,17 +181,37 @@ class SyncService {
         $errors = [];
         
         foreach ($pendingListings as $syncRecord) {
-            $listingId = $syncRecord['listing_id'];
+            // listing_id'yi doğru alandan al
+            // getPendingListings metodunda l.id as listing_id olarak döndürülüyor
+            $listingId = $syncRecord['listing_id'] ?? $syncRecord['ej_listing_id'] ?? $syncRecord['id'] ?? null;
             
-            $result = $this->syncListingToEmlakjet($listingId);
+            if (!$listingId) {
+                $failed++;
+                $errors[] = [
+                    'listing_id' => null,
+                    'error' => 'Listing ID bulunamadı',
+                    'record' => $syncRecord
+                ];
+                continue;
+            }
             
-            if ($result['success']) {
-                $synced++;
-            } else {
+            try {
+                $result = $this->syncListingToEmlakjet($listingId);
+                
+                if ($result['success']) {
+                    $synced++;
+                } else {
+                    $failed++;
+                    $errors[] = [
+                        'listing_id' => $listingId,
+                        'error' => $result['error'] ?? 'Bilinmeyen hata'
+                    ];
+                }
+            } catch (Exception $e) {
                 $failed++;
                 $errors[] = [
                     'listing_id' => $listingId,
-                    'error' => $result['error'] ?? 'Bilinmeyen hata'
+                    'error' => $e->getMessage()
                 ];
             }
             

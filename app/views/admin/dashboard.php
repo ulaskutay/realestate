@@ -51,7 +51,7 @@
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <!-- Yazılar -->
                         <a href="<?php echo admin_url('posts'); ?>" class="block group">
-                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg">
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg min-h-[120px]">
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="material-symbols-outlined text-blue-500 text-2xl">article</span>
                                 </div>
@@ -62,7 +62,7 @@
 
                         <!-- Sayfalar -->
                         <a href="<?php echo admin_url('module/pages'); ?>" class="block group">
-                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 transition-all hover:shadow-lg">
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 transition-all hover:shadow-lg min-h-[120px]">
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="material-symbols-outlined text-purple-500 text-2xl">description</span>
                                 </div>
@@ -73,7 +73,7 @@
 
                         <!-- Formlar -->
                         <a href="<?php echo admin_url('forms'); ?>" class="block group relative">
-                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700 transition-all hover:shadow-lg">
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700 transition-all hover:shadow-lg min-h-[120px]">
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="material-symbols-outlined text-green-500 text-2xl">contact_mail</span>
                                     <?php if ($stats['new_submissions_count'] > 0): ?>
@@ -89,7 +89,7 @@
 
                         <!-- Kullanıcılar -->
                         <a href="<?php echo admin_url('users'); ?>" class="block group">
-                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700 transition-all hover:shadow-lg">
+                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700 transition-all hover:shadow-lg min-h-[120px]">
                                 <div class="flex items-center justify-between mb-2">
                                     <span class="material-symbols-outlined text-orange-500 text-2xl">group</span>
                                 </div>
@@ -127,7 +127,7 @@
                                     <a href="<?php echo admin_url('posts/edit/' . $post['id']); ?>" class="block p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                         <div class="flex items-start gap-3">
                                             <?php if (!empty($post['featured_image'])): ?>
-                                            <img src="<?php echo esc_url($post['featured_image']); ?>" alt="" class="w-12 h-12 rounded-lg object-cover flex-shrink-0">
+                                            <img src="<?php echo esc_url($post['featured_image']); ?>" alt="" class="w-12 h-12 rounded-lg object-cover flex-shrink-0" width="48" height="48" loading="lazy">
                                             <?php else: ?>
                                             <div class="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
                                                 <span class="material-symbols-outlined text-gray-400">article</span>
@@ -277,7 +277,7 @@
                         <!-- Ana Metrikler -->
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                             <!-- Bugün Görüntülenme -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700 min-h-[100px]">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="material-symbols-outlined text-blue-500 text-lg">visibility</span>
                                 </div>
@@ -287,7 +287,7 @@
                             </div>
 
                             <!-- Bugün Ziyaretçi -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700 min-h-[100px]">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="material-symbols-outlined text-green-500 text-lg">person</span>
                                 </div>
@@ -297,7 +297,7 @@
                             </div>
 
                             <!-- Aylık Görüntülenme -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700 min-h-[100px]">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="material-symbols-outlined text-purple-500 text-lg">trending_up</span>
                                 </div>
@@ -307,7 +307,7 @@
                             </div>
 
                             <!-- Ortalama Süre -->
-                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700">
+                            <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700 min-h-[100px]">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="material-symbols-outlined text-orange-500 text-lg">schedule</span>
                                 </div>

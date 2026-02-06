@@ -1,8 +1,9 @@
 <?php
 /**
  * Emlak Danışmanları Model
+ * Çift yüklemede Fatal önlemek için class_exists ile sarıldı (Controller, consultants, realestate-listings farklı path ile require edebiliyor).
  */
-
+if (!class_exists('RealEstateAgentsModel')) {
 class RealEstateAgentsModel {
     private $db;
     private $table = 'realestate_agents';
@@ -168,4 +169,5 @@ class RealEstateAgentsModel {
         $stmt = $this->db->getConnection()->prepare($sql);
         return $stmt->execute([$id]);
     }
+}
 }

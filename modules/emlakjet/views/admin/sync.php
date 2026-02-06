@@ -17,7 +17,16 @@ $pendingListings = $pendingListings ?? [];
 
 <!-- Mesaj -->
 <?php if (isset($_SESSION['flash_message'])): ?>
-<div class="mb-6 p-4 rounded-lg <?php echo ($_SESSION['flash_type'] ?? 'success') === 'success' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 text-green-800 dark:text-green-200' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 text-red-800 dark:text-red-200'; ?>">
+<?php 
+$flashType = $_SESSION['flash_type'] ?? 'success';
+$bgClass = 'bg-green-50 dark:bg-green-900/20 border border-green-200 text-green-800 dark:text-green-200';
+if ($flashType === 'error') {
+    $bgClass = 'bg-red-50 dark:bg-red-900/20 border border-red-200 text-red-800 dark:text-red-200';
+} elseif ($flashType === 'warning') {
+    $bgClass = 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 text-yellow-800 dark:text-yellow-200';
+}
+?>
+<div class="mb-6 p-4 rounded-lg <?php echo $bgClass; ?>">
     <p class="text-sm font-medium"><?php echo esc_html($_SESSION['flash_message']); ?></p>
 </div>
 <?php unset($_SESSION['flash_message'], $_SESSION['flash_type']); endif; ?>

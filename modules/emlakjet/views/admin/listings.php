@@ -6,6 +6,8 @@ $totalPages = $totalPages ?? 1;
 $total = $total ?? 0;
 $status = $status ?? '';
 $search = $search ?? '';
+$tableExists = $tableExists ?? true;
+$tableInfo = $tableInfo ?? null;
 ?>
 
 <!-- Header -->
@@ -22,7 +24,8 @@ $search = $search ?? '';
 
 <!-- Filtreler -->
 <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
-    <form method="GET" action="<?php echo admin_url('module/emlakjet/listings'); ?>" class="flex flex-col sm:flex-row gap-4">
+    <form method="GET" action="" class="flex flex-col sm:flex-row gap-4">
+        <input type="hidden" name="page" value="module/emlakjet/listings">
         <div class="flex-1">
             <input type="text" name="search" value="<?php echo esc_attr($search); ?>" placeholder="İlan ara..." class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent">
         </div>
@@ -56,11 +59,49 @@ $search = $search ?? '';
 </div>
 <?php endif; ?>
 
+
 <!-- İlan Listesi -->
 <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-    <?php if (empty($listings)): ?>
+    <?php 
+    // Debug bilgisi
+    $listingsCount = is_array($listings) ? count($listings) : 0;
+    $totalCount = $total ?? 0;
+    ?>
+    <?php if (empty($listings) || $listingsCount === 0): ?>
         <div class="p-8 text-center">
-            <p class="text-gray-500 dark:text-gray-400">İlan bulunamadı</p>
+            <span class="material-symbols-outlined text-6xl text-gray-400 dark:text-gray-600 mb-4 block">real_estate_agent</span>
+            <p class="text-gray-500 dark:text-gray-400 text-lg mb-2">İlan bulunamadı</p>
+            <p class="text-gray-400 dark:text-gray-500 text-sm mb-4">
+                <?php if (!$tableExists): ?>
+                    <strong class="text-yellow-600 dark:text-yellow-400">İlanlar tablosu henüz oluşturulmamış.</strong><br>
+                    İlan eklemek için önce "İlan Yönetimi" modülünü aktifleştirmeniz gerekiyor.
+                <?php elseif ($tableInfo && $tableInfo['total'] == 0): ?>
+                    Henüz hiç ilan eklenmemiş. İlk ilanınızı eklemek için aşağıdaki butona tıklayın.
+                <?php elseif ($status || $search): ?>
+                    Filtre kriterlerinize uygun ilan bulunamadı. Filtreleri temizleyip tekrar deneyin.
+                <?php else: ?>
+                    Henüz hiç ilan eklenmemiş veya ilanlar henüz senkronize edilmemiş.
+                <?php endif; ?>
+            </p>
+            <?php if (!$status && !$search): ?>
+                <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                    <?php if ($tableExists): ?>
+                        <a href="<?php echo admin_url('module/realestate-listings'); ?>" class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-xl">home_work</span>
+                            <span>İlan Yönetimi</span>
+                        </a>
+                        <a href="<?php echo admin_url('module/realestate-listings/create'); ?>" class="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-xl">add</span>
+                            <span>Yeni İlan Ekle</span>
+                        </a>
+                    <?php else: ?>
+                        <a href="<?php echo admin_url('modules'); ?>" class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-xl">extension</span>
+                            <span>Modül Yönetimi</span>
+                        </a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
     <?php else: ?>
         <div class="overflow-x-auto">

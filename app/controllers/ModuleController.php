@@ -278,9 +278,14 @@ class ModuleController extends Controller {
             return;
         }
         
-        // Modülün kendi admin index sayfası varsa oraya yönlendir
-        // (SEO gibi modüller için daha iyi UX)
+        // Özel modülün (modules/) kendi admin sayfaları varsa oraya yönlendir; tema modülü değilse
+        $isThemeModule = !empty($module['is_theme_module']);
+        $adminSettingsView = $module['path'] . '/views/admin/settings.php';
         $adminIndexView = $module['path'] . '/views/admin/index.php';
+        if (!$isThemeModule && file_exists($adminSettingsView)) {
+            $this->redirect(admin_url('module/' . $name . '/settings'));
+            return;
+        }
         if (file_exists($adminIndexView)) {
             $this->redirect(admin_url('module/' . $name));
             return;

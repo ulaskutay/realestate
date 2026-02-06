@@ -85,6 +85,18 @@ include $rootPath . '/app/views/admin/snippets/header.php';
                                         </div>
                                     </div>
 
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div>
+                                            <label for="ada" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ada</label>
+                                            <input type="text" id="ada" name="ada" value="<?php echo esc_attr($listing['ada'] ?? ''); ?>"
+                                                   class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="Örn: 12">
+                                        </div>
+                                        <div>
+                                            <label for="parsel" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Parsel</label>
+                                            <input type="text" id="parsel" name="parsel" value="<?php echo esc_attr($listing['parsel'] ?? ''); ?>"
+                                                   class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition-all" placeholder="Örn: 5">
+                                        </div>
+                                    </div>
                                     <div>
                                         <div class="flex items-center justify-between mb-2">
                                             <label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">

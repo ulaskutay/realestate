@@ -1,0 +1,25 @@
+{
+  "name": "tkgm-parsel",
+  "title": "TKGM Parsel Sorgu",
+  "version": "1.0.0",
+  "description": "CBS TKGM API ile il, ilçe, mahalle, ada ve parsel bilgisiyle arsa sorgulaması. parselsorgu.tkgm.gov.tr benzeri ada/parsel sorgu arayüzü.",
+  "author": "Codetic",
+  "website": "https://example.com",
+  "requires_php": "7.4",
+  "requires_cms": "1.0",
+  "main_file": "Controller.php",
+  "admin_menu": {
+    "title": "Parsel Sorgu",
+    "icon": "map",
+    "position": 45,
+    "submenu": [
+      {"slug": "sorgu", "title": "Parsel Sorgu"},
+      {"slug": "settings", "title": "Ayarlar"}
+    ]
+  },
+  "routes": [],
+  "shortcodes": [],
+  "widgets": [],
+  "settings": true,
+  "hooks": {"actions": [], "filters": []}
+}

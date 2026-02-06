@@ -864,6 +864,33 @@ if (strpos($page, 'module/') === 0) {
             exit;
         }
         
+        // Route işlenemezse, eğer leads sayfası ise leads sayfasına yönlendir
+        // Eğer emlakjet listings sayfası ise listings sayfasına yönlendir
+        // Aksi halde modules sayfasına yönlendir
+        if (strpos($page, 'module/crm/leads') === 0) {
+            // GET parametrelerini koru
+            $queryString = http_build_query($_GET);
+            $redirectUrl = admin_url('module/crm/leads');
+            if (!empty($queryString) && strpos($queryString, 'page=') === false) {
+                $redirectUrl .= '?' . $queryString;
+            }
+            header("Location: " . $redirectUrl);
+            exit;
+        }
+        
+        if (strpos($page, 'module/emlakjet/listings') === 0) {
+            // GET parametrelerini koru
+            $queryParams = $_GET;
+            unset($queryParams['page']); // page parametresini kaldır, sadece filtreleri koru
+            $queryString = http_build_query($queryParams);
+            $redirectUrl = admin_url('module/emlakjet/listings');
+            if (!empty($queryString)) {
+                $redirectUrl .= '?' . $queryString;
+            }
+            header("Location: " . $redirectUrl);
+            exit;
+        }
+        
         // Route işlenemezse 404
         $_SESSION['flash_message'] = 'Modül sayfası bulunamadı';
         $_SESSION['flash_type'] = 'error';
@@ -871,8 +898,76 @@ if (strpos($page, 'module/') === 0) {
         exit;
         
     } catch (Exception $e) {
+        error_log("Admin module route error: " . $e->getMessage() . " - Trace: " . $e->getTraceAsString());
+        
+        // Eğer leads sayfası ise, hata mesajı göster ama yine de leads sayfasına yönlendir
+        if (strpos($page, 'module/crm/leads') === 0) {
+            $_SESSION['flash_message'] = 'Filtreleme sırasında bir hata oluştu: ' . $e->getMessage();
+            $_SESSION['flash_type'] = 'error';
+            // GET parametrelerini koru
+            $queryParams = $_GET;
+            unset($queryParams['page']); // page parametresini kaldır, sadece filtreleri koru
+            $queryString = http_build_query($queryParams);
+            $redirectUrl = admin_url('module/crm/leads');
+            if (!empty($queryString)) {
+                $redirectUrl .= '?' . $queryString;
+            }
+            header("Location: " . $redirectUrl);
+            exit;
+        }
+        
+        // Eğer emlakjet listings sayfası ise, hata mesajı göster ama yine de listings sayfasına yönlendir
+        if (strpos($page, 'module/emlakjet/listings') === 0) {
+            $_SESSION['flash_message'] = 'Filtreleme sırasında bir hata oluştu: ' . $e->getMessage();
+            $_SESSION['flash_type'] = 'error';
+            // GET parametrelerini koru
+            $queryParams = $_GET;
+            unset($queryParams['page']); // page parametresini kaldır, sadece filtreleri koru
+            $queryString = http_build_query($queryParams);
+            $redirectUrl = admin_url('module/emlakjet/listings');
+            if (!empty($queryString)) {
+                $redirectUrl .= '?' . $queryString;
+            }
+            header("Location: " . $redirectUrl);
+            exit;
+        }
+        
         die("Hata: " . $e->getMessage() . " - Dosya: " . $e->getFile() . " - Satır: " . $e->getLine());
     } catch (Error $e) {
+        error_log("Admin module route fatal error: " . $e->getMessage() . " - Trace: " . $e->getTraceAsString());
+        
+        // Eğer leads sayfası ise, hata mesajı göster ama yine de leads sayfasına yönlendir
+        if (strpos($page, 'module/crm/leads') === 0) {
+            $_SESSION['flash_message'] = 'Filtreleme sırasında bir hata oluştu: ' . $e->getMessage();
+            $_SESSION['flash_type'] = 'error';
+            // GET parametrelerini koru
+            $queryParams = $_GET;
+            unset($queryParams['page']); // page parametresini kaldır, sadece filtreleri koru
+            $queryString = http_build_query($queryParams);
+            $redirectUrl = admin_url('module/crm/leads');
+            if (!empty($queryString)) {
+                $redirectUrl .= '?' . $queryString;
+            }
+            header("Location: " . $redirectUrl);
+            exit;
+        }
+        
+        // Eğer emlakjet listings sayfası ise, hata mesajı göster ama yine de listings sayfasına yönlendir
+        if (strpos($page, 'module/emlakjet/listings') === 0) {
+            $_SESSION['flash_message'] = 'Filtreleme sırasında bir hata oluştu: ' . $e->getMessage();
+            $_SESSION['flash_type'] = 'error';
+            // GET parametrelerini koru
+            $queryParams = $_GET;
+            unset($queryParams['page']); // page parametresini kaldır, sadece filtreleri koru
+            $queryString = http_build_query($queryParams);
+            $redirectUrl = admin_url('module/emlakjet/listings');
+            if (!empty($queryString)) {
+                $redirectUrl .= '?' . $queryString;
+            }
+            header("Location: " . $redirectUrl);
+            exit;
+        }
+        
         die("Fatal Hata: " . $e->getMessage() . " - Dosya: " . $e->getFile() . " - Satır: " . $e->getLine());
     }
     exit;

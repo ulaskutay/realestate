@@ -121,9 +121,18 @@ $icon = $module['admin_menu']['icon'] ?? 'extension';
             </a>
             
             <?php elseif ($isActive): ?>
-            <!-- Aktif modül -->
+            <!-- Aktif modül: Özel modülün kendi ayar sayfası varsa oraya, yoksa merkezi ayarlara -->
             <?php if ($module['settings'] ?? false): ?>
-            <a href="<?php echo admin_url('modules/settings/' . $module['name']); ?>" 
+            <?php
+            $settingsUrl = admin_url('modules/settings/' . $module['name']);
+            if (empty($module['is_theme_module'])) {
+                $customSettingsView = ($module['path'] ?? '') . '/views/admin/settings.php';
+                if (!empty($module['path']) && file_exists($customSettingsView)) {
+                    $settingsUrl = admin_url('module/' . $module['name'] . '/settings');
+                }
+            }
+            ?>
+            <a href="<?php echo esc_attr($settingsUrl); ?>" 
                class="p-1.5 text-gray-600 dark:text-gray-400 hover:text-primary transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center" title="Ayarlar">
                 <span class="material-symbols-outlined text-lg sm:text-xl">settings</span>
             </a>

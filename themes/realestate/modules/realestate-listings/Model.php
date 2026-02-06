@@ -13,6 +13,7 @@ class RealEstateListingsModel {
         $this->migrateListingStatus();
         $this->migrateLivingRoomsAndRooms();
         $this->migrateRealtorId();
+        $this->migrateAdaParsel();
     }
     
     /**
@@ -59,6 +60,26 @@ class RealEstateListingsModel {
         $this->migrateListingStatus();
         $this->migrateLivingRoomsAndRooms();
         $this->migrateRealtorId();
+        $this->migrateAdaParsel();
+    }
+    
+    /**
+     * Mevcut tablolara ada ve parsel alanlarını ekle (Sanal Drone entegrasyonu)
+     */
+    private function migrateAdaParsel() {
+        try {
+            foreach (['ada' => 'varchar(50)', 'parsel' => 'varchar(50)'] as $col => $type) {
+                $checkSql = "SHOW COLUMNS FROM `{$this->table}` LIKE '{$col}'";
+                $stmt = $this->db->getConnection()->query($checkSql);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$result) {
+                    $after = $col === 'ada' ? 'location' : 'ada';
+                    $this->db->query("ALTER TABLE `{$this->table}` ADD COLUMN `{$col}` {$type} DEFAULT NULL AFTER `{$after}`");
+                }
+            }
+        } catch (Exception $e) {
+            error_log('Ada/Parsel migration error: ' . $e->getMessage());
+        }
     }
     
     /**
@@ -272,8 +293,8 @@ class RealEstateListingsModel {
      */
     public function create($data) {
         $sql = "INSERT INTO `{$this->table}` 
-                (`title`, `slug`, `description`, `location`, `price`, `property_type`, `listing_status`, `bedrooms`, `bathrooms`, `living_rooms`, `rooms`, `area`, `area_unit`, `featured_image`, `gallery`, `status`, `is_featured`, `author_id`, `realtor_id`) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                (`title`, `slug`, `description`, `location`, `ada`, `parsel`, `price`, `property_type`, `listing_status`, `bedrooms`, `bathrooms`, `living_rooms`, `rooms`, `area`, `area_unit`, `featured_image`, `gallery`, `status`, `is_featured`, `author_id`, `realtor_id`) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = $this->db->getConnection()->prepare($sql);
         $result = $stmt->execute([
@@ -281,6 +302,8 @@ class RealEstateListingsModel {
             $data['slug'],
             $data['description'] ?? null,
             $data['location'] ?? null,
+            $data['ada'] ?? null,
+            $data['parsel'] ?? null,
             $data['price'] ?? 0,
             $data['property_type'] ?? 'house',
             $data['listing_status'] ?? 'sale',
@@ -306,7 +329,7 @@ class RealEstateListingsModel {
      */
     public function update($id, $data) {
         $sql = "UPDATE `{$this->table}` SET 
-                `title` = ?, `slug` = ?, `description` = ?, `location` = ?, `price` = ?, 
+                `title` = ?, `slug` = ?, `description` = ?, `location` = ?, `ada` = ?, `parsel` = ?, `price` = ?, 
                 `property_type` = ?, `listing_status` = ?, `bedrooms` = ?, `bathrooms` = ?, `living_rooms` = ?, `rooms` = ?, `area` = ?, `area_unit` = ?, 
                 `featured_image` = ?, `gallery` = ?, `status` = ?, `is_featured` = ?, `realtor_id` = ?
                 WHERE `id` = ?";
@@ -317,6 +340,8 @@ class RealEstateListingsModel {
             $data['slug'],
             $data['description'] ?? null,
             $data['location'] ?? null,
+            $data['ada'] ?? null,
+            $data['parsel'] ?? null,
             $data['price'] ?? 0,
             $data['property_type'] ?? 'house',
             $data['listing_status'] ?? 'sale',

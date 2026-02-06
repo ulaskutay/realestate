@@ -208,71 +208,90 @@ class CrmModuleController {
      * Lead listesi
      */
     public function admin_leads() {
-        $this->ensureInitialized();
-        $this->requireLogin();
-        
-        $page = (int)($_GET['page'] ?? 1);
-        $perPage = 20;
-        $offset = ($page - 1) * $perPage;
-        
-        // Arama ve filtreleme
-        $search = $_GET['search'] ?? '';
-        $status = $_GET['status'] ?? '';
-        $source = $_GET['source'] ?? '';
-        $dateFrom = $_GET['date_from'] ?? '';
-        $dateTo = $_GET['date_to'] ?? '';
-        
         try {
-            $leads = $this->leadModel->search($search, [
-                'status' => $status,
-                'source' => $source,
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo
-            ], $perPage, $offset);
+            $this->ensureInitialized();
+            $this->requireLogin();
             
-            // Eğer null veya false dönerse boş array yap
-            if ($leads === null || $leads === false) {
+            $page = (int)($_GET['page'] ?? 1);
+            $perPage = 20;
+            $offset = ($page - 1) * $perPage;
+            
+            // Arama ve filtreleme
+            $search = $_GET['search'] ?? '';
+            $status = $_GET['status'] ?? '';
+            $source = $_GET['source'] ?? '';
+            $dateFrom = $_GET['date_from'] ?? '';
+            $dateTo = $_GET['date_to'] ?? '';
+            
+            try {
+                $leads = $this->leadModel->search($search, [
+                    'status' => $status,
+                    'source' => $source,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo
+                ], $perPage, $offset);
+                
+                // Eğer null veya false dönerse boş array yap
+                if ($leads === null || $leads === false) {
+                    $leads = [];
+                }
+                
+                // Array değilse boş array yap
+                if (!is_array($leads)) {
+                    $leads = [];
+                }
+                
+                $total = $this->leadModel->searchCount($search, [
+                    'status' => $status,
+                    'source' => $source,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo
+                ]);
+                
+                // Total değeri de kontrol et
+                if (!is_numeric($total)) {
+                    $total = 0;
+                }
+            } catch (Exception $e) {
+                error_log("CRM Leads search error: " . $e->getMessage() . " - Trace: " . $e->getTraceAsString());
                 $leads = [];
-            }
-            
-            // Array değilse boş array yap
-            if (!is_array($leads)) {
-                $leads = [];
-            }
-            
-            $total = $this->leadModel->searchCount($search, [
-                'status' => $status,
-                'source' => $source,
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo
-            ]);
-            
-            // Total değeri de kontrol et
-            if (!is_numeric($total)) {
                 $total = 0;
             }
+            
+            $totalPages = ceil($total / $perPage);
+            
+            $this->adminView('leads', [
+                'title' => 'Leadler',
+                'leads' => $leads ?: [],
+                'page' => $page,
+                'totalPages' => $totalPages,
+                'total' => $total,
+                'search' => $search,
+                'filters' => [
+                    'status' => $status,
+                    'source' => $source,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo
+                ]
+            ]);
         } catch (Exception $e) {
-            error_log("CRM Leads search error: " . $e->getMessage() . " - Trace: " . $e->getTraceAsString());
-            $leads = [];
-            $total = 0;
+            error_log("CRM admin_leads error: " . $e->getMessage() . " - Trace: " . $e->getTraceAsString());
+            // Hata durumunda bile sayfayı göster, boş liste ile
+            $this->adminView('leads', [
+                'title' => 'Leadler',
+                'leads' => [],
+                'page' => 1,
+                'totalPages' => 1,
+                'total' => 0,
+                'search' => $_GET['search'] ?? '',
+                'filters' => [
+                    'status' => $_GET['status'] ?? '',
+                    'source' => $_GET['source'] ?? '',
+                    'date_from' => $_GET['date_from'] ?? '',
+                    'date_to' => $_GET['date_to'] ?? ''
+                ]
+            ]);
         }
-        
-        $totalPages = ceil($total / $perPage);
-        
-        $this->adminView('leads', [
-            'title' => 'Leadler',
-            'leads' => $leads ?: [],
-            'page' => $page,
-            'totalPages' => $totalPages,
-            'total' => $total,
-            'search' => $search,
-            'filters' => [
-                'status' => $status,
-                'source' => $source,
-                'date_from' => $dateFrom,
-                'date_to' => $dateTo
-            ]
-        ]);
     }
     
     /**

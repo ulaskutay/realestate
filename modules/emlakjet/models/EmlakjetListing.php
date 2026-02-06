@@ -171,16 +171,28 @@ class EmlakjetListing extends Model {
      */
     public function getPendingListings($limit = 100) {
         try {
-            return $this->db->fetchAll(
-                "SELECT ej.*, l.title, l.location, l.price, l.status
-                 FROM `{$this->table}` ej
-                 LEFT JOIN `realestate_listings` l ON ej.listing_id = l.id
-                 WHERE ej.sync_status = 'pending'
-                 AND l.status = 'published'
-                 ORDER BY ej.created_at ASC
-                 LIMIT ?",
-                [$limit]
-            );
+            // Önce realestate_listings tablosunun var olup olmadığını kontrol et
+            $checkTable = "SHOW TABLES LIKE 'realestate_listings'";
+            $tableExists = $this->db->fetch($checkTable);
+            
+            if (!$tableExists) {
+                error_log("Emlakjet: realestate_listings table does not exist");
+                return [];
+            }
+            
+            // Tüm yayınlanmış ilanları getir ve emlakjet_listings tablosunda kaydı olmayanları veya pending/failed olanları dahil et
+            $sql = "SELECT l.id as listing_id, l.title, l.location, l.price, l.status,
+                           ej.id as emlakjet_sync_id, ej.sync_status, ej.last_error, ej.listing_id as ej_listing_id
+                    FROM `realestate_listings` l
+                    LEFT JOIN `{$this->table}` ej ON l.id = ej.listing_id
+                    WHERE l.status = 'published'
+                    AND (ej.sync_status IS NULL OR ej.sync_status = 'pending' OR ej.sync_status = 'failed')
+                    ORDER BY l.created_at DESC
+                    LIMIT ?";
+            
+            $stmt = $this->db->getConnection()->prepare($sql);
+            $stmt->execute([$limit]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             error_log("Emlakjet pending listings error: " . $e->getMessage());
             return [];
