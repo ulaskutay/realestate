@@ -58,7 +58,9 @@ class TkgmParselModuleController {
             'arcgis_parsel_layer_url' => '',
             'mapbox_access_token' => '',
             'google_maps_api_key' => '',
+            'cesium_ion_access_token' => '',
             'gemini_api_key' => '',
+            'ffmpeg_path' => '',
             'api_timeout' => 15,
             'cache_ttl' => 60
         ];
@@ -136,16 +138,302 @@ class TkgmParselModuleController {
         $this->ensureInitialized();
         $this->requireLogin();
 
-        $testParselResult = null;
-        if (!empty($_GET['test_parsel'])) {
-            $testParselResult = $this->runTestParselSorgu();
-        }
+        $sonDroneVideolari = $this->getSonDroneVideolari(10);
 
         $this->adminView('index', [
             'title' => 'TKGM Parsel Sorgu',
             'settings' => $this->settings,
-            'testParselResult' => $testParselResult
+            'sonDroneVideolari' => $sonDroneVideolari
         ]);
+    }
+
+    /**
+     * WebM dosyasını MP4'e dönüştürür (ffmpeg). Birden fazla yöntem dener.
+     * @param string $webmPath WebM dosya yolu
+     * @param string $mp4Path  Çıktı MP4 dosya yolu
+     * @param int    $timeout  Maksimum süre (saniye)
+     * @return bool Başarılı ise true
+     */
+    private function convertWebmToMp4($webmPath, $mp4Path, $timeout = 600) {
+        $logFile = dirname($webmPath) . '/ffmpeg_debug.log';
+        $log = function($msg) use ($logFile) {
+            @file_put_contents($logFile, date('Y-m-d H:i:s') . ' - ' . $msg . "\n", FILE_APPEND);
+        };
+        $log("convertWebmToMp4 başladı: $webmPath -> $mp4Path");
+        if (!is_file($webmPath) || filesize($webmPath) <= 0) {
+            $log("HATA: WebM dosyası yok veya boş");
+            return false;
+        }
+        $log("WebM boyutu: " . filesize($webmPath) . " bytes");
+        $mp4Dir = dirname($mp4Path);
+        if (!is_dir($mp4Dir) && !@mkdir($mp4Dir, 0755, true)) {
+            $log("HATA: MP4 klasörü oluşturulamadı");
+            return false;
+        }
+        $ffmpeg = $this->findFfmpeg();
+        if ($ffmpeg === '') {
+            $log("HATA: ffmpeg bulunamadı");
+            return false;
+        }
+        $log("ffmpeg bulundu: $ffmpeg");
+        $cmdH264 = escapeshellarg($ffmpeg) . ' -y -i ' . escapeshellarg($webmPath)
+            . ' -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -movflags +faststart -an '
+            . escapeshellarg($mp4Path) . ' 2>&1';
+        $cmdSimple = escapeshellarg($ffmpeg) . ' -y -i ' . escapeshellarg($webmPath)
+            . ' -c:v libx264 -preset ultrafast -an ' . escapeshellarg($mp4Path) . ' 2>&1';
+        $cmdCopy = escapeshellarg($ffmpeg) . ' -y -i ' . escapeshellarg($webmPath)
+            . ' -c:v copy -an ' . escapeshellarg($mp4Path) . ' 2>&1';
+        $cmdAuto = escapeshellarg($ffmpeg) . ' -y -i ' . escapeshellarg($webmPath)
+            . ' -an ' . escapeshellarg($mp4Path) . ' 2>&1';
+        $commands = [$cmdH264, $cmdSimple, $cmdCopy, $cmdAuto];
+        foreach ($commands as $idx => $cmd) {
+            @unlink($mp4Path);
+            $log("Deneme " . ($idx + 1) . ": $cmd");
+            $output = '';
+            if (function_exists('exec') && !in_array('exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+                $out = [];
+                @exec($cmd, $out, $ret);
+                $output = implode("\n", $out);
+                $log("exec sonucu (ret=$ret): " . substr($output, 0, 500));
+                if (is_file($mp4Path) && filesize($mp4Path) > 0) {
+                    $log("BAŞARILI! MP4 boyutu: " . filesize($mp4Path));
+                    return true;
+                }
+            }
+            if (function_exists('shell_exec') && !in_array('shell_exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+                $output = @shell_exec($cmd);
+                $log("shell_exec sonucu: " . substr($output ?? '', 0, 500));
+                if (is_file($mp4Path) && filesize($mp4Path) > 0) {
+                    $log("BAŞARILI! MP4 boyutu: " . filesize($mp4Path));
+                    return true;
+                }
+            }
+            if (function_exists('proc_open') && !in_array('proc_open', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+                $log("proc_open deneniyor...");
+                if ($this->runFfmpegProcOpen($cmd, $timeout)) {
+                    if (is_file($mp4Path) && filesize($mp4Path) > 0) {
+                        $log("BAŞARILI (proc_open)! MP4 boyutu: " . filesize($mp4Path));
+                        return true;
+                    }
+                }
+            }
+        }
+        $log("TÜM DENEMELER BAŞARISIZ");
+        return false;
+    }
+
+    private function findFfmpeg() {
+        $customPath = trim($this->settings['ffmpeg_path'] ?? '');
+        if ($customPath !== '' && is_file($customPath) && @is_executable($customPath)) {
+            return $customPath;
+        }
+        if ($customPath !== '' && $customPath[0] !== '/' && $customPath[0] !== '\\') {
+            $base = dirname(dirname(__DIR__));
+            $abs = $base . '/' . $customPath;
+            if (is_file($abs) && @is_executable($abs)) {
+                return $abs;
+            }
+        }
+        $candidates = ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg', '/opt/cpanel/ea-ffmpeg/bin/ffmpeg'];
+        foreach ($candidates as $c) {
+            if (@is_executable($c)) {
+                return $c;
+            }
+        }
+        if (function_exists('shell_exec') && !in_array('shell_exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+            $which = @shell_exec('which ffmpeg 2>/dev/null');
+            if ($which !== null && $which !== '') {
+                $path = trim($which);
+                if ($path !== '') {
+                    return $path;
+                }
+            }
+        }
+        if (function_exists('exec') && !in_array('exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+            @exec('which ffmpeg 2>/dev/null', $out, $ret);
+            if ($ret === 0 && !empty($out[0])) {
+                return trim($out[0]);
+            }
+        }
+        return '';
+    }
+
+    private function runFfmpegProcOpen($cmd, $timeout) {
+        $desc = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $p = @proc_open($cmd, $desc, $pipes, null, null);
+        if (!is_resource($p)) {
+            return false;
+        }
+        @fclose($pipes[1]);
+        @fclose($pipes[2]);
+        $end = time() + $timeout;
+        do {
+            $status = @proc_get_status($p);
+            if (!$status) {
+                @proc_close($p);
+                return false;
+            }
+            if (!empty($status['running']) && time() >= $end) {
+                @proc_terminate($p, 9);
+                @proc_close($p);
+                return false;
+            }
+            if (empty($status['running'])) {
+                break;
+            }
+            usleep(200000);
+        } while (true);
+        @proc_close($p);
+        return true;
+    }
+
+    /**
+     * Ham drone videoya seslendirme, altyazı ve drawtext overlay uygular (FFmpeg).
+     * @param string $inputPath  Giriş video (MP4 önerilir)
+     * @param string $outputPath Çıkış MP4 yolu
+     * @param array  $opts      ['audioPath' => ?, 'srtPath' => ?, 'drawtexts' => [['text'=>,'x','y','fontsize','start','end'], ...]]
+     * @param int    $timeout   Maksimum süre (saniye)
+     * @return array ['success' => bool, 'error' => string|null, 'log_path' => string|null]
+     */
+    private function runDroneOverlayFfmpeg($inputPath, $outputPath, array $opts = [], $timeout = 600) {
+        $ffmpeg = $this->findFfmpeg();
+        if ($ffmpeg === '') {
+            return ['success' => false, 'error' => 'ffmpeg_not_found', 'log_path' => null];
+        }
+        $audioPath = $opts['audioPath'] ?? null;
+        $srtPath = $opts['srtPath'] ?? null;
+        $drawtexts = $opts['drawtexts'] ?? [];
+        $inputs = [escapeshellarg($inputPath)];
+        if ($audioPath && is_file($audioPath)) {
+            $inputs[] = escapeshellarg($audioPath);
+        }
+        $chain = '';
+        $prev = '0:v';
+        if ($srtPath && is_file($srtPath)) {
+            $srtEsc = str_replace(['\\', ':'], ['\\\\', '\\:'], $srtPath);
+            $chain = '[0:v]subtitles=' . escapeshellarg($srtEsc) . ':force_style=\'FontSize=24,PrimaryColour=&HFFFFFF&\'[vsub]';
+            $prev = 'vsub';
+        }
+        $i = 0;
+        foreach ($drawtexts as $d) {
+            $text = $d['text'] ?? '';
+            if ($text === '') {
+                continue;
+            }
+            $escapedText = str_replace(["\\", "'"], ["\\\\", "'\\''"], $text);
+            $x = (int)($d['x'] ?? 50);
+            $y = (int)($d['y'] ?? 80);
+            $fontsize = (int)($d['fontsize'] ?? 24);
+            $start = (float)($d['start'] ?? 0);
+            $end = (float)($d['end'] ?? 99999);
+            $enable = "between(t,{$start},{$end})";
+            $next = 'v' . $i;
+            $filter = "[{$prev}]drawtext=text='{$escapedText}':x={$x}:y={$y}:fontsize={$fontsize}:fontcolor=white:borderw=2:border_color=black:enable='{$enable}'[{$next}]";
+            $chain .= ($chain !== '' ? ';' : '') . $filter;
+            $prev = $next;
+            $i++;
+        }
+        if ($chain === '') {
+            @unlink($outputPath);
+            if ($audioPath && is_file($audioPath)) {
+                $cmd = escapeshellarg($ffmpeg) . ' -y -i ' . $inputs[0] . ' -i ' . $inputs[1] . ' -c:v copy -c:a aac -b:a 128k -map 0:v -map 1:a -shortest ' . escapeshellarg($outputPath) . ' 2>&1';
+            } else {
+                $cmd = escapeshellarg($ffmpeg) . ' -y -i ' . $inputs[0] . ' -c:v copy -an ' . escapeshellarg($outputPath) . ' 2>&1';
+            }
+            $out = [];
+            @exec($cmd, $out, $ret);
+            $ok = is_file($outputPath) && filesize($outputPath) > 0;
+            return $ok ? ['success' => true, 'error' => null, 'log_path' => null] : ['success' => false, 'error' => 'command_failed', 'log_path' => null, 'stderr' => implode("\n", array_slice($out, -20))];
+        }
+        $outLabel = $prev;
+        $filterComplex = $chain;
+        $mapVideo = '-map ' . $outLabel . ' -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -movflags +faststart';
+        $mapAudio = '';
+        if ($audioPath && is_file($audioPath)) {
+            $mapAudio = ' -map 1:a -c:a aac -b:a 128k -shortest';
+        } else {
+            $mapAudio = ' -an';
+        }
+        $cmd = escapeshellarg($ffmpeg) . ' -y -i ' . $inputs[0];
+        if (count($inputs) > 1) {
+            $cmd .= ' -i ' . $inputs[1];
+        }
+        $cmd .= ' -filter_complex ' . escapeshellarg($filterComplex) . ' ' . $mapVideo . $mapAudio . ' ' . escapeshellarg($outputPath) . ' 2>&1';
+        $logFile = dirname($outputPath) . '/ffmpeg_overlay_debug.log';
+        @file_put_contents($logFile, date('Y-m-d H:i:s') . ' - ' . $cmd . "\n", FILE_APPEND);
+        @unlink($outputPath);
+        $stderrLines = [];
+        if (function_exists('proc_open') && !in_array('proc_open', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+            $p = @proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, null);
+            if (is_resource($p)) {
+                @stream_set_blocking($pipes[1], false);
+                @stream_set_blocking($pipes[2], false);
+                $end = time() + $timeout;
+                do {
+                    $status = @proc_get_status($p);
+                    if (!$status) {
+                        break;
+                    }
+                    if (!empty($status['running']) && time() >= $end) {
+                        @proc_terminate($p, 9);
+                        break;
+                    }
+                    if (empty($status['running'])) {
+                        break;
+                    }
+                    usleep(200000);
+                } while (true);
+                $stderrLines = array_filter(explode("\n", (string)@stream_get_contents($pipes[2])));
+                @fclose($pipes[1]);
+                @fclose($pipes[2]);
+                @proc_close($p);
+            }
+        } else {
+            $out = [];
+            @exec($cmd, $out, $ret);
+            $stderrLines = $out;
+        }
+        if (!empty($stderrLines)) {
+            @file_put_contents($logFile, "--- FFmpeg stderr ---\n" . implode("\n", array_slice($stderrLines, -50)) . "\n", FILE_APPEND);
+        }
+        $ok = is_file($outputPath) && filesize($outputPath) > 0;
+        if ($ok) {
+            return ['success' => true, 'error' => null, 'log_path' => null];
+        }
+        return ['success' => false, 'error' => 'command_failed', 'log_path' => $logFile, 'stderr' => implode("\n", array_slice($stderrLines, -15))];
+    }
+
+    /**
+     * Medya kütüphanesindeki son parsel/drone videolarını getir.
+     * Önce parsel/drone adlı videoları arar, yoksa son yüklenen videoları döner.
+     * @return array
+     */
+    private function getSonDroneVideolari($limit = 10) {
+        if (!class_exists('Database')) {
+            return [];
+        }
+        try {
+            $db = Database::getInstance();
+            $limit = (int)$limit;
+            $sql = "SELECT id, file_path, file_url, original_name, mime_type, created_at 
+                    FROM media 
+                    WHERE mime_type LIKE 'video/%' 
+                    AND (original_name LIKE '%parsel%' OR original_name LIKE '%drone%' OR file_path LIKE '%parsel%' OR file_path LIKE '%drone%')
+                    ORDER BY created_at DESC 
+                    LIMIT {$limit}";
+            $list = $db->fetchAll($sql);
+            if (empty($list)) {
+                $sql2 = "SELECT id, file_path, file_url, original_name, mime_type, created_at 
+                         FROM media 
+                         WHERE mime_type LIKE 'video/%' 
+                         ORDER BY created_at DESC 
+                         LIMIT {$limit}";
+                $list = $db->fetchAll($sql2);
+            }
+            return $list;
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 
     /**
@@ -193,20 +481,77 @@ class TkgmParselModuleController {
      */
     public function admin_sorgu() {
         $this->ensureInitialized();
+        $action = $_GET['action'] ?? $_POST['action'] ?? '';
+        if ($action === 'ffmpeg_asset') {
+            $this->serveFfmpegAsset();
+            return;
+        }
         $this->requireLogin();
 
         $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-        $action = $_GET['action'] ?? $_POST['action'] ?? '';
-
+        if ($isAjax && $action !== '') {
+            $this->handleSorguAjax($action);
+            return;
+        }
         if ($isAjax && $action !== '') {
             $this->handleSorguAjax($action);
             return;
         }
 
+        $sonDroneVideolari = $this->getSonDroneVideolari(10);
+
         $this->adminView('sorgu', [
             'title' => 'Parsel Sorgu',
-            'settings' => $this->settings
+            'settings' => $this->settings,
+            'sonDroneVideolari' => $sonDroneVideolari
         ]);
+    }
+
+    /**
+     * Aynı origin üzerinden FFmpeg.wasm core/worker dosyalarını sunar (CORS/blob engelini aşar).
+     */
+    private function serveFfmpegAsset() {
+        $allowed = ['ffmpeg-core.js' => 'text/javascript', 'ffmpeg-core.wasm' => 'application/wasm', '814.ffmpeg.js' => 'text/javascript'];
+        $file = isset($_GET['file']) ? basename($_GET['file']) : '';
+        if (!isset($allowed[$file])) {
+            http_response_code(400);
+            header('Content-Type: text/plain');
+            echo 'Bad request';
+            exit;
+        }
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        $base = 'https://cdn.jsdelivr.net/npm';
+        $urls = [
+            'ffmpeg-core.js' => $base . '/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js',
+            'ffmpeg-core.wasm' => $base . '/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.wasm',
+            '814.ffmpeg.js' => $base . '/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js'
+        ];
+        $url = $urls[$file];
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => "User-Agent: Mozilla/5.0 (compatible)\r\n",
+                'timeout' => 60
+            ]
+        ]);
+        $body = @file_get_contents($url, false, $ctx);
+        if ($body === false) {
+            $err = error_get_last();
+            http_response_code(502);
+            header('Content-Type: text/plain');
+            echo 'Upstream fetch failed: ' . ($err ? $err['message'] : 'file_get_contents returned false');
+            if (function_exists('error_log')) {
+                error_log('[TKGM FFmpeg Proxy] Failed to fetch ' . $url . ': ' . ($err ? $err['message'] : 'unknown'));
+            }
+            exit;
+        }
+        header('Content-Type: ' . $allowed[$file]);
+        header('Cache-Control: public, max-age=86400');
+        header('Content-Length: ' . strlen($body));
+        echo $body;
+        exit;
     }
 
     /**
@@ -319,6 +664,350 @@ class TkgmParselModuleController {
                     }
                     break;
 
+                case 'get_agents':
+                    $agents = [];
+                    $modelPath = dirname(dirname(__DIR__)) . '/themes/realestate/modules/realestate-agents/Model.php';
+                    if (file_exists($modelPath)) {
+                        require_once $modelPath;
+                        if (class_exists('RealEstateAgentsModel')) {
+                            $model = new RealEstateAgentsModel();
+                            $agents = $model->getActive();
+                            $agents = array_map(function($a) {
+                                return [
+                                    'id' => $a['id'],
+                                    'first_name' => $a['first_name'] ?? '',
+                                    'last_name' => $a['last_name'] ?? '',
+                                    'photo' => !empty($a['photo']) ? (preg_match('/^https?:\/\//', $a['photo']) ? $a['photo'] : site_url($a['photo'])) : null,
+                                    'phone' => $a['phone'] ?? ''
+                                ];
+                            }, $agents);
+                        }
+                    }
+                    echo json_encode(['success' => true, 'data' => $agents]);
+                    exit;
+
+                case 'check_ffmpeg':
+                    header('Content-Type: application/json; charset=utf-8');
+                    $ffmpeg = $this->findFfmpeg();
+                    $version = '';
+                    if ($ffmpeg !== '') {
+                        $versionCmd = escapeshellarg($ffmpeg) . ' -version 2>&1';
+                        $version = @shell_exec($versionCmd);
+                        if ($version !== null) {
+                            $first = strtok($version, "\n");
+                            $version = trim($first ?: '');
+                        }
+                    }
+                    echo json_encode([
+                        'success' => true,
+                        'found' => $ffmpeg !== '',
+                        'path' => $ffmpeg !== '' ? $ffmpeg : null,
+                        'version' => $version
+                    ]);
+                    exit;
+
+                case 'upload_drone_video':
+                    header('Content-Type: application/json; charset=utf-8');
+                    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_FILES['video'])) {
+                        echo json_encode(['success' => false, 'message' => 'Video dosyası gerekli']);
+                        exit;
+                    }
+                    $file = $_FILES['video'];
+                    if ($file['error'] !== UPLOAD_ERR_OK) {
+                        $errMsg = [
+                            UPLOAD_ERR_INI_SIZE => 'Dosya boyutu çok büyük',
+                            UPLOAD_ERR_FORM_SIZE => 'Dosya boyutu limiti aşıldı',
+                            UPLOAD_ERR_PARTIAL => 'Dosya kısmen yüklendi',
+                            UPLOAD_ERR_NO_FILE => 'Dosya yüklenmedi',
+                            UPLOAD_ERR_NO_TMP_DIR => 'Geçici klasör yok',
+                            UPLOAD_ERR_CANT_WRITE => 'Yazma hatası',
+                            UPLOAD_ERR_EXTENSION => 'Uzantı hatası'
+                        ];
+                        echo json_encode(['success' => false, 'message' => $errMsg[$file['error']] ?? 'Yükleme hatası']);
+                        exit;
+                    }
+                    $maxSize = 120 * 1024 * 1024; // 120 MB
+                    if ($file['size'] > $maxSize) {
+                        echo json_encode(['success' => false, 'message' => 'Video boyutu 120 MB\'dan küçük olmalı']);
+                        exit;
+                    }
+                    $mime = $file['type'] ?? '';
+                    if (strpos($mime, 'video/') !== 0) {
+                        $mime = 'video/webm';
+                    }
+                    $ext = (strpos($mime, 'mp4') !== false || $mime === 'video/mp4') ? 'mp4' : 'webm';
+                    $ada = trim($_POST['ada'] ?? '');
+                    $parsel = trim($_POST['parsel_no'] ?? '');
+                    $baseName = 'parsel-drone' . ($ada ? '-ada-' . preg_replace('/[^0-9]/', '', $ada) : '') . ($parsel ? '-parsel-' . preg_replace('/[^0-9]/', '', $parsel) : '') . '-' . date('Ymd-His');
+                    $uploadBase = dirname(dirname(__DIR__)) . '/public/uploads/parsel-drone/';
+                    $yearMonth = date('Y/m');
+                    $uploadDir = $uploadBase . $yearMonth . '/';
+                    if (!is_dir($uploadDir)) {
+                        if (!mkdir($uploadDir, 0755, true)) {
+                            echo json_encode(['success' => false, 'message' => 'Klasör oluşturulamadı']);
+                            exit;
+                        }
+                    }
+                    $tmpPath = $file['tmp_name'];
+                    $outPath = $uploadDir . $baseName . '.' . $ext;
+                    $finalPath = $outPath;
+                    $finalExt = $ext;
+                    $finalMime = $ext === 'mp4' ? 'video/mp4' : 'video/webm';
+                    if ($ext === 'webm') {
+                        if (!move_uploaded_file($tmpPath, $outPath)) {
+                            echo json_encode(['success' => false, 'message' => 'Video dosyası yüklenemedi']);
+                            exit;
+                        }
+                        $mp4Path = $uploadDir . $baseName . '.mp4';
+                        if ($this->convertWebmToMp4($outPath, $mp4Path)) {
+                            @unlink($outPath);
+                            $finalPath = $mp4Path;
+                            $finalExt = 'mp4';
+                            $finalMime = 'video/mp4';
+                        } else {
+                            $finalPath = $outPath;
+                            $finalExt = 'webm';
+                            $finalMime = 'video/webm';
+                        }
+                    } else {
+                        move_uploaded_file($tmpPath, $outPath);
+                    }
+                    $relativePath = 'parsel-drone/' . $yearMonth . '/' . basename($finalPath);
+                    $fileUrl = site_url('uploads/' . $relativePath);
+                    $userId = function_exists('get_logged_in_user') ? (get_logged_in_user()['id'] ?? 1) : 1;
+                    require_once dirname(dirname(__DIR__)) . '/app/models/Media.php';
+                    $mediaModel = new Media();
+                    $mediaData = [
+                        'user_id' => $userId,
+                        'filename' => basename($finalPath),
+                        'original_name' => $baseName . '.' . $finalExt,
+                        'mime_type' => $finalMime,
+                        'file_size' => filesize($finalPath),
+                        'file_path' => $relativePath,
+                        'file_url' => $fileUrl,
+                        'alt_text' => null,
+                        'description' => null
+                    ];
+                    $mediaId = $mediaModel->create($mediaData);
+                    if (!$mediaId) {
+                        @unlink($finalPath);
+                        echo json_encode(['success' => false, 'message' => 'Medya kaydı oluşturulamadı']);
+                        exit;
+                    }
+                    $successMsg = ($finalExt === 'mp4')
+                        ? 'Video MP4 formatında içerik kütüphanesine kaydedildi.'
+                        : 'Video WebM olarak kaydedildi. MP4 için sunucuda ffmpeg kurulu olmalı.';
+                    echo json_encode([
+                        'success' => true,
+                        'message' => $successMsg,
+                        'media_id' => $mediaId,
+                        'file_url' => $fileUrl,
+                        'file_path' => $relativePath
+                    ]);
+                    exit;
+
+                case 'apply_drone_overlay':
+                    header('Content-Type: application/json; charset=utf-8');
+                    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                        echo json_encode(['success' => false, 'message' => 'Sadece POST']);
+                        exit;
+                    }
+                    set_time_limit(600);
+                    $mediaId = (int)($_POST['media_id'] ?? 0);
+                    if ($mediaId <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Geçerli bir video (media_id) seçin.']);
+                        exit;
+                    }
+                    require_once dirname(dirname(__DIR__)) . '/app/models/Media.php';
+                    $mediaModel = new Media();
+                    $media = $mediaModel->find($mediaId);
+                    if (!$media || strpos($media['mime_type'] ?? '', 'video/') !== 0) {
+                        echo json_encode(['success' => false, 'message' => 'Video bulunamadı.']);
+                        exit;
+                    }
+                    $baseDir = dirname(dirname(__DIR__)) . '/public/uploads/';
+                    $inputPath = $baseDir . $media['file_path'];
+                    if (!is_file($inputPath) || filesize($inputPath) <= 0) {
+                        echo json_encode(['success' => false, 'message' => 'Video dosyası bulunamadı.']);
+                        exit;
+                    }
+                    $ada = trim($_POST['ada'] ?? '');
+                    $parsel = trim($_POST['parsel_no'] ?? $_POST['parsel'] ?? '');
+                    $mahalle = trim($_POST['mahalle_adi'] ?? $_POST['mahalle'] ?? '');
+                    $titleText = trim($_POST['title_text'] ?? '');
+                    $agentId = (int)($_POST['agent_id'] ?? 0);
+                    $agentName = '';
+                    $agentPhone = '';
+                    if ($agentId > 0) {
+                        $modelPath = dirname(dirname(__DIR__)) . '/themes/realestate/modules/realestate-agents/Model.php';
+                        if (file_exists($modelPath)) {
+                            require_once $modelPath;
+                            if (class_exists('RealEstateAgentsModel')) {
+                                $agentModel = new RealEstateAgentsModel();
+                                $agent = $agentModel->find($agentId);
+                                if ($agent) {
+                                    $agentName = trim(($agent['first_name'] ?? '') . ' ' . ($agent['last_name'] ?? ''));
+                                    $agentPhone = trim($agent['phone'] ?? '');
+                                }
+                            }
+                        }
+                    }
+                    $voiceoverPath = null;
+                    if (!empty($_FILES['voiceover']['tmp_name']) && is_uploaded_file($_FILES['voiceover']['tmp_name'])) {
+                        $mime = $_FILES['voiceover']['type'] ?? '';
+                        $ext = (strpos($mime, 'mp3') !== false) ? 'mp3' : 'wav';
+                        $voiceoverPath = sys_get_temp_dir() . '/drone_voiceover_' . uniqid() . '.' . $ext;
+                        if (move_uploaded_file($_FILES['voiceover']['tmp_name'], $voiceoverPath)) {
+                            // keep for FFmpeg
+                        } else {
+                            $voiceoverPath = null;
+                        }
+                    }
+                    $srtPath = null;
+                    if (!empty($_FILES['subtitle']['tmp_name']) && is_uploaded_file($_FILES['subtitle']['tmp_name'])) {
+                        $srtPath = sys_get_temp_dir() . '/drone_srt_' . uniqid() . '.srt';
+                        if (move_uploaded_file($_FILES['subtitle']['tmp_name'], $srtPath)) {
+                            // keep
+                        } else {
+                            $srtPath = null;
+                        }
+                    }
+                    $uploadBase = dirname(dirname(__DIR__)) . '/public/uploads/parsel-drone/';
+                    $yearMonth = date('Y/m');
+                    $uploadDir = $uploadBase . $yearMonth . '/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    $baseName = 'parsel-drone-overlay' . ($ada ? '-ada-' . preg_replace('/[^0-9]/', '', $ada) : '') . ($parsel ? '-parsel-' . preg_replace('/[^0-9]/', '', $parsel) : '') . '-' . date('Ymd-His');
+                    $outputPath = $uploadDir . $baseName . '.mp4';
+                    $normalizedInput = $inputPath;
+                    $tempMp4 = null;
+                    if (strpos($media['mime_type'], 'webm') !== false) {
+                        $tempMp4 = sys_get_temp_dir() . '/drone_input_' . uniqid() . '.mp4';
+                        if ($this->convertWebmToMp4($inputPath, $tempMp4, 300)) {
+                            $normalizedInput = $tempMp4;
+                        }
+                    }
+                    $opts = [
+                        'audioPath' => $voiceoverPath,
+                        'srtPath' => $srtPath,
+                        'drawtexts' => []
+                    ];
+                    $y = 80;
+                    $fontsize = 28;
+                    $lineH = 42;
+                    if ($titleText !== '') {
+                        $opts['drawtexts'][] = ['text' => $titleText, 'x' => 50, 'y' => $y, 'fontsize' => (int)($fontsize * 1.2), 'start' => 0, 'end' => 99999];
+                        $y += $lineH;
+                    }
+                    if ($ada !== '') {
+                        $opts['drawtexts'][] = ['text' => 'Ada ' . $ada, 'x' => 50, 'y' => $y, 'fontsize' => $fontsize, 'start' => 0, 'end' => 99999];
+                        $y += $lineH;
+                    }
+                    if ($parsel !== '') {
+                        $opts['drawtexts'][] = ['text' => 'Parsel ' . $parsel, 'x' => 50, 'y' => $y, 'fontsize' => $fontsize, 'start' => 0, 'end' => 99999];
+                        $y += $lineH;
+                    }
+                    if ($mahalle !== '') {
+                        $opts['drawtexts'][] = ['text' => $mahalle, 'x' => 50, 'y' => $y, 'fontsize' => $fontsize, 'start' => 0, 'end' => 99999];
+                        $y += $lineH;
+                    }
+                    if ($agentName !== '' || $agentPhone !== '') {
+                        $agentLine = $agentName;
+                        if ($agentPhone !== '') {
+                            $agentLine .= ' • ' . $agentPhone;
+                        }
+                        $opts['drawtexts'][] = ['text' => $agentLine, 'x' => 50, 'y' => $y, 'fontsize' => (int)($fontsize * 0.9), 'start' => 0, 'end' => 99999];
+                    }
+                    $result = $this->runDroneOverlayFfmpeg($normalizedInput, $outputPath, $opts);
+                    if ($tempMp4 && is_file($tempMp4)) {
+                        @unlink($tempMp4);
+                    }
+                    if ($voiceoverPath && is_file($voiceoverPath)) {
+                        @unlink($voiceoverPath);
+                    }
+                    if ($srtPath && is_file($srtPath)) {
+                        @unlink($srtPath);
+                    }
+                    if (!$result['success'] || !is_file($outputPath) || filesize($outputPath) <= 0) {
+                        $msg = 'Overlay işlemi başarısız. ';
+                        if (($result['error'] ?? '') === 'ffmpeg_not_found') {
+                            $msg .= 'Sunucuda FFmpeg bulunamadı. Paylaşımlı hostingte genelde yüklü olmaz; VPS veya kendi sunucunuzda FFmpeg kurmanız gerekir. Kurulum: Ubuntu/Debian için "sudo apt install ffmpeg", macOS için "brew install ffmpeg".';
+                        } else {
+                            $msg .= 'FFmpeg komutu hata verdi.';
+                            if (!empty($result['log_path']) && is_readable($result['log_path'])) {
+                                $msg .= ' Detay için sunucuda şu dosyaya bakın: ' . $result['log_path'];
+                            }
+                            if (!empty($result['stderr'])) {
+                                $msg .= ' Son hata: ' . preg_replace('/\s+/', ' ', trim(substr($result['stderr'], 0, 300)));
+                            }
+                        }
+                        echo json_encode(['success' => false, 'message' => $msg]);
+                        exit;
+                    }
+                    $relativePath = 'parsel-drone/' . $yearMonth . '/' . basename($outputPath);
+                    $fileUrl = site_url('uploads/' . $relativePath);
+                    $userId = function_exists('get_logged_in_user') ? (get_logged_in_user()['id'] ?? 1) : 1;
+                    $mediaData = [
+                        'user_id' => $userId,
+                        'filename' => basename($outputPath),
+                        'original_name' => $baseName . '.mp4',
+                        'mime_type' => 'video/mp4',
+                        'file_size' => filesize($outputPath),
+                        'file_path' => $relativePath,
+                        'file_url' => $fileUrl,
+                        'alt_text' => null,
+                        'description' => null
+                    ];
+                    $newMediaId = $mediaModel->create($mediaData);
+                    if (!$newMediaId) {
+                        @unlink($outputPath);
+                        echo json_encode(['success' => false, 'message' => 'Medya kaydı oluşturulamadı.']);
+                        exit;
+                    }
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Overlay eklenmiş video oluşturuldu.',
+                        'media_id' => $newMediaId,
+                        'file_url' => $fileUrl,
+                        'file_path' => $relativePath
+                    ]);
+                    exit;
+
+                case 'generate_parsel_description':
+                    header('Content-Type: application/json; charset=utf-8');
+                    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                        echo json_encode(['success' => false, 'error' => 'Sadece POST']);
+                        exit;
+                    }
+                    $yakınLokasyonlar = [];
+                    $raw = trim($_POST['yakın_lokasyonlar'] ?? '[]');
+                    if ($raw !== '' && $raw !== '[]') {
+                        $decoded = json_decode($raw, true);
+                        if (is_array($decoded)) {
+                            $yakınLokasyonlar = array_values(array_filter(array_map('trim', $decoded)));
+                        }
+                    }
+                    $parselData = [
+                        'il_adi' => trim($_POST['il_adi'] ?? ''),
+                        'ilce_adi' => trim($_POST['ilce_adi'] ?? ''),
+                        'mahalle_adi' => trim($_POST['mahalle_adi'] ?? ''),
+                        'ada' => trim($_POST['ada'] ?? ''),
+                        'parsel_no' => trim($_POST['parsel_no'] ?? ''),
+                        'alan_m2' => isset($_POST['alan_m2']) && $_POST['alan_m2'] !== '' ? floatval($_POST['alan_m2']) : null,
+                        'nitelik' => trim($_POST['nitelik'] ?? ''),
+                        'yakın_lokasyonlar' => $yakınLokasyonlar
+                    ];
+                    $aiPath = dirname(dirname(__DIR__)) . '/app/services/AIService.php';
+                    if (!file_exists($aiPath)) {
+                        echo json_encode(['success' => false, 'error' => 'AI servisi bulunamadı']);
+                        exit;
+                    }
+                    require_once $aiPath;
+                    $aiService = new AIService();
+                    echo json_encode($aiService->generateParselDescription($parselData));
+                    exit;
+
                 case 'gemini_enhance':
                     set_time_limit(180);
                     $apiKey = trim($this->settings['gemini_api_key'] ?? '');
@@ -416,10 +1105,7 @@ class TkgmParselModuleController {
             $this->settings['api_base_url'] = trim($_POST['api_base_url'] ?? '');
             $this->settings['hierarchy_api_base_url'] = trim($_POST['hierarchy_api_base_url'] ?? '');
             $this->settings['idariyapi_base_url'] = trim($_POST['idariyapi_base_url'] ?? '');
-            $this->settings['arcgis_parsel_layer_url'] = trim($_POST['arcgis_parsel_layer_url'] ?? '');
-            $this->settings['mapbox_access_token'] = trim($_POST['mapbox_access_token'] ?? '');
             $this->settings['google_maps_api_key'] = trim($_POST['google_maps_api_key'] ?? '');
-            $this->settings['gemini_api_key'] = trim($_POST['gemini_api_key'] ?? '');
             $this->settings['api_timeout'] = (int)($_POST['api_timeout'] ?? 15);
             $this->settings['cache_ttl'] = (int)($_POST['cache_ttl'] ?? 60);
             if (empty($this->settings['api_base_url'])) {

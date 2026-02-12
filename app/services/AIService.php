@@ -196,7 +196,42 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
             'description' => $data['choices'][0]['message']['content']
         ];
     }
-    
+
+    /**
+     * Parsel bilgilerinden içerik açıklaması oluştur
+     */
+    public function generateParselDescription($parselData) {
+        if (empty($this->apiKey)) {
+            return [
+                'success' => false,
+                'error' => 'Groq API anahtarı yapılandırılmamış. Lütfen ayarlar sayfasından API anahtarınızı girin.'
+            ];
+        }
+        $prompt = $this->buildParselPrompt($parselData);
+        $response = $this->callGroqAPI($prompt);
+        if (!$response['success']) return $response;
+        $desc = trim($response['description']);
+        if (mb_strlen($desc) > 800) {
+            $desc = mb_substr($desc, 0, 800);
+        }
+        return ['success' => true, 'description' => $desc];
+    }
+
+    private function buildParselPrompt($data) {
+        $konum = array_filter([$data['il_adi'] ?? '', $data['ilce_adi'] ?? '', $data['mahalle_adi'] ?? '']);
+        $konumStr = !empty($konum) ? implode(' / ', $konum) : 'Konum belirtilmemiş';
+        $ada = $data['ada'] ?? '—';
+        $parselNo = $data['parsel_no'] ?? '—';
+        $alan = isset($data['alan_m2']) && $data['alan_m2'] > 0 ? number_format($data['alan_m2'], 0, ',', '.') . ' m²' : 'Alan belirtilmemiş';
+        $nitelik = $data['nitelik'] ?? 'Parsel';
+        $yakınLok = $data['yakın_lokasyonlar'] ?? [];
+        $yakınLokStr = '';
+        if (!empty($yakınLok) && is_array($yakınLok)) {
+            $yakınLokStr = "\n- Yakın Lokasyonlar: " . implode(' | ', array_map('trim', $yakınLok));
+        }
+        return "Aşağıdaki parsel bilgilerine göre drone videoda kullanılacak seslendirme metni yaz. Emlak tanıtımı tarzında, profesyonel ve ikna edici bir metin.\n\nParsel Bilgileri:\n- Konum: {$konumStr}\n- Ada: {$ada}\n- Parsel: {$parselNo}\n- Alan: {$alan}\n- Nitelik: {$nitelik}{$yakınLokStr}\n\nFormat örneği: \"[İl]'un [ilçe] ilçesi [mahalle] Mahallesi'nde yer alan, ada [sayı yazıyla], parsel [sayı] numaralı, [alan metrekare yazıyla] metrekarelik [nitelik] nitelikli tek tapulu arazimiz satışa sunulmuştur. [Varsa yakın lokasyonları burada doğal biçimde ekle: Örneğin '...konum avantajı sunarken, yakınında X kilometre mesafede Y, Z kilometrede W gibi önemli noktalar bulunmaktadır.'] Bu geniş arazi, yatırımcılar için eşsiz bir fırsat sunarken... Değer kazanma potansiyeline sahiptir. Detaylı bilgi almak için hemen iletişime geçin.\"\n\nGereksinimler: Türkçe, maksimum 800 karakter. Ada ve parsel numaralarını yazıyla yaz. Alanı metrekare olarak yazıyla ifade et. Nitelik kelimesini metne dahil et. Yakın lokasyonlar verildiyse, bunları metne doğal ve akıcı şekilde ekle (mesafe bilgisiyle birlikte). Yatırımcıyı cezbeden, bölge avantajlarını vurgulayan, sonunda iletişime geçin çağrısı olan akıcı bir seslendirme metni yaz. Sadece metni yaz, başlık ekleme.";
+    }
+
     /**
      * API key'i test et
      */
@@ -204,19 +239,18 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
         if ($apiKey === null) {
             $apiKey = $this->apiKey;
         }
-        
+
         if (empty($apiKey)) {
             return [
                 'success' => false,
                 'error' => 'API anahtarı boş'
             ];
         }
-        
-        // Test prompt'u
+
         $testPrompt = "Merhaba, bu bir test mesajıdır. Lütfen 'Test başarılı' yaz.";
-        
+
         $ch = curl_init($this->apiUrl);
-        
+
         $payload = [
             'model' => $this->model,
             'messages' => [
@@ -227,7 +261,7 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
             ],
             'max_tokens' => 50
         ];
-        
+
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
@@ -239,11 +273,11 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
             CURLOPT_TIMEOUT => 10,
             CURLOPT_SSL_VERIFYPEER => true
         ]);
-        
+
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        
+
         if ($httpCode === 200) {
             return [
                 'success' => true,
@@ -252,7 +286,7 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
         } else {
             $errorData = json_decode($response, true);
             $errorMessage = $errorData['error']['message'] ?? 'Bilinmeyen hata';
-            
+
             return [
                 'success' => false,
                 'error' => 'API anahtarı geçersiz: ' . $errorMessage

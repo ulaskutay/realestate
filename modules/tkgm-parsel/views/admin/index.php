@@ -1,6 +1,6 @@
 <?php
 $settings = $settings ?? [];
-$testParselResult = $testParselResult ?? null;
+$sonDroneVideolari = $sonDroneVideolari ?? [];
 ?>
 
 <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -47,37 +47,30 @@ $testParselResult = $testParselResult ?? null;
 </div>
 
 <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Test Parsel Sorgusu</h2>
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Son Drone Videoları</h2>
     <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">
-        Sistem tarafından yapılan test sorgusu: <strong>Muğla / Marmaris / Karaca</strong> — Ada <strong>164</strong>, Parsel <strong>56</strong>. Önce CBS API denenir, yanıt yoksa örnek dosya (tkgm-parsel-sorgu-sonuc-164-ada-56-parsel.json) kullanılır. Sonuç aşağıda gösterilir.
+        Medya kütüphanesindeki son videolar. Parsel Sorgu sayfasından 3D Dron Görünümü ile oluşturduğunuz videoları İçerik Kütüphanesi'ne yükleyerek burada görebilirsiniz.
     </p>
-    <a href="<?php echo admin_url('module/tkgm-parsel?test_parsel=1'); ?>" class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors text-sm font-medium">
-        <span class="material-symbols-outlined text-xl">play_circle</span>
-        <span>Test Sorgusu Çalıştır</span>
-    </a>
-
-    <?php if ($testParselResult !== null): ?>
-    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
-        <h3 class="text-base font-medium text-gray-900 dark:text-white mb-3">Sorgu Sonucu</h3>
-        <div class="rounded-lg p-4 <?php echo $testParselResult['success'] ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'; ?>">
-            <p class="text-sm font-medium <?php echo $testParselResult['success'] ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'; ?>">
-                <?php echo esc_html($testParselResult['message']); ?>
-            </p>
-            <?php if (!empty($testParselResult['data'])): ?>
-            <dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                <div><dt class="text-gray-500 dark:text-gray-400">İl</dt><dd class="font-medium text-gray-900 dark:text-white"><?php echo esc_html($testParselResult['data']['il_adi'] ?? '—'); ?></dd></div>
-                <div><dt class="text-gray-500 dark:text-gray-400">İlçe</dt><dd class="font-medium text-gray-900 dark:text-white"><?php echo esc_html($testParselResult['data']['ilce_adi'] ?? '—'); ?></dd></div>
-                <div><dt class="text-gray-500 dark:text-gray-400">Mahalle</dt><dd class="font-medium text-gray-900 dark:text-white"><?php echo esc_html($testParselResult['data']['mahalle_adi'] ?? '—'); ?></dd></div>
-                <div><dt class="text-gray-500 dark:text-gray-400">Ada / Parsel</dt><dd class="font-medium text-gray-900 dark:text-white"><?php echo esc_html(($testParselResult['data']['ada'] ?? '—') . ' / ' . ($testParselResult['data']['parsel_no'] ?? '—')); ?></dd></div>
-                <div><dt class="text-gray-500 dark:text-gray-400">Nitelik</dt><dd class="font-medium text-gray-900 dark:text-white"><?php echo esc_html($testParselResult['data']['nitelik'] ?? '—'); ?></dd></div>
-                <div><dt class="text-gray-500 dark:text-gray-400">Alan (m²)</dt><dd class="font-medium text-gray-900 dark:text-white"><?php echo isset($testParselResult['data']['alan_m2']) ? esc_html((string)$testParselResult['data']['alan_m2']) : '—'; ?></dd></div>
-            </dl>
-            <details class="mt-4">
-                <summary class="cursor-pointer text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Ham veriyi göster</summary>
-                <pre class="mt-2 p-3 bg-gray-900 dark:bg-gray-950 text-gray-100 text-xs rounded-lg overflow-x-auto max-h-64 overflow-y-auto"><?php echo esc_html(json_encode($testParselResult['data'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
-            </details>
-            <?php endif; ?>
-        </div>
+    <?php if (!empty($sonDroneVideolari)): ?>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <?php foreach ($sonDroneVideolari as $v): ?>
+        <a href="<?php echo esc_attr(site_url($v['file_url'] ?? $v['file_path'] ?? '#')); ?>" target="_blank" rel="noopener" class="block rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 hover:border-indigo-500 transition-colors group">
+            <div class="aspect-video bg-gray-900 flex items-center justify-center">
+                <span class="material-symbols-outlined text-4xl text-gray-500 group-hover:text-indigo-400">videocam</span>
+            </div>
+            <div class="p-2 bg-gray-50 dark:bg-gray-700/50">
+                <p class="text-xs text-gray-700 dark:text-gray-300 truncate" title="<?php echo esc_attr($v['original_name'] ?? ''); ?>"><?php echo esc_html($v['original_name'] ?? 'Video'); ?></p>
+                <p class="text-xs text-gray-500 dark:text-gray-400"><?php echo !empty($v['created_at']) ? date('d.m.Y H:i', strtotime($v['created_at'])) : ''; ?></p>
+            </div>
+        </a>
+        <?php endforeach; ?>
     </div>
+    <a href="<?php echo admin_url('media'); ?>" class="inline-flex items-center gap-2 mt-4 text-sm text-indigo-500 hover:text-indigo-600">Tüm videoları gör <span class="material-symbols-outlined text-lg">arrow_forward</span></a>
+    <?php else: ?>
+    <p class="text-gray-500 dark:text-gray-400 text-sm">Henüz video yok. Parsel Sorgu sayfasından 3D Dron Görünümü ile video oluşturup İçerik Kütüphanesi'ne yükleyebilirsiniz.</p>
+    <a href="<?php echo admin_url('module/tkgm-parsel/sorgu'); ?>" class="inline-flex items-center gap-2 mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">
+        <span class="material-symbols-outlined text-lg">videocam</span>
+        <span>Parsel Sorgu → 3D Dron Görünümü</span>
+    </a>
     <?php endif; ?>
 </div>
