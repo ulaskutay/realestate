@@ -727,6 +727,7 @@ $ffmpegProxyUrl = (function_exists('site_url') ? site_url('/public/ffmpeg-wasm/p
                                 });
                             }
                         }).then(function() {
+                            if (console && console.log) console.log('[TKGM Overlay] Form verileri:', { ada: ada, parsel: parsel, mahalle: mahalle, titleText: titleText, agentLine: agentLine, hasAudio: hasAudio, hasSub: hasSub });
                             var drawtexts = [];
                             var y = 80;
                             var fs = 28;
@@ -736,6 +737,7 @@ $ffmpegProxyUrl = (function_exists('site_url') ? site_url('/public/ffmpeg-wasm/p
                             if (parsel) { drawtexts.push({ t: 'Parsel ' + parsel, x: 50, y: y, fs: fs }); y += lineH; }
                             if (mahalle) { drawtexts.push({ t: mahalle, x: 50, y: y, fs: fs }); y += lineH; }
                             if (agentLine) { drawtexts.push({ t: agentLine, x: 50, y: y, fs: Math.round(fs * 0.9) }); }
+                            if (console && console.log) console.log('[TKGM Overlay] Drawtext sayısı:', drawtexts.length, drawtexts);
                             var vfParts = [];
                             if (hasSub) vfParts.push("subtitles=sub.srt:force_style='FontSize=24,PrimaryColour=&HFFFFFF&'");
                             drawtexts.forEach(function(d) {
@@ -748,6 +750,8 @@ $ffmpegProxyUrl = (function_exists('site_url') ? site_url('/public/ffmpeg-wasm/p
                             args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-pix_fmt', 'yuv420p');
                             if (hasAudio) args.push('-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '128k', '-shortest'); else args.push('-an');
                             args.push('output.mp4');
+                            if (console && console.log) console.log('[TKGM Overlay] FFmpeg komutu:', args.join(' '));
+                            if (console && console.log && vfStr) console.log('[TKGM Overlay] Video filtresi:', vfStr);
                             return ffmpeg.exec(args).then(function() { return ffmpeg.readFile('output.mp4'); });
                         });
                     });
