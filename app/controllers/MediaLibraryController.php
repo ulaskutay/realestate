@@ -250,14 +250,19 @@ class MediaLibraryController extends Controller {
         $page = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
         $type = $_GET['type'] ?? 'all';
         $search = $_GET['search'] ?? null;
-        $perPage = 24;
+        $perPage = 18; // Performans için optimize edildi
         
-        $result = $this->mediaModel->getPaginated($page, $perPage, $type, $search);
+        $result = $this->mediaModel->getPaginatedForPicker($page, $perPage, $type, $search);
         
-        // Dosya tiplerini ekle
+        // Dosya tiplerini ekle (sadece gerekli alanlar)
         foreach ($result['items'] as &$item) {
             $item['file_type'] = $this->mediaModel->getFileType($item['mime_type']);
-            $item['formatted_size'] = $this->mediaModel->formatFileSize($item['file_size']);
+            // Thumbnail varsa ekle (görsel için)
+            if (isset($item['thumbnail_path']) && $item['thumbnail_path']) {
+                $item['thumbnail_url'] = site_url('uploads/' . $item['thumbnail_path']);
+            }
+            // formatted_size kaldırıldı - picker'da gerekli değil
+            unset($item['file_size'], $item['mime_type']);
         }
         
         $this->json([

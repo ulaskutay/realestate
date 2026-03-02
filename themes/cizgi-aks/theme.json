@@ -1,0 +1,54 @@
+{
+  "name": "Çizgi Aks Gayrimenkul",
+  "slug": "cizgi-aks",
+  "version": "1.0.0",
+  "author": "CMS",
+  "author_url": "",
+  "description": "yeni gayrimenkul teması",
+  "screenshot": "screenshot.svg",
+  "settings": {
+    "branding": {
+      "site_logo": { "label": "Site Logosu", "type": "image", "default": "" },
+      "site_favicon": { "label": "Favicon", "type": "image", "default": "" },
+      "logo_width": { "label": "Logo Genişliği (px)", "type": "text", "default": "" },
+      "logo_height": { "label": "Logo Yüksekliği (px)", "type": "text", "default": "" }
+    },
+    "colors": {
+      "primary": { "label": "Birincil Renk", "default": "#bc1a1a", "type": "color" },
+      "secondary": { "label": "İkincil Renk", "default": "#1f2937", "type": "color" },
+      "accent": { "label": "Vurgu Rengi", "default": "#9a1615", "type": "color" },
+      "background": { "label": "Arka Plan", "default": "#ffffff", "type": "color" },
+      "text": { "label": "Metin Rengi", "default": "#1f2937", "type": "color" },
+      "text_muted": { "label": "Soluk Metin", "default": "#6b7280", "type": "color" }
+    },
+    "header": {
+      "top_bg": { "label": "Üst Bar Arka Plan", "type": "color", "default": "#ffffff" },
+      "nav_bg": { "label": "Menü Arka Plan", "type": "color", "default": "#1f2937" },
+      "nav_text": { "label": "Menü Metin Rengi", "type": "color", "default": "#ffffff" },
+      "talep_text": { "label": "Talep Link Metni", "type": "text", "default": "Talep Gönder" },
+      "talep_link": { "label": "Talep Linki", "type": "text", "default": "/contact" },
+      "phone": { "label": "Telefon", "type": "text", "default": "" },
+      "working_hours": { "label": "Çalışma Saatleri", "type": "text", "default": "09:00 - 18:00" }
+    },
+    "hero": {
+      "search_title": { "label": "Arama Kutusu Başlığı", "type": "text", "default": "İlan Ara" },
+      "callback_title": { "label": "Biz Sizi Arayalım Başlığı", "type": "text", "default": "Biz Sizi Arayalım" },
+      "callback_text": { "label": "Biz Sizi Arayalım Metni", "type": "textarea", "default": "İhtiyacınıza uygun ilanları sizin için araştıralım." }
+    },
+    "listings": {
+      "listings_title": { "label": "İlanlar Bölüm Başlığı", "type": "text", "default": "Anasayfa Vitrin" },
+      "listings_subtitle": { "label": "İlanlar Alt Başlık", "type": "text", "default": "Sizin için seçtiğimiz vitrin ilanları" }
+    },
+    "custom": {
+      "footer_show": { "label": "Footer Göster", "type": "boolean", "default": true },
+      "footer_bg_color": { "label": "Footer Arka Plan", "type": "color", "default": "#1f2937" },
+      "footer_text_color": { "label": "Footer Metin Rengi", "type": "color", "default": "#ffffff" },
+      "show_back_to_top": { "label": "Yukarı Çık Butonu", "type": "boolean", "default": true }
+    }
+  },
+  "sections": [
+    { "id": "hero", "name": "Hero (Slider + Arama)", "component": "hero" },
+    { "id": "listings", "name": "Anasayfa İlanlar", "component": "listings" }
+  ],
+  "supports": ["forms", "custom_css", "custom_js"]
+}

@@ -573,6 +573,14 @@ function get_menu($location) {
             );
         }
         
+        // Test iletişim sayfası linkini iletişim linkine yönlendir
+        foreach ($items as &$item) {
+            if (!empty($item['url']) && (strpos($item['url'], 'test-iletisim-sayfasi') !== false || trim(trim($item['url'], '/')) === 'test-iletisim-sayfasi')) {
+                $item['url'] = '/contact';
+            }
+        }
+        unset($item);
+        
         // Hiyerarşik yapıya çevir
         $menu['items'] = build_menu_tree($items);
         
@@ -1380,13 +1388,17 @@ function module_admin_url($module_name, $action = '', $params = []) {
 }
 
 /**
- * Modül asset URL'si oluşturur
+ * Modül asset URL'si oluşturur (admin üzerinden proxy ile sunulur)
  * @param string $module_name Modül adı
- * @param string $asset_path Asset yolu
+ * @param string $asset_path Asset yolu (örn. sorgu.css, sorgu.js)
  * @return string
  */
 function module_asset_url($module_name, $asset_path) {
-    return site_url('modules/' . $module_name . '/assets/' . ltrim($asset_path, '/'));
+    $file = ltrim($asset_path, '/');
+    if ($file === '') {
+        return admin_url('module-asset', ['module' => $module_name]);
+    }
+    return admin_url('module-asset', ['module' => $module_name, 'file' => $file]);
 }
 
 /**
@@ -1653,6 +1665,32 @@ function get_site_favicon() {
     return '';
 }
 
+/**
+ * Modül frontend view dosyası yolunu döndürür; aktif temada override varsa onu, yoksa null döner (çağıran modül varsayılan view kullanır).
+ * @param string $moduleName Modül adı (örn. 'realestate-listings', 'realestate-agents')
+ * @param string $viewFile View dosya adı (örn. 'listings.php', 'detail.php', 'index.php')
+ * @return string|null Tema override dosyasının tam yolu veya yoksa null
+ */
+function get_module_frontend_view($moduleName, $viewFile) {
+    if (!class_exists('ThemeLoader')) {
+        return null;
+    }
+    try {
+        $themeLoader = ThemeLoader::getInstance();
+        if (!$themeLoader || !method_exists($themeLoader, 'getThemePath')) {
+            return null;
+        }
+        $themePath = $themeLoader->getThemePath();
+        if (!$themePath) {
+            return null;
+        }
+        $path = rtrim($themePath, '/') . '/views/' . $moduleName . '/' . $viewFile;
+        return file_exists($path) ? $path : null;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
 // ==================== TRANSLATION HELPER FUNCTIONS ====================
 
 /**
@@ -1762,6 +1800,78 @@ if (!function_exists('esc_attr_e')) {
 // ==================== THEME RENDERING FUNCTIONS ====================
 
 /**
+ * SEO modülü sayfa meta override'ı (seo_page_meta). Mevcut path için kayıtlı meta title/description döner.
+ * @return array|null ['meta_title' => ..., 'meta_description' => ...] veya null
+ */
+if (!function_exists('get_seo_page_meta_override')) {
+    function get_seo_page_meta_override() {
+        if (!function_exists('is_module_active') || !is_module_active('seo')) {
+            return null;
+        }
+        $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+        $reqPath = trim($reqPath, '/');
+        $basePath = trim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+        if ($basePath !== '' && $basePath !== '/' && strpos($reqPath, $basePath) === 0) {
+            $reqPath = trim(substr($reqPath, strlen($basePath)), '/');
+        }
+        $seoModelFile = __DIR__ . '/../modules/seo/models/SeoModel.php';
+        if (!file_exists($seoModelFile) || !class_exists('Database')) {
+            return null;
+        }
+        require_once $seoModelFile;
+        $seoModel = new SeoModel();
+        return $seoModel->getPageMetaForPath($reqPath);
+    }
+}
+
+/**
+ * Path için sayfa başlığı (Diğer Tüm Sayfalar şablonunda {page_title} yerine kullanılır).
+ * Dil önekini (örn. en/, de/) kaldırır; modül ve sayfa path'lerine göre isim döner.
+ * @param string $path Trimlenmiş path (örn. ilanlar, en/ilanlar, danismanlar)
+ * @return string
+ */
+if (!function_exists('get_seo_page_title_from_path')) {
+    function get_seo_page_title_from_path($path) {
+        $path = trim((string) $path, '/');
+        if ($path === '') {
+            return __('Sayfa');
+        }
+        $parts = explode('/', $path);
+        $first = $parts[0] ?? '';
+        // Dil öneki: 2 karakterlik ilk segment (en, tr, de vb.)
+        if (strlen($first) === 2 && isset($parts[1])) {
+            array_shift($parts);
+            $path = implode('/', $parts);
+            $first = $parts[0] ?? '';
+        }
+        $map = [
+            'ilanlar' => __('İlanlar'),
+            'ilan' => __('İlan Detayı'),
+            'danismanlar' => __('Danışmanlar'),
+            'danisman' => __('Danışman'),
+            'harita-ilanlar' => __('Harita İlanlar'),
+            'harita' => __('Harita'),
+            'contact' => __('İletişim'),
+            'iletisim' => __('İletişim'),
+            'teklif-al' => __('Teklif Al'),
+            'quote-request' => __('Teklif Al'),
+            'rezervasyon' => __('Rezervasyon'),
+            'search' => __('Arama'),
+            'blog' => __('Blog'),
+            'sozlesmeler' => __('Sözleşmeler'),
+            'agreements' => __('Sözleşmeler'),
+            'forms' => __('Formlar'),
+            'page' => __('Sayfa'),
+        ];
+        $title = $map[$first] ?? null;
+        if ($title !== null) {
+            return $title;
+        }
+        return ucfirst(str_replace(['-', '_'], ' ', $first ?: __('Sayfa')));
+    }
+}
+
+/**
  * Renders the theme header (WordPress-style compatibility)
  * Includes: HTML doctype, head section, body opening, and header
  * @param array $data Additional data to pass to header
@@ -1779,16 +1889,59 @@ if (!function_exists('get_header')) {
         // Get current language
         $currentLang = function_exists('get_current_language') ? get_current_language() : 'tr';
         
-        // SEO data
-        $seoTitle = get_option('seo_title', '');
-        $seoDescription = get_option('seo_description', '');
+        // SEO data: Önce Ayarlar (seo_title, seo_description) doluysa oradan al; değilse view/SEO modülü
+        $seoTitle = trim((string) get_option('seo_title', ''));
+        $seoDescription = trim((string) get_option('seo_description', ''));
         $seoAuthor = get_option('seo_author', '');
         
-        // Page title
-        $pageTitle = $data['title'] ?? ($seoTitle ?: __('Ana Sayfa'));
+        $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+        $reqPath = trim($reqPath, '/');
+        $basePath = trim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+        if ($basePath !== '' && $basePath !== '/' && strpos($reqPath, $basePath) === 0) {
+            $reqPath = trim(substr($reqPath, strlen($basePath)), '/');
+        }
+        $isHome = ($reqPath === '' || $reqPath === false);
         
-        // Meta description
-        $metaDesc = $data['meta_description'] ?? $seoDescription;
+        // Meta title: Sayfa/modül kendi title verdi mi? Önce onu kullan. Ana sayfa dışında global seo_title kullanma.
+        $pageTitle = trim((string) ($data['title'] ?? ''));
+        if ($pageTitle === '') {
+            if ($isHome) {
+                $pageTitle = $seoTitle !== '' ? $seoTitle : (function_exists('get_module_settings') ? (get_module_settings('seo')['meta_title_home'] ?? __('Ana Sayfa')) : __('Ana Sayfa'));
+            } else {
+                $siteName = function_exists('get_option') ? (get_option('site_name', '') ?: 'CMS') : 'CMS';
+                $pageTitleSeg = function_exists('get_seo_page_title_from_path') ? get_seo_page_title_from_path($reqPath) : ucfirst(str_replace(['-', '_'], ' ', explode('/', $reqPath)[0] ?: __('Sayfa')));
+                $template = function_exists('get_module_settings') ? ((get_module_settings('seo')['meta_title_default'] ?? null) ?: '{page_title} - {site_name}') : '{page_title} - {site_name}';
+                $pageTitle = str_replace(['{site_name}', '{page_title}'], [$siteName, $pageTitleSeg], $template);
+            }
+        }
+        if ($pageTitle === '') {
+            $pageTitle = __('Ana Sayfa');
+        }
+        
+        // Meta description: Sayfa/modül kendi değerini verdi mi? Önce onu kullan.
+        $metaDesc = trim((string) ($data['meta_description'] ?? ''));
+        if ($metaDesc === '' && function_exists('get_module_settings')) {
+            $seoMod = get_module_settings('seo');
+            if ($isHome) {
+                $metaDesc = $seoMod['meta_description_home'] ?? $seoMod['meta_description_default'] ?? $seoDescription;
+            } else {
+                $metaDesc = $seoMod['meta_description_other'] ?? $seoMod['meta_description_default'] ?? $seoDescription;
+            }
+        }
+        if ($metaDesc === '') {
+            $metaDesc = $seoDescription;
+        }
+        
+        // SEO modülü Sayfa Meta override (seo_page_meta tablosu) en son uygulanır
+        $seoOverride = function_exists('get_seo_page_meta_override') ? get_seo_page_meta_override() : null;
+        if ($seoOverride) {
+            if (!empty($seoOverride['meta_title'])) {
+                $pageTitle = $seoOverride['meta_title'];
+            }
+            if (isset($seoOverride['meta_description']) && $seoOverride['meta_description'] !== '') {
+                $metaDesc = $seoOverride['meta_description'];
+            }
+        }
         
         // Favicon
         $favicon = '';
@@ -1894,6 +2047,9 @@ if (!function_exists('get_header')) {
     <link rel="stylesheet" href="<?php echo esc_url($themeCss); ?>">
     <?php endif; ?>
     
+    <!-- Font Awesome (header/nav icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    
     <?php
     // Google Tag Manager - Head
     if (!empty($googleTagManager)): ?>
@@ -1935,22 +2091,47 @@ if (!function_exists('get_header')) {
                     echo $themeLoader->renderSnippet('header', $data);
                 } catch (Exception $e) {
                     error_log('Header snippet render error: ' . $e->getMessage());
-                    // Fallback: Try to include header directly
-                    $rootPath = dirname(__DIR__);
-                    $headerPath = $rootPath . '/themes/realestate/snippets/header.php';
-                    if (file_exists($headerPath)) {
-                        extract($data);
-                        if (isset($themeLoader)) {
-                            $GLOBALS['themeLoader'] = $themeLoader;
+                    // Fallback: aktif temanın header'ını kullan
+                    $headerPath = null;
+                    if (method_exists($themeLoader, 'getThemePath')) {
+                        $themePath = $themeLoader->getThemePath();
+                        if ($themePath) {
+                            $headerPath = rtrim($themePath, '/') . '/snippets/header.php';
                         }
+                    }
+                    if (!$headerPath || !file_exists($headerPath)) {
+                        $rootPath = dirname(__DIR__);
+                        if (class_exists('ThemeManager')) {
+                            $active = ThemeManager::getInstance()->getActiveTheme();
+                            if (!empty($active['slug'])) {
+                                $headerPath = $rootPath . '/themes/' . $active['slug'] . '/snippets/header.php';
+                            }
+                        }
+                        if (!$headerPath || !file_exists($headerPath)) {
+                            $headerPath = $rootPath . '/themes/realestate/snippets/header.php';
+                        }
+                    }
+                    if ($headerPath && file_exists($headerPath)) {
+                        extract($data);
+                        $GLOBALS['themeLoader'] = $themeLoader;
                         include $headerPath;
                     }
                 }
             } else {
-                // Fallback: Try to include header directly if ThemeLoader not available
+                // Fallback: ThemeLoader yoksa aktif temanın header'ını kullan
                 $rootPath = dirname(__DIR__);
-                $headerPath = $rootPath . '/themes/realestate/snippets/header.php';
-                if (file_exists($headerPath)) {
+                $headerPath = null;
+                if (class_exists('ThemeManager')) {
+                    $themeManager = ThemeManager::getInstance();
+                    $active = $themeManager->getActiveTheme();
+                    if (!empty($active['slug'])) {
+                        $headerPath = $rootPath . '/themes/' . $active['slug'] . '/snippets/header.php';
+                    }
+                }
+                if (!$headerPath || !file_exists($headerPath)) {
+                    $headerPath = $rootPath . '/themes/realestate/snippets/header.php';
+                }
+                if ($headerPath && file_exists($headerPath)) {
                     extract($data);
                     include $headerPath;
                 }
@@ -2004,22 +2185,45 @@ if (!function_exists('get_footer')) {
                     echo $themeLoader->renderSnippet('footer', $data);
                 } catch (Exception $e) {
                     error_log('Footer snippet render error: ' . $e->getMessage());
-                    // Fallback: Try to include footer directly
-                    $rootPath = dirname(__DIR__);
-                    $footerPath = $rootPath . '/themes/realestate/snippets/footer.php';
-                    if (file_exists($footerPath)) {
-                        extract($data);
-                        if (isset($themeLoader)) {
-                            $GLOBALS['themeLoader'] = $themeLoader;
+                    // Fallback: aktif temanın footer'ını kullan
+                    $footerPath = null;
+                    if (method_exists($themeLoader, 'getThemePath')) {
+                        $themePath = $themeLoader->getThemePath();
+                        if ($themePath) {
+                            $footerPath = rtrim($themePath, '/') . '/snippets/footer.php';
                         }
+                    }
+                    if (!$footerPath || !file_exists($footerPath)) {
+                        $rootPath = dirname(__DIR__);
+                        $footerPath = $rootPath . '/themes/realestate/snippets/footer.php';
+                    }
+                    if ($footerPath && file_exists($footerPath)) {
+                        extract($data);
+                        $GLOBALS['themeLoader'] = $themeLoader;
                         include $footerPath;
                     }
                 }
             } else {
-                // Fallback: Try to include footer directly if ThemeLoader not available
+                // Fallback: ThemeLoader yoksa aktif temanın footer'ını kullan
                 $rootPath = dirname(__DIR__);
-                $footerPath = $rootPath . '/themes/realestate/snippets/footer.php';
-                if (file_exists($footerPath)) {
+                $footerPath = null;
+                if (!class_exists('ThemeManager')) {
+                    $tmFile = $rootPath . '/core/ThemeManager.php';
+                    if (file_exists($tmFile)) {
+                        require_once $tmFile;
+                    }
+                }
+                if (class_exists('ThemeManager')) {
+                    $themeManager = ThemeManager::getInstance();
+                    $active = $themeManager->getActiveTheme();
+                    if (!empty($active['slug'])) {
+                        $footerPath = $rootPath . '/themes/' . $active['slug'] . '/snippets/footer.php';
+                    }
+                }
+                if (!$footerPath || !file_exists($footerPath)) {
+                    $footerPath = $rootPath . '/themes/realestate/snippets/footer.php';
+                }
+                if ($footerPath && file_exists($footerPath)) {
                     extract($data);
                     include $footerPath;
                 }

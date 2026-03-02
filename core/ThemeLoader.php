@@ -775,6 +775,11 @@ class ThemeLoader {
             $value = $default;
         }
         
+        // Test iletişim sayfası linkini iletişim linkine yönlendir (talep_link, cta_link vb.)
+        if (is_string($value) && strpos($value, 'test-iletisim-sayfasi') !== false) {
+            $value = '/contact';
+        }
+        
         // Çevirilmemesi gereken ayarlar (URL'ler, teknik değerler, virgüllü listeler vb.)
         // NOT: animated_words artık çevriliyor (virgülle ayrılmış kelimeler)
         $noTranslateKeys = [
@@ -881,6 +886,8 @@ class ThemeLoader {
     
     /**
      * Branding ayarını getir (logo, favicon)
+     * Aktif tema varken sadece o temanın ayarları kullanılır; global fallback yapılmaz
+     * böylece bir temanın favicon/logo'su diğer temalara taşmaz.
      */
     public function getBranding(string $key, $default = null) {
         // Önce önizleme ayarlarından kontrol et (preview modunda)
@@ -894,6 +901,19 @@ class ThemeLoader {
         // Tema ayarlarında yoksa themeSettings'den kontrol et
         if (empty($value)) {
             $value = $this->getSetting($key, null, 'branding');
+        }
+        
+        // Logo ve favicon: tema ayarında yoksa global ayara düş (footer/header aynı logoyu göstersin)
+        $themeOnlyKeys = ['site_favicon', 'site_logo', 'logo_width', 'logo_height'];
+        if (in_array($key, $themeOnlyKeys, true) && $this->activeTheme !== null && !empty($value)) {
+            return $value;
+        }
+        if (in_array($key, $themeOnlyKeys, true) && $this->activeTheme !== null) {
+            $global = get_option($key, $default);
+            if ($global !== '' && $global !== null) {
+                return $global;
+            }
+            return $default;
         }
         
         // Hala yoksa global ayarlardan al

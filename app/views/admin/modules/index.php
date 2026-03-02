@@ -31,7 +31,7 @@ include __DIR__ . '/../snippets/header.php';
                     Toplam <?php echo $totalModules; ?> modül, <?php echo $activeCount; ?> aktif
                 </p>
             </div>
-            <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" 
+            <button onclick="document.getElementById('uploadModal').style.display='flex'; document.getElementById('uploadModal').classList.remove('hidden');" 
                     class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[44px] w-full sm:w-auto justify-center sm:justify-start">
                 <span class="material-symbols-outlined text-lg sm:text-xl">upload</span>
                 <span class="text-sm sm:text-base">Modül Yükle</span>
@@ -54,17 +54,9 @@ include __DIR__ . '/../snippets/header.php';
                         class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 border-primary text-primary dark:text-primary whitespace-nowrap min-h-[44px]">
                     Özel Modüller (<?php echo count($installedModules); ?>)
                 </button>
-                <button onclick="showTab('theme')" id="tab-theme"
-                        class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap min-h-[44px]">
-                    Tema Modülleri (<?php echo count($themeModules); ?>)
-                </button>
                 <button onclick="showTab('available')" id="tab-available"
                         class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap min-h-[44px]">
                     Mevcut Modüller (<?php echo count($availableModules); ?>)
-                </button>
-                <button onclick="showTab('system')" id="tab-system"
-                        class="tab-btn px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 whitespace-nowrap min-h-[44px]">
-                    Sistem Modülleri (<?php echo count($systemModules); ?>)
                 </button>
             </nav>
         </div>
@@ -81,36 +73,6 @@ include __DIR__ . '/../snippets/header.php';
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 <?php foreach ($installedModules as $module): ?>
                 <?php $isThemeModule = false; ?>
-                <?php include __DIR__ . '/partials/module-card.php'; ?>
-                <?php endforeach; ?>
-            </div>
-            <?php endif; ?>
-        </div>
-        
-        <!-- Tema Modülleri -->
-        <div id="panel-theme" class="tab-panel hidden">
-            <div class="mb-4 p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                <div class="flex items-start gap-2 sm:gap-3">
-                    <span class="material-symbols-outlined text-purple-600 dark:text-purple-400 text-lg sm:text-xl flex-shrink-0 mt-0.5">palette</span>
-                    <div class="min-w-0">
-                        <p class="text-purple-800 dark:text-purple-300 font-medium text-sm sm:text-base">Tema Modülleri Hakkında</p>
-                        <p class="text-purple-600 dark:text-purple-400 text-xs sm:text-sm mt-1">
-                            Bu modüller aktif tema ile birlikte gelir ve temaya özgüdür. Tema değiştirildiğinde yeni temanın modülleri yüklenir.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            
-            <?php if (empty($themeModules)): ?>
-            <div class="text-center py-8 sm:py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 px-4">
-                <span class="material-symbols-outlined text-5xl sm:text-6xl text-gray-400">extension_off</span>
-                <p class="mt-4 text-base sm:text-lg text-gray-500 dark:text-gray-400">Aktif temada modül yok</p>
-                <p class="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-2">Aktif temada henüz yüklü modül bulunmuyor</p>
-            </div>
-            <?php else: ?>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                <?php foreach ($themeModules as $module): ?>
-                <?php $isThemeModule = true; ?>
                 <?php include __DIR__ . '/partials/module-card.php'; ?>
                 <?php endforeach; ?>
             </div>
@@ -146,28 +108,6 @@ include __DIR__ . '/../snippets/header.php';
             </div>
             <?php endif; ?>
         </div>
-        
-        <!-- Sistem Modülleri -->
-        <div id="panel-system" class="tab-panel hidden">
-            <div class="mb-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div class="flex items-start gap-2 sm:gap-3">
-                    <span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-lg sm:text-xl flex-shrink-0 mt-0.5">info</span>
-                    <div class="min-w-0">
-                        <p class="text-blue-800 dark:text-blue-300 font-medium text-sm sm:text-base">Sistem Modülleri Hakkında</p>
-                        <p class="text-blue-600 dark:text-blue-400 text-xs sm:text-sm mt-1">
-                            Sistem modülleri CMS'in temel işlevlerini sağlar. Bu modüller devre dışı bırakılamaz veya silinemez.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                <?php foreach ($systemModules as $module): ?>
-                <?php $isSystem = true; $isThemeModule = false; ?>
-                <?php include __DIR__ . '/partials/module-card.php'; ?>
-                <?php endforeach; ?>
-            </div>
-        </div>
                 </div>
             </main>
         </div>
@@ -175,14 +115,14 @@ include __DIR__ . '/../snippets/header.php';
 </div>
 
 <!-- Upload Modal -->
-<div id="uploadModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+<div id="uploadModal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="display: none;">
     <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="fixed inset-0 bg-black/50" onclick="document.getElementById('uploadModal').classList.add('hidden')"></div>
+        <div class="fixed inset-0 bg-black/50" onclick="document.getElementById('uploadModal').style.display='none'; document.getElementById('uploadModal').classList.add('hidden');"></div>
         
         <div class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Modül Yükle</h3>
-                <button onclick="document.getElementById('uploadModal').classList.add('hidden')" 
+                <button onclick="document.getElementById('uploadModal').style.display='none'; document.getElementById('uploadModal').classList.add('hidden');" 
                         class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center">
                     <span class="material-symbols-outlined text-lg sm:text-xl">close</span>
                 </button>
@@ -216,7 +156,7 @@ include __DIR__ . '/../snippets/header.php';
                 </div>
                 
                 <div class="flex flex-col sm:flex-row justify-end gap-3">
-                    <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')"
+                    <button type="button" onclick="document.getElementById('uploadModal').style.display='none'; document.getElementById('uploadModal').classList.add('hidden');"
                             class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors min-h-[44px] order-2 sm:order-1">
                         İptal
                     </button>
@@ -231,7 +171,7 @@ include __DIR__ . '/../snippets/header.php';
 </div>
 
 <!-- Detail Modal -->
-<div id="detailModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+<div id="detailModal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="display: none;">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="fixed inset-0 bg-black/50" onclick="closeDetailModal()"></div>
         
@@ -315,6 +255,7 @@ function updateFileName(input) {
 }
 
 function showModuleDetail(moduleName) {
+    document.getElementById('detailModal').style.display = 'flex';
     document.getElementById('detailModal').classList.remove('hidden');
     
     fetch('<?php echo admin_url('modules/detail/'); ?>' + moduleName)
@@ -333,6 +274,7 @@ function showModuleDetail(moduleName) {
 }
 
 function closeDetailModal() {
+    document.getElementById('detailModal').style.display = 'none';
     document.getElementById('detailModal').classList.add('hidden');
 }
 

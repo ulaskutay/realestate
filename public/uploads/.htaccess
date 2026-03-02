@@ -6,11 +6,18 @@
     Deny from all
 </FilesMatch>
 
-# Sadece görsel dosyalarına izin ver
-<FilesMatch "\.(jpg|jpeg|png|gif|svg|webp|ico)$">
+# Görsel ve video dosyalarına izin ver (embed için)
+<FilesMatch "\.(jpg|jpeg|png|gif|svg|webp|ico|mp4|webm|ogg)$">
     Order allow,deny
     Allow from all
 </FilesMatch>
+
+# CORS: Video dosyalarının embed tarafından yüklenebilmesi
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+    Header set Access-Control-Expose-Headers "Content-Length, Content-Range, Accept-Ranges"
+</IfModule>
 
 # Dizin listelemesini kapat
 Options -Indexes

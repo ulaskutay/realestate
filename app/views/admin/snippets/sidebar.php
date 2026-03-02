@@ -248,6 +248,8 @@ function can_view($module) {
                 
                 <?php foreach ($moduleMenus as $menu): 
                     $menuSlug = $menu['slug'];
+                    // İlanlar ve Danışmanlar yukarıda sabit gösterildiği için Modüller altında tekrar gösterme
+                    if ($menuSlug === 'realestate-listings' || $menuSlug === 'realestate-agents') continue;
                     $isActive = strpos($currentPage, $menuSlug) === 0;
                     
                     // Modül yetkisi kontrolü
@@ -262,23 +264,6 @@ function can_view($module) {
                         <?php echo esc_html($menu['title']); ?>
                     </p>
                 </a>
-                
-                <?php 
-                    // Alt menüler varsa
-                    if (!empty($menu['submenu'])): 
-                ?>
-                <div class="ml-8 flex flex-col gap-1">
-                    <?php foreach ($menu['submenu'] as $submenu): 
-                        $subSlug = $menuSlug . '/' . ($submenu['slug'] ?? '');
-                        $subActive = strpos($currentPage, $subSlug) === 0;
-                    ?>
-                    <a class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm <?php echo $subActive ? 'text-primary bg-primary/5' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'; ?>" 
-                       href="<?php echo admin_url($subSlug); ?>">
-                        <?php echo esc_html($submenu['title'] ?? $submenu['slug']); ?>
-                    </a>
-                    <?php endforeach; ?>
-                </div>
-                <?php endif; ?>
                 
                 <?php endforeach; ?>
                 <?php endif; ?>

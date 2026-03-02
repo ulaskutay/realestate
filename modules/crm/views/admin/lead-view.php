@@ -324,6 +324,7 @@ $sourceLabels = ['meta' => 'Meta/Facebook', 'form' => 'Form', 'manual' => 'Manue
             </div>
         </div>
         <?php endif; ?>
+        <?php if (function_exists('do_action')) do_action('crm_lead_view_after', $lead); ?>
     </div>
 </div>
 

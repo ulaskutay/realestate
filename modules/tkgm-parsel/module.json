@@ -1,6 +1,6 @@
 {
   "name": "tkgm-parsel",
-  "title": "TKGM Parsel Sorgu",
+  "title": "Drone Modülü (Geliştiriliyor)",
   "version": "1.0.0",
   "description": "CBS TKGM API ile il, ilçe, mahalle, ada ve parsel bilgisiyle arsa sorgulaması. parselsorgu.tkgm.gov.tr benzeri ada/parsel sorgu arayüzü.",
   "author": "Codetic",
@@ -9,7 +9,7 @@
   "requires_cms": "1.0",
   "main_file": "Controller.php",
   "admin_menu": {
-    "title": "Parsel Sorgu",
+    "title": "Drone Modülü (Geliştiriliyor)",
     "icon": "map",
     "position": 45,
     "submenu": [

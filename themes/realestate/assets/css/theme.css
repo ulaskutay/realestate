@@ -175,6 +175,19 @@ html {
     pointer-events: auto;
 }
 
+/* iOS / touch: her ekranda dokunma alanı ve tap güvenilirliği */
+#mobile-menu-toggle {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    min-width: 44px;
+    min-height: 44px;
+    position: relative;
+    z-index: 100;
+}
+
 /* Listing Detail Page - Mobile Image Fix */
 /* Prevent horizontal overflow */
 section {
@@ -250,6 +263,9 @@ section {
         z-index: 50;
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        min-width: 44px;
+        min-height: 44px;
     }
     
     #mobile-menu-toggle svg {
@@ -325,4 +341,241 @@ section {
     backface-visibility: hidden;
     transform: translateZ(0);
     transition: opacity 0.15s ease-in-out !important;
+}
+
+/* ===== Profesyonel Footer ===== */
+.re-footer {
+    font-family: inherit;
+}
+
+.re-footer-top {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.re-footer-logo {
+    transition: opacity 0.2s ease;
+}
+
+.re-footer-logo:hover {
+    opacity: 0.9;
+}
+
+.re-footer-desc {
+    line-height: 1.6;
+}
+
+.re-footer-social {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: inherit;
+    opacity: 0.9;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.re-footer-social:hover {
+    background: rgba(255, 255, 255, 0.2);
+    opacity: 1;
+    transform: translateY(-2px);
+}
+
+/* Grid: mobil tek sütun, tablet 2, masaüstü 3–6 */
+.re-footer-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    row-gap: 0;
+}
+
+.re-footer-brand {
+    padding-bottom: 1.5rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.re-footer-col {
+    min-width: 0;
+}
+
+.re-footer-heading {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* Accordion: mobilde summary tıklanabilir, masaüstünde her zaman açık */
+.re-footer-accordion {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.re-footer-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 1rem 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.re-footer-summary::-webkit-details-marker {
+    display: none;
+}
+
+.re-footer-summary::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgba(255,255,255,0.7)'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E") center/contain no-repeat;
+    transition: transform 0.25s ease;
+}
+
+.re-footer-accordion[open] .re-footer-summary::after {
+    transform: rotate(180deg);
+}
+
+.re-footer-accordion .re-footer-heading {
+    margin-bottom: 0;
+}
+
+.re-footer-accordion .re-footer-links,
+.re-footer-accordion .re-footer-contact {
+    padding-bottom: 1rem;
+}
+
+.re-footer-links,
+.re-footer-contact {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.re-footer-links li,
+.re-footer-contact li {
+    margin-bottom: 0.5rem;
+}
+
+.re-footer-link {
+    color: rgba(255, 255, 255, 0.75);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.2s ease;
+    padding: 0.35rem 0;
+    min-height: 44px;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
+}
+
+.re-footer-link:hover {
+    color: #fff;
+}
+
+.re-footer-contact .re-footer-link {
+    min-height: auto;
+    padding: 0.25rem 0;
+}
+
+.re-footer-icon {
+    flex-shrink: 0;
+    opacity: 0.8;
+    margin-top: 0.125rem;
+}
+
+.re-footer-bottom {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.re-footer-copy {
+    text-align: center;
+}
+
+.re-footer-bottom-link {
+    color: inherit;
+    opacity: 0.85;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: opacity 0.2s ease;
+    padding: 0.5rem 0.25rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.re-footer-bottom-link:hover {
+    opacity: 1;
+}
+
+/* Tablet: 2 sütun, accordion davranışı kapat */
+@media (min-width: 640px) {
+    .re-footer-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2rem;
+        row-gap: 2rem;
+    }
+
+    .re-footer-brand {
+        grid-column: 1 / -1;
+        padding-bottom: 0;
+        margin-bottom: 0;
+        border-bottom: none;
+    }
+
+    .re-footer-accordion {
+        border-bottom: none;
+    }
+
+    .re-footer-summary {
+        cursor: default;
+        padding: 0 0 1rem 0;
+    }
+
+    .re-footer-summary::after {
+        display: none;
+    }
+
+    .re-footer-accordion .re-footer-links,
+    .re-footer-accordion .re-footer-contact {
+        padding-bottom: 0;
+    }
+
+    .re-footer-copy {
+        text-align: left;
+    }
+}
+
+/* Masaüstü: 3 sütun */
+@media (min-width: 1024px) {
+    .re-footer-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2.5rem;
+    }
+
+    .re-footer-brand {
+        grid-column: span 1;
+    }
+}
+
+/* Geniş masaüstü: 6 sütun, marka 2 span */
+@media (min-width: 1280px) {
+    .re-footer-grid {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 2.5rem;
+    }
+
+    .re-footer-brand {
+        grid-column: span 2;
+    }
 }

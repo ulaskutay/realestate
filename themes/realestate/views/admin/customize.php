@@ -1030,11 +1030,11 @@ try {
                             <div class="p-4 pt-0 space-y-3 border-t border-white/5">
                                 <div>
                                     <label class="block text-xs text-slate-400 mb-1.5">CTA Başlık</label>
-                                    <input type="text" name="sections[cta][title]" value="<?php echo esc_attr($pageSections['cta']['title'] ?? 'Ready to Find Your Dream Home?'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                    <input type="text" name="sections[cta][title]" value="<?php echo esc_attr($pageSections['cta']['title'] ?? 'Hayalinizdeki Evi Bulmaya Hazır mısınız?'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
                                 </div>
                                 <div>
                                     <label class="block text-xs text-slate-400 mb-1.5">CTA Alt Başlık</label>
-                                    <textarea name="sections[cta][subtitle]" rows="2" class="w-full px-4 py-2.5 input-field rounded-lg text-sm resize-none"><?php echo esc_html($pageSections['cta']['subtitle'] ?? 'Let us help you find the perfect property. Contact us today for a free consultation.'); ?></textarea>
+                                    <textarea name="sections[cta][subtitle]" rows="2" class="w-full px-4 py-2.5 input-field rounded-lg text-sm resize-none"><?php echo esc_html($pageSections['cta']['subtitle'] ?? 'Mükemmel mülkü bulmanıza yardımcı olalım. Ücretsiz danışmanlık için bugün bizimle iletişime geçin.'); ?></textarea>
                                 </div>
                                 
                                 <!-- Form Seçimi -->
@@ -1063,7 +1063,7 @@ try {
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
                                             <label class="block text-xs text-slate-400 mb-1.5">Birincil Buton Metni</label>
-                                            <input type="text" name="sections[cta][settings][button_text]" value="<?php echo esc_attr($pageSections['cta']['settings']['button_text'] ?? 'Get Started Today'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                            <input type="text" name="sections[cta][settings][button_text]" value="<?php echo esc_attr($pageSections['cta']['settings']['button_text'] ?? 'Hemen Başlayın'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-slate-400 mb-1.5">Birincil Buton Linki</label>
@@ -1073,7 +1073,7 @@ try {
                                     <div class="grid grid-cols-2 gap-3 mt-3">
                                         <div>
                                             <label class="block text-xs text-slate-400 mb-1.5">İkincil Buton Metni</label>
-                                            <input type="text" name="sections[cta][settings][secondary_button_text]" value="<?php echo esc_attr($pageSections['cta']['settings']['secondary_button_text'] ?? 'Browse Properties'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
+                                            <input type="text" name="sections[cta][settings][secondary_button_text]" value="<?php echo esc_attr($pageSections['cta']['settings']['secondary_button_text'] ?? 'İlanları İncele'); ?>" class="w-full px-4 py-2.5 input-field rounded-lg text-sm">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-slate-400 mb-1.5">İkincil Buton Linki</label>

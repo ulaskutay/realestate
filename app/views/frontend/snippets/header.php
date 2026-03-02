@@ -262,7 +262,7 @@ function renderMobileMenuItem($item, $level = 0) {
         </button>
         
         <!-- Mobile Menu Button -->
-        <button class="lg:hidden w-10 h-10 flex items-center justify-center text-gray-700" id="mobile-menu-btn">
+        <button type="button" class="lg:hidden w-10 h-10 flex items-center justify-center text-gray-700" id="mobile-menu-btn" style="touch-action:manipulation;-webkit-tap-highlight-color:transparent;min-width:44px;min-height:44px">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
@@ -326,12 +326,34 @@ function renderMobileMenuItem($item, $level = 0) {
 </header>
 
 <script>
-  // Mobile menu toggle
-  document.getElementById('mobile-menu-btn')?.addEventListener('click', function() {
-    const menu = document.getElementById('mobile-menu');
-    menu?.classList.toggle('hidden');
-  });
-  
+(function() {
+  function initMobileMenu() {
+    var btn = document.getElementById('mobile-menu-btn');
+    var menu = document.getElementById('mobile-menu');
+    if (!btn || !menu) return;
+    var justTouched = false;
+    function toggle() {
+      menu.classList.toggle('hidden');
+    }
+    // iOS Safari: click bazen tetiklenmiyor; touchend ile de tetikle
+    btn.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      justTouched = true;
+      toggle();
+      setTimeout(function() { justTouched = false; }, 350);
+    }, { passive: false });
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (justTouched) return;
+      toggle();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMobileMenu);
+  } else {
+    initMobileMenu();
+  }
+})();
   // Mobile dropdown toggles (recursive - tüm seviyeler için)
   document.querySelectorAll('.mobile-dropdown-toggle').forEach(function(btn) {
     btn.addEventListener('click', function() {

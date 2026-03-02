@@ -8,19 +8,49 @@
         require_once __DIR__ . '/../../../core/ViewRenderer.php';
     }
     
-    $seoTitle = get_option('seo_title', '');
-    $seoDescription = get_option('seo_description', '');
+    $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    $reqPath = trim($reqPath, '/');
+    $basePath = trim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+    if ($basePath !== '' && $basePath !== '/' && strpos($reqPath, $basePath) === 0) {
+        $reqPath = trim(substr($reqPath, strlen($basePath)), '/');
+    }
+    $isHome = ($reqPath === '' || $reqPath === false || $reqPath === 'index.php');
+    $siteName = function_exists('get_option') ? (get_option('site_name', '') ?: 'CMS') : 'CMS';
+    $seoTitleOpt = trim((string) get_option('seo_title', ''));
+    $seoDescOpt  = trim((string) get_option('seo_description', ''));
     $seoAuthor = get_option('seo_author', '');
-    
-    $pageTitle = $title ?? ($seoTitle ?: __('Real Estate'));
-    ?>
-    <title><?php echo esc_html($pageTitle); ?></title>
-    
-    <?php 
+    // Meta title: View'dan gelen title öncelikli; ana sayfa dışında global seo_title kullanılmaz
+    $pageTitle = isset($title) && trim((string) $title) !== '' ? trim((string) $title) : '';
+    if ($pageTitle === '') {
+        if ($isHome) {
+            $pageTitle = $seoTitleOpt !== '' ? $seoTitleOpt : (function_exists('get_module_settings') ? (get_module_settings('seo')['meta_title_home'] ?? __('Real Estate')) : __('Real Estate'));
+            $pageTitle = str_replace('{site_name}', $siteName, $pageTitle);
+            if ($pageTitle === '' || $pageTitle === '{site_name}') {
+                $pageTitle = $siteName ?: __('Ana Sayfa');
+            }
+        } else {
+            $template = function_exists('get_module_settings') ? (get_module_settings('seo')['meta_title_default'] ?? '{page_title} - {site_name}') : '{page_title} - {site_name}';
+            $pageTitleSeg = $reqPath ? (function_exists('get_seo_page_title_from_path') ? get_seo_page_title_from_path($reqPath) : ucfirst(str_replace(['-', '_'], ' ', explode('/', $reqPath)[0]))) : __('Sayfa');
+            $pageTitle = str_replace(['{site_name}', '{page_title}'], [$siteName, $pageTitleSeg], $template);
+        }
+    }
+    $pageTitle = str_replace('{site_name}', $siteName, $pageTitle);
+    if ($pageTitle === '') $pageTitle = ($isHome ? ($siteName ?: __('Ana Sayfa')) : __('Real Estate'));
     $siteDescription = get_option('site_description', '');
     $defaultMetaDesc = __('Find your dream home. Browse thousands of property listings.');
-    $metaDesc = $meta_description ?? ($seoDescription ?: ($siteDescription ?: $defaultMetaDesc));
+    $metaDesc = $seoDescOpt !== '' ? $seoDescOpt : ($meta_description ?? ($siteDescription ?: $defaultMetaDesc));
+    if ($metaDesc === '' && function_exists('get_module_settings')) {
+        $sm = get_module_settings('seo');
+        $metaDesc = $isHome ? ($sm['meta_description_home'] ?? $sm['meta_description_default'] ?? $defaultMetaDesc) : ($sm['meta_description_other'] ?? $sm['meta_description_default'] ?? $defaultMetaDesc);
+    }
+    if ($metaDesc === '') $metaDesc = $defaultMetaDesc;
+    $seoOverride = function_exists('get_seo_page_meta_override') ? get_seo_page_meta_override() : null;
+    if ($seoOverride) {
+        if (!empty($seoOverride['meta_title'])) $pageTitle = $seoOverride['meta_title'];
+        if (isset($seoOverride['meta_description']) && $seoOverride['meta_description'] !== '') $metaDesc = $seoOverride['meta_description'];
+    }
     ?>
+    <title><?php echo esc_html($pageTitle); ?></title>
     <meta name="description" content="<?php echo esc_attr($metaDesc); ?>">
     
     <?php if (!empty($seoAuthor)): ?>
@@ -29,13 +59,16 @@
     
     <!-- Favicon -->
     <?php 
-    // Customize'dan favicon'u al
+    // Önce aktif temanın favicon'u; yoksa site geneli fallback
     $favicon = null;
     if ($themeLoader) {
         $favicon = $themeLoader->getFavicon();
     }
+    if (empty($favicon) && function_exists('get_site_favicon')) {
+        $favicon = get_site_favicon();
+    }
     
-    if ($favicon): ?>
+    if (!empty($favicon)): ?>
     <link rel="icon" type="image/png" href="<?php echo esc_url($favicon); ?>">
     <link rel="shortcut icon" href="<?php echo esc_url($favicon); ?>">
     <link rel="apple-touch-icon" href="<?php echo esc_url($favicon); ?>">

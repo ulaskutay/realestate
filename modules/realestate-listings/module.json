@@ -1,0 +1,113 @@
+{
+    "name": "realestate-listings",
+    "title": "Emlak İlanları",
+    "version": "1.0.0",
+    "description": "Emlak ilanı yönetimi. Tema bağımsız özel modül.",
+    "author": "CMS",
+    "requires_php": "7.4",
+    "requires_cms": "1.0",
+    "main_file": "Controller.php",
+    "controller_class": "RealEstateListingsController",
+    "admin_menu": {
+        "title": "İlanlar",
+        "icon": "home",
+        "position": 30
+    },
+    "routes": [
+        {
+            "path": "realestate-listings",
+            "handler": "admin_index",
+            "type": "admin",
+            "method": "GET"
+        },
+        {
+            "path": "realestate-listings/create",
+            "handler": "admin_create",
+            "type": "admin",
+            "method": "GET"
+        },
+        {
+            "path": "realestate-listings/store",
+            "handler": "admin_store",
+            "type": "admin",
+            "method": "POST"
+        },
+        {
+            "path": "realestate-listings/edit/{id}",
+            "handler": "admin_edit",
+            "type": "admin",
+            "method": "GET"
+        },
+        {
+            "path": "realestate-listings/update/{id}",
+            "handler": "admin_update",
+            "type": "admin",
+            "method": "POST"
+        },
+        {
+            "path": "realestate-listings/delete/{id}",
+            "handler": "admin_delete",
+            "type": "admin",
+            "method": "POST"
+        },
+        {
+            "path": "realestate-listings/generate-description",
+            "handler": "admin_generate_description",
+            "type": "admin",
+            "method": "POST"
+        },
+        {
+            "path": "realestate-listings/location-options",
+            "handler": "admin_location_options",
+            "type": "admin",
+            "method": "GET"
+        },
+        {
+            "path": "realestate-listings/settings",
+            "handler": "admin_settings",
+            "type": "admin",
+            "method": "GET"
+        },
+        {
+            "path": "realestate-listings/settings-save",
+            "handler": "admin_settings_save",
+            "type": "admin",
+            "method": "POST"
+        },
+        {
+            "path": "realestate-listings/add-option",
+            "handler": "admin_add_option",
+            "type": "admin",
+            "method": "POST"
+        },
+        {
+            "path": "ilanlar",
+            "handler": "frontend_index",
+            "type": "frontend",
+            "method": "GET"
+        },
+        {
+            "path": "ilanlar/kategori/{slug}",
+            "handler": "frontend_category",
+            "type": "frontend",
+            "method": "GET"
+        },
+        {
+            "path": "ilan/{slug}",
+            "handler": "frontend_detail",
+            "type": "frontend",
+            "method": "GET"
+        }
+    ],
+    "permissions": [
+        "realestate-listings.view",
+        "realestate-listings.create",
+        "realestate-listings.edit",
+        "realestate-listings.delete"
+    ],
+    "settings": true,
+    "hooks": {
+        "actions": [],
+        "filters": []
+    }
+}

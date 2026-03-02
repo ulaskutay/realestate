@@ -1,0 +1,131 @@
+{
+  "name": "commission-contracts",
+  "title": "Sözleşme Modülü",
+  "version": "1.0.0",
+  "description": "Emlak danışmanının müşteriye gösterdiği taşınmazları ve komisyon şartlarını kayıt altına alan, PDF sözleşme ve imza alanı sunan modül.",
+  "author": "CMS",
+  "requires_php": "7.4",
+  "requires_cms": "1.0",
+  "main_file": "Controller.php",
+  "controller_class": "CommissionContractsController",
+  "admin_menu": {
+    "title": "Sözleşme Modülü",
+    "icon": "description",
+    "position": 35
+  },
+  "routes": [
+    {
+      "path": "commission-contracts",
+      "handler": "admin_index",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "commission-contracts/create",
+      "handler": "admin_create",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "commission-contracts/store",
+      "handler": "admin_store",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "commission-contracts/edit/{id}",
+      "handler": "admin_edit",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "commission-contracts/update/{id}",
+      "handler": "admin_update",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "commission-contracts/delete/{id}",
+      "handler": "admin_delete",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "commission-contracts/sign/{id}",
+      "handler": "admin_sign",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "commission-contracts/pdf/{id}",
+      "handler": "admin_pdf",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "commission-contracts/templates",
+      "handler": "admin_templates",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "commission-contracts/templates/create",
+      "handler": "admin_template_create",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "commission-contracts/templates/store",
+      "handler": "admin_template_store",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "commission-contracts/templates/edit/{id}",
+      "handler": "admin_template_edit",
+      "type": "admin",
+      "method": "GET"
+    },
+    {
+      "path": "commission-contracts/templates/update/{id}",
+      "handler": "admin_template_update",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "commission-contracts/templates/delete/{id}",
+      "handler": "admin_template_delete",
+      "type": "admin",
+      "method": "POST"
+    },
+    {
+      "path": "sozlesme-imza/{token}",
+      "handler": "frontend_sign_page",
+      "type": "frontend",
+      "method": "GET"
+    },
+    {
+      "path": "sozlesme-imza/{token}",
+      "handler": "frontend_sign_submit",
+      "type": "frontend",
+      "method": "POST"
+    },
+    {
+      "path": "sozlesme-imza/{token}/pdf",
+      "handler": "frontend_sign_pdf",
+      "type": "frontend",
+      "method": "GET"
+    }
+  ],
+  "permissions": [
+    "commission-contracts.view",
+    "commission-contracts.create",
+    "commission-contracts.edit",
+    "commission-contracts.delete"
+  ],
+  "settings": false,
+  "hooks": {
+    "actions": [],
+    "filters": []
+  }
+}

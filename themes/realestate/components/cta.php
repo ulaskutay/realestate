@@ -6,9 +6,9 @@
 $section = $section ?? [];
 $settings = $section['settings'] ?? [];
 
-$ctaTitle = !empty($section['title']) ? $section['title'] : __('Ready to Find Your Dream Home?');
-$ctaSubtitle = !empty($section['subtitle']) ? $section['subtitle'] : __('Let us help you find the perfect property. Contact us today for a free consultation.');
-$ctaButtonText = !empty($settings['button_text']) ? $settings['button_text'] : __('Başla');
+$ctaTitle = !empty($section['title']) ? $section['title'] : __('Hayalinizdeki Evi Bulmaya Hazır mısınız?');
+$ctaSubtitle = !empty($section['subtitle']) ? $section['subtitle'] : __('Mükemmel mülkü bulmanıza yardımcı olalım. Ücretsiz danışmanlık için bugün bizimle iletişime geçin.');
+$ctaButtonText = !empty($settings['button_text']) ? $settings['button_text'] : __('Hemen Başlayın');
 $ctaButtonLinkRaw = !empty($settings['button_link']) ? $settings['button_link'] :'iletisim';
 $ctaButtonLink = function_exists('localized_url') ? localized_url($ctaButtonLinkRaw) : site_url($ctaButtonLinkRaw);
 $ctaSecondaryButtonText = !empty($settings['secondary_button_text']) ? $settings['secondary_button_text'] : __('İlanları İncele');

@@ -1,0 +1,26 @@
+{
+  "name": "video-timeline",
+  "title": "Video Timeline",
+  "version": "1.0.0",
+  "description": "Text, overlay, animation ve keyframe destekli timeline editörü. Kendi timeline veri modelinizi panelde yönetin.",
+  "author": "Codetic",
+  "website": "https://example.com",
+  "requires_php": "7.4",
+  "requires_cms": "1.0",
+  "main_file": "Controller.php",
+  "is_theme_module": false,
+  "admin_menu": {
+    "title": "Video Timeline",
+    "icon": "schedule",
+    "position": 50,
+    "submenu": [
+      { "slug": "index", "title": "Liste" },
+      { "slug": "create", "title": "Yeni" }
+    ]
+  },
+  "routes": [],
+  "shortcodes": [],
+  "widgets": [],
+  "settings": false,
+  "hooks": { "actions": [], "filters": [] }
+}

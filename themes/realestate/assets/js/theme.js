@@ -150,15 +150,28 @@
             }
         }
         
-        mobileMenuToggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
+        function toggleMenu() {
             if (mobileMenu.classList.contains('hidden')) {
                 openMenu();
             } else {
                 closeMenu();
             }
+        }
+        
+        // iOS: touchstart ile anında tetikle (click bazen gelmiyor)
+        var menuJustTouched = false;
+        mobileMenuToggle.addEventListener('touchstart', function(e) {
+            menuJustTouched = true;
+            toggleMenu();
+            e.preventDefault();
+            setTimeout(function() { menuJustTouched = false; }, 400);
+        }, { passive: false });
+        
+        mobileMenuToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (menuJustTouched) return;
+            toggleMenu();
         });
         
         // Close menu when clicking outside

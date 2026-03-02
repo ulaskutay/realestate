@@ -113,7 +113,7 @@
                                 <h2 class="text-gray-900 dark:text-white text-xl font-semibold leading-normal">Genel Ayarlar</h2>
                             </div>
                             
-                            <form method="POST" action="" class="space-y-6" enctype="multipart/form-data">
+                            <form method="POST" action="<?php echo esc_attr(admin_url('settings')); ?>" class="space-y-6" enctype="multipart/form-data">
                                 <!-- Logo -->
                                 <div class="flex flex-col gap-2">
                                     <label class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">Site Logo</label>
@@ -721,8 +721,17 @@
             openMediaPicker({
                 type: 'image',
                 onSelect: function(media) {
-                    document.getElementById('site_logo_url').value = media.file_url;
-                    document.getElementById('logo-preview').innerHTML = `<img src="${media.file_url}" alt="Logo" class="max-w-full max-h-full object-contain">`;
+                    try {
+                        var url = (media && (media.file_url || media.url)) || '';
+                        var input = document.getElementById('site_logo_url');
+                        var preview = document.getElementById('logo-preview');
+                        if (input) input.value = url;
+                        if (preview) {
+                            preview.innerHTML = url
+                                ? '<img src="' + String(url).replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" alt="Logo" class="max-w-full max-h-full object-contain">'
+                                : '<span class="material-symbols-outlined text-gray-400 text-3xl">image</span>';
+                        }
+                    } catch (e) { console.error('Logo onSelect:', e); }
                 }
             });
         }
@@ -739,8 +748,17 @@
             openMediaPicker({
                 type: 'image',
                 onSelect: function(media) {
-                    document.getElementById('site_favicon_url').value = media.file_url;
-                    document.getElementById('favicon-preview').innerHTML = `<img src="${media.file_url}" alt="Favicon" class="max-w-full max-h-full object-contain">`;
+                    try {
+                        var url = (media && (media.file_url || media.url)) || '';
+                        var input = document.getElementById('site_favicon_url');
+                        var preview = document.getElementById('favicon-preview');
+                        if (input) input.value = url;
+                        if (preview) {
+                            preview.innerHTML = url
+                                ? '<img src="' + String(url).replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" alt="Favicon" class="max-w-full max-h-full object-contain">'
+                                : '<span class="material-symbols-outlined text-gray-400 text-2xl">image</span>';
+                        }
+                    } catch (e) { console.error('Favicon onSelect:', e); }
                 }
             });
         }

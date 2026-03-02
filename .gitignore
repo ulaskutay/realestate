@@ -41,3 +41,6 @@ logs/
 *.tmp
 *.temp
 .cache/
+
+# FFmpeg.wasm proxy cache (filled on first use)
+public/ffmpeg-wasm/cache/

@@ -85,29 +85,6 @@ if (isset($themeManager)) {
 $currentLogo = $settings['branding']['site_logo']['value'] ?? '';
 $currentFavicon = $settings['branding']['site_favicon']['value'] ?? '';
 
-// Sözleşmeleri getir (footer alt linkleri için)
-$agreements = [];
-if (class_exists('Agreement')) {
-    try {
-        $agreementModel = new Agreement();
-        $agreements = $agreementModel->getPublished();
-    } catch (Exception $e) {
-        error_log("Agreements fetch error: " . $e->getMessage());
-    }
-}
-
-// Footer alt link ayarları
-$footerBottomLinks = [];
-if (isset($settings['custom']['footer_bottom_links']['value'])) {
-    $value = $settings['custom']['footer_bottom_links']['value'];
-    if (is_array($value)) {
-        $footerBottomLinks = $value;
-    } elseif (is_string($value)) {
-        $decoded = json_decode($value, true);
-        $footerBottomLinks = is_array($decoded) ? $decoded : [];
-    }
-}
-
 // Formları getir (İletişim sayfası için)
 $availableForms = [];
 try {
@@ -562,73 +539,6 @@ try {
                                 <span class="text-sm">Sosyal medya ikonlarını göster</span>
                             </label>
                             <p class="text-xs text-slate-400 mt-2">Not: Sosyal medya linkleri Site Ayarları > Sosyal Medya bölümünden yönetilir.</p>
-                        </div>
-                        
-                        <!-- Footer Alt Linkler -->
-                        <div class="glass rounded-xl p-4 space-y-4">
-                            <h3 class="text-sm font-semibold text-slate-200 mb-3">Alt Linkler (Sözleşmeler)</h3>
-                            <p class="text-xs text-slate-400 mb-4">Footer'ın alt kısmında gösterilecek sözleşme linklerini seçin.</p>
-                            
-                            <div id="footer-bottom-links-container" class="space-y-3">
-                                <?php 
-                                $linkIndex = 0;
-                                if (!empty($footerBottomLinks)): 
-                                    foreach ($footerBottomLinks as $link): 
-                                ?>
-                                <div class="footer-bottom-link-item flex items-center gap-3 p-3 rounded-lg bg-slate-800/50">
-                                    <div class="flex-1 grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="block text-xs text-slate-400 mb-1.5">Link Metni</label>
-                                            <input type="text" name="custom[footer_bottom_links][<?php echo $linkIndex; ?>][text]" 
-                                                   value="<?php echo esc_attr($link['text'] ?? ''); ?>" 
-                                                   placeholder="Gizlilik Politikası" 
-                                                   class="w-full px-3 py-2 input-field rounded-lg text-sm">
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs text-slate-400 mb-1.5">Sözleşme Seç</label>
-                                            <select name="custom[footer_bottom_links][<?php echo $linkIndex; ?>][agreement_id]" 
-                                                    class="w-full px-3 py-2 input-field rounded-lg text-sm footer-agreement-select">
-                                                <option value="">Özel URL kullan</option>
-                                                <?php foreach ($agreements as $agreement): ?>
-                                                <option value="<?php echo $agreement['id']; ?>" 
-                                                        data-slug="<?php echo esc_attr($agreement['slug']); ?>"
-                                                        <?php echo (isset($link['agreement_id']) && $link['agreement_id'] == $agreement['id']) ? 'selected' : ''; ?>>
-                                                    <?php 
-                                                    $typeLabel = $agreement['type'];
-                                                    if (class_exists('Agreement') && isset(Agreement::$types[$agreement['type']])) {
-                                                        $typeLabel = Agreement::$types[$agreement['type']];
-                                                    }
-                                                    echo esc_html($agreement['title'] . ' (' . $typeLabel . ')'); 
-                                                    ?>
-                                                </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="flex-1">
-                                        <label class="block text-xs text-slate-400 mb-1.5">Özel URL (Sözleşme seçilmediyse)</label>
-                                        <input type="text" name="custom[footer_bottom_links][<?php echo $linkIndex; ?>][url]" 
-                                               value="<?php echo esc_attr($link['url'] ?? ''); ?>" 
-                                               placeholder="/gizlilik-politikasi" 
-                                               class="w-full px-3 py-2 input-field rounded-lg text-sm">
-                                    </div>
-                                    <button type="button" onclick="removeFooterLink(this)" class="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                                        <span class="material-symbols-outlined text-lg">delete</span>
-                                    </button>
-                                </div>
-                                <?php 
-                                    $linkIndex++;
-                                    endforeach; 
-                                endif; 
-                                ?>
-                            </div>
-                            
-                            <button type="button" onclick="addFooterLink()" class="w-full px-4 py-2.5 bg-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors flex items-center justify-center gap-2 text-sm">
-                                <span class="material-symbols-outlined text-lg">add</span>
-                                Link Ekle
-                            </button>
-                            
-                            <p class="text-xs text-slate-400 mt-2">💡 İpucu: Sözleşme seçerseniz URL otomatik oluşturulur. Özel URL de girebilirsiniz.</p>
                         </div>
                     </div>
                 </div>
@@ -1636,16 +1546,6 @@ function collectSettings() {
     
     // Custom settings (footer, header, etc.)
     document.querySelectorAll('[name^="custom["]').forEach(input => {
-        // Footer bottom links için özel işleme
-        const footerLinkMatch = input.name.match(/custom\[footer_bottom_links\]\[(\d+)\]\[(\w+)\]/);
-        if (footerLinkMatch) {
-            const [, linkIndex, linkKey] = footerLinkMatch;
-            if (!settings.custom.footer_bottom_links) settings.custom.footer_bottom_links = {};
-            if (!settings.custom.footer_bottom_links[linkIndex]) settings.custom.footer_bottom_links[linkIndex] = {};
-            settings.custom.footer_bottom_links[linkIndex][linkKey] = input.value;
-            return;
-        }
-        
         // Diğer custom ayarlar
         const nameMatch = input.name.match(/custom\[([^\]]+)\]$/);
         if (!nameMatch) return;
@@ -1653,19 +1553,6 @@ function collectSettings() {
         const key = nameMatch[1];
         settings.custom[key] = input.type === 'checkbox' ? (input.checked ? '1' : '0') : input.value;
     });
-    
-    // Footer bottom links'i array'e çevir ve filtrele
-    if (settings.custom.footer_bottom_links && typeof settings.custom.footer_bottom_links === 'object') {
-        const linksArray = Object.keys(settings.custom.footer_bottom_links)
-            .sort((a, b) => parseInt(a) - parseInt(b))
-            .map(key => settings.custom.footer_bottom_links[key])
-            .filter(link => link && (link.text || link.url || link.agreement_id));
-        // Boş array olsa bile kaydet (kullanıcı tüm linkleri silmiş olabilir)
-        settings.custom.footer_bottom_links = linksArray;
-    } else if (!settings.custom.footer_bottom_links) {
-        // Hiç link yoksa boş array olarak kaydet
-        settings.custom.footer_bottom_links = [];
-    }
     
     // Custom CSS
     settings.custom_css = document.getElementById('customCss')?.value || '';
@@ -2483,98 +2370,6 @@ function closeIconPicker() {
     document.getElementById('icon-picker-modal')?.classList.add('hidden');
     currentIconIndex = null;
 }
-
-// Footer Bottom Links Management
-let footerLinkIndex = <?php echo $linkIndex; ?>;
-
-function addFooterLink() {
-    const container = document.getElementById('footer-bottom-links-container');
-    const agreements = <?php echo json_encode($agreements); ?>;
-    
-    let agreementOptions = '<option value="">Özel URL kullan</option>';
-    agreements.forEach(agreement => {
-        agreementOptions += `<option value="${agreement.id}" data-slug="${agreement.slug}">${agreement.title} (${agreement.type})</option>`;
-    });
-    
-    const itemHtml = `
-        <div class="footer-bottom-link-item flex items-center gap-3 p-3 rounded-lg bg-slate-800/50">
-            <div class="flex-1 grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1.5">Link Metni</label>
-                    <input type="text" name="custom[footer_bottom_links][${footerLinkIndex}][text]" 
-                           value="" 
-                           placeholder="Gizlilik Politikası" 
-                           class="w-full px-3 py-2 input-field rounded-lg text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1.5">Sözleşme Seç</label>
-                    <select name="custom[footer_bottom_links][${footerLinkIndex}][agreement_id]" 
-                            class="w-full px-3 py-2 input-field rounded-lg text-sm footer-agreement-select">
-                        ${agreementOptions}
-                    </select>
-                </div>
-            </div>
-            <div class="flex-1">
-                <label class="block text-xs text-slate-400 mb-1.5">Özel URL (Sözleşme seçilmediyse)</label>
-                <input type="text" name="custom[footer_bottom_links][${footerLinkIndex}][url]" 
-                       value="" 
-                       placeholder="/gizlilik-politikasi" 
-                       class="w-full px-3 py-2 input-field rounded-lg text-sm footer-link-url">
-            </div>
-            <button type="button" onclick="removeFooterLink(this)" class="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                <span class="material-symbols-outlined text-lg">delete</span>
-            </button>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', itemHtml);
-    
-    // Yeni eklenen select'e event listener ekle
-    const newSelect = container.lastElementChild.querySelector('.footer-agreement-select');
-    if (newSelect) {
-        newSelect.addEventListener('change', function() {
-            updateFooterLinkUrl(this);
-        });
-    }
-    
-    footerLinkIndex++;
-}
-
-function removeFooterLink(btn) {
-    if (confirm('Bu linki silmek istediğinize emin misiniz?')) {
-        btn.closest('.footer-bottom-link-item').remove();
-    }
-}
-
-function updateFooterLinkUrl(select) {
-    const selectedOption = select.options[select.selectedIndex];
-    const slug = selectedOption.getAttribute('data-slug');
-    const urlInput = select.closest('.footer-bottom-link-item').querySelector('.footer-link-url');
-    const textInput = select.closest('.footer-bottom-link-item').querySelector('input[name*="[text]"]');
-    
-    if (slug && urlInput) {
-        urlInput.value = '/' + slug;
-    }
-    
-    // Eğer text boşsa, sözleşme başlığını otomatik doldur
-    if (selectedOption.value && textInput && !textInput.value) {
-        const optionText = selectedOption.textContent.trim();
-        // Parantez içindeki tip bilgisini kaldır
-        const title = optionText.replace(/\s*\([^)]*\)$/, '');
-        textInput.value = title;
-    }
-}
-
-// Mevcut select'ler için change event listener ekle
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.footer-agreement-select').forEach(select => {
-        if (!select.hasAttribute('data-listener-added')) {
-            select.addEventListener('change', function() {
-                updateFooterLinkUrl(this);
-            });
-            select.setAttribute('data-listener-added', 'true');
-        }
-    });
-});
 
 // Icon input değiştiğinde preview'ı güncelle
 document.addEventListener('DOMContentLoaded', () => {

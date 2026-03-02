@@ -8,9 +8,26 @@
     $seoTitle = get_option('seo_title', '');
     $seoDescription = get_option('seo_description', '');
     $seoAuthor = get_option('seo_author', '');
-    
-    // Title: Önce sayfa title'ı, yoksa SEO title, yoksa varsayılan
-    $pageTitle = isset($title) ? $title : ($seoTitle ?: 'CMS - Ana Sayfa');
+    $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    $reqPath = trim($reqPath, '/');
+    $basePath = trim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+    if ($basePath !== '' && $basePath !== '/' && strpos($reqPath, $basePath) === 0) {
+        $reqPath = trim(substr($reqPath, strlen($basePath)), '/');
+    }
+    $isHome = ($reqPath === '' || $reqPath === false);
+    // Title: Sayfa/view title öncelikli; ana sayfa dışında path'ten sayfa adı türet
+    $pageTitle = isset($title) && trim((string) $title) !== '' ? trim((string) $title) : '';
+    if ($pageTitle === '') {
+        if ($isHome) {
+            $pageTitle = $seoTitle ?: 'CMS - Ana Sayfa';
+        } else {
+            $siteName = function_exists('get_option') ? (get_option('site_name', '') ?: 'CMS') : 'CMS';
+            $pageTitleSeg = function_exists('get_seo_page_title_from_path') ? get_seo_page_title_from_path($reqPath) : ucfirst(str_replace(['-', '_'], ' ', explode('/', $reqPath)[0] ?: 'Sayfa'));
+            $template = function_exists('get_module_settings') ? (get_module_settings('seo')['meta_title_default'] ?? '{page_title} - {site_name}') : '{page_title} - {site_name}';
+            $pageTitle = str_replace(['{site_name}', '{page_title}'], [$siteName, $pageTitleSeg], $template);
+        }
+    }
+    if ($pageTitle === '') $pageTitle = 'CMS - Ana Sayfa';
     ?>
     <title><?php echo ViewRenderer::escHtml($pageTitle); ?></title>
     

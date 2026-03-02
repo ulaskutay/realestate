@@ -24,15 +24,14 @@ if (class_exists('ThemeLoader')) {
 $consultants = [];
 $limit = !empty($settings['limit']) ? intval($settings['limit']) : 6;
 
-// Load Database and Model classes
-$databasePath = __DIR__ . '/../../../core/Database.php';
-$modelPath = __DIR__ . '/../modules/realestate-agents/Model.php';
+// Özel modül modules/realestate-agents Model kullan
+$rootPath = dirname(dirname(dirname(__DIR__)));
+$modelPath = $rootPath . '/modules/realestate-agents/Model.php';
 
-if (file_exists($databasePath) && file_exists($modelPath)) {
-    if (!class_exists('Database')) {
-        require_once $databasePath;
+if (file_exists($modelPath)) {
+    if (!class_exists('RealEstateAgentsModel')) {
+        require_once $modelPath;
     }
-    require_once $modelPath;
     
     if (class_exists('RealEstateAgentsModel')) {
         try {

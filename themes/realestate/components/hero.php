@@ -62,7 +62,7 @@ if (class_exists('ThemeLoader')) {
 }
 ?>
 
-<section class="relative min-h-[85vh] lg:min-h-[95vh] flex items-center justify-center overflow-hidden">
+<section class="relative min-h-[85vh] lg:min-h-[95vh] flex items-center justify-center overflow-hidden pt-6 lg:pt-0">
     <!-- Background Image -->
     <?php if ($heroImage): ?>
         <div class="absolute inset-0 z-0">

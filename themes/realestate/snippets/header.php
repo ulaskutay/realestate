@@ -223,6 +223,11 @@ $siteLogo = $themeLoader->getLogo();
                 return;
             }
             
+            if (mobileMenuToggle.dataset.menuInitialized === 'true') {
+                menuInitialized = true;
+                return;
+            }
+            
             menuInitialized = true;
             // Mark as initialized for theme.js fallback
             mobileMenuToggle.dataset.menuInitialized = 'true';
@@ -249,15 +254,32 @@ $siteLogo = $themeLoader->getLogo();
                 }
             }
             
-            mobileMenuToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
+            function toggleMenu() {
                 if (mobileMenu.classList.contains('hidden')) {
                     openMenu();
                 } else {
                     closeMenu();
                 }
+            }
+            
+            // iOS Safari: önce touchstart ile tetikle (click gecikmeli veya hiç gelmeyebilir)
+            var menuJustTouched = false;
+            mobileMenuToggle.addEventListener('touchstart', function(e) {
+                menuJustTouched = true;
+                toggleMenu();
+                e.preventDefault();
+            }, { passive: false });
+            
+            mobileMenuToggle.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                setTimeout(function() { menuJustTouched = false; }, 400);
+            }, { passive: false });
+            
+            mobileMenuToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (menuJustTouched) return;
+                toggleMenu();
             });
             
             // Close menu when clicking outside

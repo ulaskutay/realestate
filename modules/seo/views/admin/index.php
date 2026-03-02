@@ -625,6 +625,9 @@ html.dark .seo-dashboard,
             </div>
             <div class="stat-number"><?php echo number_format($stats['categories_count']); ?></div>
             <div class="stat-label">Kategori</div>
+            <?php if (!empty($has_listing_categories)): ?>
+            <div class="stat-desc text-xs opacity-80 mt-0.5">İlan kategorileri</div>
+            <?php endif; ?>
         </div>
         
         <div class="stat-card">
@@ -688,6 +691,19 @@ html.dark .seo-dashboard,
             </div>
         </a>
         
+        <a href="<?php echo admin_url('module/seo/page_meta'); ?>" class="action-card meta">
+            <div class="action-icon">
+                <span class="material-symbols-outlined">article</span>
+            </div>
+            <div class="action-content">
+                <h3 class="action-title">Sayfa Meta</h3>
+                <p class="action-desc">Tüm sayfalar için meta title ve description</p>
+            </div>
+            <div class="action-arrow">
+                <span class="material-symbols-outlined">arrow_forward</span>
+            </div>
+        </a>
+        
         <a href="<?php echo admin_url('module/seo/redirects'); ?>" class="action-card redirects">
             <div class="action-icon">
                 <span class="material-symbols-outlined">redo</span>
@@ -708,6 +724,19 @@ html.dark .seo-dashboard,
             <div class="action-content">
                 <h3 class="action-title">Schema.org</h3>
                 <p class="action-desc">Yapılandırılmış veri ve JSON-LD</p>
+            </div>
+            <div class="action-arrow">
+                <span class="material-symbols-outlined">arrow_forward</span>
+            </div>
+        </a>
+        
+        <a href="<?php echo admin_url('module/seo/broken_links'); ?>" class="action-card redirects">
+            <div class="action-icon">
+                <span class="material-symbols-outlined">link_off</span>
+            </div>
+            <div class="action-content">
+                <h3 class="action-title">Kırık Bağlantılar</h3>
+                <p class="action-desc">404 veren linkleri tespit et</p>
             </div>
             <div class="action-arrow">
                 <span class="material-symbols-outlined">arrow_forward</span>

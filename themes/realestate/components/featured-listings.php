@@ -24,15 +24,14 @@ if (class_exists('ThemeLoader')) {
 $listings = [];
 $limit = !empty($settings['limit']) ? intval($settings['limit']) : 6;
 
-// Load Database and Model classes
-$databasePath = __DIR__ . '/../../../core/Database.php';
-$modelPath = __DIR__ . '/../modules/realestate-listings/Model.php';
+// Özel modül modules/realestate-listings Model kullan
+$rootPath = dirname(dirname(dirname(__DIR__)));
+$modelPath = $rootPath . '/modules/realestate-listings/Model.php';
 
-if (file_exists($databasePath) && file_exists($modelPath)) {
-    if (!class_exists('Database')) {
-        require_once $databasePath;
+if (file_exists($modelPath)) {
+    if (!class_exists('RealEstateListingsModel')) {
+        require_once $modelPath;
     }
-    require_once $modelPath;
     
     if (class_exists('RealEstateListingsModel')) {
         try {
@@ -64,7 +63,7 @@ if (file_exists($databasePath) && file_exists($modelPath)) {
 }
 ?>
 
-<section class="py-16 lg:py-24 bg-white">
+<section class="pt-24 pb-16 lg:pt-32 lg:pb-24 bg-white">
     <div class="container mx-auto px-4 lg:px-6">
         <div class="text-center mb-12">
             <h2 class="text-3xl lg:text-4xl font-bold text-secondary mb-4"><?php echo esc_html($sectionTitle); ?></h2>

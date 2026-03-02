@@ -37,11 +37,52 @@ class SeoModel {
         
         try {
             $this->db->query($sql);
-            return true;
         } catch (Exception $e) {
-            error_log("SEO tables creation error: " . $e->getMessage());
+            error_log("SEO tables creation error (redirects): " . $e->getMessage());
             return false;
         }
+        
+        // Sayfa meta tablosu (path_pattern '' = varsayılan sayfa, dolu = özel path override)
+        $sqlPageMeta = "CREATE TABLE IF NOT EXISTS `seo_page_meta` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `page_key` varchar(100) NOT NULL,
+            `path_pattern` varchar(500) DEFAULT '',
+            `meta_title` varchar(255) DEFAULT NULL,
+            `meta_description` varchar(500) DEFAULT NULL,
+            `meta_robots` varchar(100) DEFAULT NULL,
+            `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `page_key_path` (`page_key`, `path_pattern`(191)),
+            KEY `page_key` (`page_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        try {
+            $this->db->query($sqlPageMeta);
+        } catch (Exception $e) {
+            error_log("SEO tables creation error (page_meta): " . $e->getMessage());
+            return false;
+        }
+        
+        // Kırık bağlantılar tablosu
+        $sqlBroken = "CREATE TABLE IF NOT EXISTS `seo_broken_links` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `url` varchar(1000) NOT NULL,
+            `source` varchar(50) DEFAULT NULL,
+            `http_code` int(11) DEFAULT NULL,
+            `checked_at` datetime DEFAULT NULL,
+            `link_text` varchar(255) DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `http_code` (`http_code`),
+            KEY `checked_at` (`checked_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        try {
+            $this->db->query($sqlBroken);
+        } catch (Exception $e) {
+            error_log("SEO tables creation error (broken_links): " . $e->getMessage());
+            return false;
+        }
+        
+        return true;
     }
     
     /**
@@ -50,6 +91,8 @@ class SeoModel {
     public function dropTables() {
         try {
             $this->db->query("DROP TABLE IF EXISTS `seo_redirects`");
+            $this->db->query("DROP TABLE IF EXISTS `seo_page_meta`");
+            $this->db->query("DROP TABLE IF EXISTS `seo_broken_links`");
             return true;
         } catch (Exception $e) {
             error_log("SEO tables drop error: " . $e->getMessage());
@@ -303,6 +346,247 @@ class SeoModel {
         }
     }
     
+    // ==================== SAYFA META ====================
+    
+    /**
+     * Path veya page_key için meta getir. Önce path_pattern eşleşen, yoksa page_key ile kayıt döner.
+     */
+    public function getPageMeta($pageKey, $path = null) {
+        try {
+            if ($path !== null && $path !== '') {
+                $path = '/' . trim($path, '/');
+                $all = $this->db->fetchAll("SELECT * FROM seo_page_meta WHERE page_key = ? AND path_pattern != '' AND path_pattern IS NOT NULL", [$pageKey]);
+                foreach ($all as $row) {
+                    $pattern = trim($row['path_pattern'], '/');
+                    if ($pattern !== '' && (strpos($path, $pattern) !== false || $path === '/' . $pattern)) {
+                        return $row;
+                    }
+                }
+            }
+            $row = $this->db->fetch(
+                "SELECT * FROM seo_page_meta WHERE page_key = ? AND (path_pattern = '' OR path_pattern IS NULL)",
+                [$pageKey]
+            );
+            return $row ?: null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Mevcut path'e göre sayfa meta override'ı getir (frontend'de kullanım). Path'ten page_key türetir.
+     */
+    public function getPageMetaForPath($path) {
+        $path = trim($path, '/');
+        $pathParts = $path ? explode('/', $path) : [];
+        $pageKey = 'home';
+        if (isset($pathParts[0])) {
+            $first = $pathParts[0];
+            if ($first === 'blog') {
+                $pageKey = isset($pathParts[1]) ? (strpos($pathParts[1], 'kategori') !== false ? 'blog_category' : 'blog_post') : 'blog';
+            } elseif (in_array($first, ['contact', 'iletisim'])) {
+                $pageKey = 'contact';
+            } elseif ($first === 'teklif-al' || $first === 'quote-request') {
+                $pageKey = 'teklif-al';
+            } elseif ($first === 'rezervasyon') {
+                $pageKey = 'rezervasyon';
+            } elseif ($first === 'search') {
+                $pageKey = 'search';
+            } elseif ($first === 'ilanlar') {
+                $pageKey = (isset($pathParts[1]) && $pathParts[1] === 'kategori') ? 'ilan_kategori' : 'ilanlar';
+            } elseif ($first === 'ilan') {
+                $pageKey = 'ilan_detay';
+            } elseif ($first === 'danismanlar') {
+                $pageKey = 'danismanlar';
+            } elseif ($first === 'danisman') {
+                $pageKey = 'danisman_detay';
+            } elseif ($first === 'harita-ilanlar') {
+                $pageKey = 'harita-ilanlar';
+            } elseif ($first === 'sozlesmeler') {
+                $pageKey = 'sozlesmeler';
+            } else {
+                $pageKey = 'page_slug';
+            }
+        }
+        $row = $this->getPageMeta($pageKey, $path);
+        if ($row && (isset($row['meta_title']) && $row['meta_title'] !== '' || isset($row['meta_description']) && $row['meta_description'] !== '')) {
+            return $row;
+        }
+        return null;
+    }
+    
+    /**
+     * Tüm sayfa meta kayıtlarını getir (admin listesi için)
+     */
+    public function getAllPageMeta() {
+        try {
+            return $this->db->fetchAll("SELECT * FROM seo_page_meta ORDER BY page_key ASC, path_pattern ASC");
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+    
+    /**
+     * Sayfa meta kaydet / güncelle
+     */
+    public function savePageMeta($pageKey, $data, $pathPattern = '') {
+        try {
+            $pathPattern = $pathPattern === null ? '' : trim($pathPattern);
+            $existing = $this->db->fetch(
+                "SELECT id FROM seo_page_meta WHERE page_key = ? AND (path_pattern = ? OR (path_pattern IS NULL AND ? = ''))",
+                [$pageKey, $pathPattern, $pathPattern]
+            );
+            $metaTitle = $data['meta_title'] ?? null;
+            $metaDescription = $data['meta_description'] ?? null;
+            $metaRobots = $data['meta_robots'] ?? null;
+            if ($existing) {
+                $this->db->query(
+                    "UPDATE seo_page_meta SET meta_title = ?, meta_description = ?, meta_robots = ? WHERE id = ?",
+                    [$metaTitle, $metaDescription, $metaRobots, $existing['id']]
+                );
+                return true;
+            }
+            $this->db->query(
+                "INSERT INTO seo_page_meta (page_key, path_pattern, meta_title, meta_description, meta_robots) VALUES (?, ?, ?, ?, ?)",
+                [$pageKey, $pathPattern, $metaTitle, $metaDescription, $metaRobots]
+            );
+            return true;
+        } catch (Exception $e) {
+            error_log("savePageMeta error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Tarama için dahili URL listesi: sitemap + menü linkleri + sabit sayfalar.
+     * Aynı URL tekrar etmez (deduplicate); kaynaklar birleştirilir.
+     * @param string $baseUrl Site base URL
+     * @param string|null $activeThemeSlug Aktif tema slug (ileride tema bazlı filtre için kullanılabilir)
+     */
+    public function getInternalUrlsForScan($baseUrl, $activeThemeSlug = null) {
+        $baseUrl = rtrim($baseUrl, '/');
+        $byUrl = [];
+        
+        $add = function ($url, $source, $linkText = '') use (&$byUrl) {
+            $norm = rtrim($url, '/') ?: $url;
+            if (isset($byUrl[$norm])) {
+                if (strpos($byUrl[$norm]['source'], $source) === false) {
+                    $byUrl[$norm]['source'] .= ', ' . $source;
+                }
+                if ($linkText && strpos($byUrl[$norm]['link_text'], $linkText) === false) {
+                    $byUrl[$norm]['link_text'] = trim($byUrl[$norm]['link_text'] . ', ' . $linkText, ', ');
+                }
+                return;
+            }
+            $byUrl[$norm] = ['url' => $url, 'source' => $source, 'link_text' => $linkText];
+        };
+        
+        // Ana sayfa
+        $add($baseUrl . '/', 'sitemap', 'Ana Sayfa');
+        
+        try {
+            $pages = $this->getPagesForSitemap();
+            foreach ($pages as $p) {
+                $add($baseUrl . '/' . $p['slug'], 'sitemap', $p['slug']);
+            }
+        } catch (Exception $e) {}
+        
+        try {
+            $posts = $this->getPostsForSitemap();
+            foreach ($posts as $p) {
+                $add($baseUrl . '/blog/' . $p['slug'], 'sitemap', $p['slug']);
+            }
+        } catch (Exception $e) {}
+        
+        try {
+            $categories = $this->getCategoriesForSitemap();
+            foreach ($categories as $c) {
+                $add($baseUrl . '/blog/kategori/' . $c['slug'], 'sitemap', $c['slug']);
+            }
+        } catch (Exception $e) {}
+        
+        try {
+            if ($this->hasListingCategories()) {
+                $listingCats = $this->getListingCategoriesForSitemap();
+                foreach ($listingCats as $c) {
+                    $add($baseUrl . '/ilanlar/kategori/' . $c['slug'], 'sitemap', $c['slug']);
+                }
+            }
+        } catch (Exception $e) {}
+        
+        $static = ['blog', 'contact', 'iletisim', 'teklif-al', 'quote-request', 'rezervasyon', 'search', 'ilanlar', 'danismanlar', 'harita-ilanlar'];
+        foreach ($static as $path) {
+            $add($baseUrl . '/' . $path, 'sitemap', $path);
+        }
+        
+        try {
+            $items = $this->db->fetchAll("SELECT url, title FROM menu_items WHERE status = 'active' AND url IS NOT NULL AND url != ''");
+            foreach ($items as $item) {
+                $url = $item['url'];
+                if (strpos($url, 'http') !== 0) {
+                    $url = $baseUrl . '/' . ltrim($url, '/');
+                }
+                if (strpos($url, $baseUrl) === 0) {
+                    $add($url, 'menu', $item['title'] ?? '');
+                }
+            }
+        } catch (Exception $e) {}
+        
+        return array_values($byUrl);
+    }
+    
+    /**
+     * Kırık link tarama sonuçlarını kaydet (önce eski sonuçları silip yeni yaz)
+     */
+    public function saveBrokenLinkScanResult($results) {
+        try {
+            $this->db->query("DELETE FROM seo_broken_links");
+            $now = date('Y-m-d H:i:s');
+            foreach ($results as $r) {
+                $this->db->query(
+                    "INSERT INTO seo_broken_links (url, source, http_code, checked_at, link_text) VALUES (?, ?, ?, ?, ?)",
+                    [
+                        substr($r['url'], 0, 1000),
+                        $r['source'] ?? 'manual',
+                        $r['http_code'] ?? null,
+                        $now,
+                        isset($r['link_text']) ? substr($r['link_text'], 0, 255) : null
+                    ]
+                );
+            }
+            return true;
+        } catch (Exception $e) {
+            error_log("saveBrokenLinkScanResult error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Son kırık link tarama sonuçlarını getir (404/410/500 vb. hatalı olanları veya hepsini)
+     */
+    public function getLastBrokenLinks($onlyErrors = true) {
+        try {
+            $sql = "SELECT * FROM seo_broken_links ORDER BY checked_at DESC, id ASC";
+            if ($onlyErrors) {
+                $sql = "SELECT * FROM seo_broken_links WHERE http_code >= 400 OR http_code IS NULL ORDER BY checked_at DESC, id ASC";
+            }
+            return $this->db->fetchAll($sql);
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+    
+    /**
+     * Tüm son tarama sonuçlarını getir (özet için)
+     */
+    public function getAllLastScanResults() {
+        try {
+            return $this->db->fetchAll("SELECT * FROM seo_broken_links ORDER BY http_code ASC, url ASC");
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+    
     // ==================== İSTATİSTİKLER ====================
     
     /**
@@ -324,12 +608,23 @@ class SeoModel {
             // Tablo yoksa 0 döner
         }
         
-        // Aktif kategori sayısı
+        // Kategori sayısı: ilan modülü aktifse ilan kategorileri (tema bazlı), yoksa blog kategorileri
         try {
-            $result = $this->db->fetch("SELECT COUNT(*) as cnt FROM post_categories WHERE status = 'active'");
-            $stats['categories_count'] = $result ? (int)$result['cnt'] : 0;
+            $stmt = $this->db->getConnection()->query("SHOW TABLES LIKE 'listing_categories'");
+            if ($stmt && $stmt->rowCount() > 0) {
+                $result = $this->db->fetch("SELECT COUNT(*) as cnt FROM listing_categories");
+                $stats['categories_count'] = $result ? (int)$result['cnt'] : 0;
+            } else {
+                $result = $this->db->fetch("SELECT COUNT(*) as cnt FROM post_categories WHERE status = 'active'");
+                $stats['categories_count'] = $result ? (int)$result['cnt'] : 0;
+            }
         } catch (Exception $e) {
-            // Tablo yoksa 0 döner
+            try {
+                $result = $this->db->fetch("SELECT COUNT(*) as cnt FROM post_categories WHERE status = 'active'");
+                $stats['categories_count'] = $result ? (int)$result['cnt'] : 0;
+            } catch (Exception $e2) {
+                $stats['categories_count'] = 0;
+            }
         }
         
         // Etiket sayısı
@@ -349,6 +644,35 @@ class SeoModel {
         }
         
         return $stats;
+    }
+
+    /**
+     * Sitemap ve tarama için ilan kategorilerini getir (listing_categories tablosu varsa)
+     */
+    public function getListingCategoriesForSitemap() {
+        try {
+            $stmt = $this->db->getConnection()->query("SHOW TABLES LIKE 'listing_categories'");
+            if (!$stmt || $stmt->rowCount() === 0) {
+                return [];
+            }
+            return $this->db->fetchAll(
+                "SELECT slug, updated_at FROM listing_categories ORDER BY kind ASC, display_order ASC, name ASC"
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * İlan kategorileri tablosu mevcut mu (ilan modülü aktif)
+     */
+    public function hasListingCategories() {
+        try {
+            $stmt = $this->db->getConnection()->query("SHOW TABLES LIKE 'listing_categories'");
+            return $stmt && $stmt->rowCount() > 0;
+        } catch (Exception $e) {
+            return false;
+        }
     }
 }
 

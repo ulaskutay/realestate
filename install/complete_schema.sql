@@ -247,6 +247,7 @@ CREATE TABLE IF NOT EXISTS `media` (
   `file_size` bigint(20) DEFAULT 0,
   `file_path` varchar(500) NOT NULL,
   `file_url` varchar(500) NOT NULL,
+  `thumbnail_path` varchar(500) DEFAULT NULL,
   `alt_text` varchar(255) DEFAULT NULL,
   `description` text,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -639,6 +640,75 @@ CREATE TABLE IF NOT EXISTS `theme_custom_code` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ==========================================
+-- TEMA MODÜLLERİ (REALESTATE - EMLAK İLANLARI & DANIŞMANLAR)
+-- ==========================================
+
+-- Emlak danışmanları tablosu (realestate-agents tema modülü)
+CREATE TABLE IF NOT EXISTS `realestate_agents` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `slug` varchar(255) NOT NULL,
+  `photo` varchar(500) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `specializations` text DEFAULT NULL,
+  `experience_years` int(11) DEFAULT 0,
+  `bio` text DEFAULT NULL,
+  `facebook` varchar(500) DEFAULT NULL,
+  `twitter` varchar(500) DEFAULT NULL,
+  `instagram` varchar(500) DEFAULT NULL,
+  `linkedin` varchar(500) DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `is_featured` tinyint(1) DEFAULT 0,
+  `display_order` int(11) DEFAULT 0,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `status` (`status`),
+  KEY `is_featured` (`is_featured`),
+  KEY `display_order` (`display_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Emlak ilanları tablosu (realestate-listings tema modülü)
+CREATE TABLE IF NOT EXISTS `realestate_listings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `slug` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `location` varchar(255) DEFAULT NULL,
+  `ada` varchar(50) DEFAULT NULL,
+  `parsel` varchar(50) DEFAULT NULL,
+  `price` decimal(15,2) DEFAULT 0.00,
+  `property_type` varchar(50) DEFAULT 'house',
+  `listing_status` enum('sale','rent') DEFAULT 'sale',
+  `bedrooms` int(11) DEFAULT 0,
+  `bathrooms` int(11) DEFAULT 0,
+  `living_rooms` int(11) DEFAULT 0,
+  `rooms` int(11) DEFAULT 0,
+  `area` decimal(10,2) DEFAULT 0.00,
+  `area_unit` varchar(10) DEFAULT 'sqm',
+  `featured_image` varchar(500) DEFAULT NULL,
+  `gallery` text DEFAULT NULL,
+  `status` enum('draft','published') DEFAULT 'draft',
+  `is_featured` tinyint(1) DEFAULT 0,
+  `author_id` int(11) DEFAULT NULL,
+  `realtor_id` int(11) DEFAULT NULL,
+  `views` int(11) DEFAULT 0,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `status` (`status`),
+  KEY `listing_status` (`listing_status`),
+  KEY `is_featured` (`is_featured`),
+  KEY `property_type` (`property_type`),
+  KEY `author_id` (`author_id`),
+  KEY `realtor_id` (`realtor_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ==========================================
 -- VARSAYILAN VERİLER
 -- ==========================================
 
@@ -889,5 +959,151 @@ INSERT IGNORE INTO `theme_options` (`theme_id`, `option_group`, `option_key`, `o
 (1, 'custom', 'footer_show_social', 'true'),
 (1, 'custom', 'footer_show_menu', 'true'),
 (1, 'custom', 'footer_show_contact', 'true');
+
+-- ==========================================
+-- VIDEO TIMELINE (video-timeline modülü)
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS `video_timelines` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT 0,
+  `name` varchar(255) NOT NULL,
+  `width` int(11) NOT NULL DEFAULT 1920,
+  `height` int(11) NOT NULL DEFAULT 1080,
+  `fps` int(11) NOT NULL DEFAULT 25,
+  `duration_sec` decimal(10,2) NOT NULL DEFAULT 10.00,
+  `background_color` varchar(50) DEFAULT '#000000',
+  `settings` JSON DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `video_timeline_tracks` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `timeline_id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL DEFAULT 'Track',
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_locked` tinyint(1) NOT NULL DEFAULT 0,
+  `is_muted` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `timeline_id` (`timeline_id`),
+  KEY `sort_order` (`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `video_timeline_clips` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `track_id` int(11) NOT NULL,
+  `type` enum('video','image','text','shape','audio') NOT NULL DEFAULT 'text',
+  `start_time` decimal(10,3) NOT NULL DEFAULT 0.000,
+  `duration` decimal(10,3) NOT NULL DEFAULT 5.000,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `source` varchar(500) DEFAULT NULL,
+  `content` JSON DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `track_id` (`track_id`),
+  KEY `type` (`type`),
+  KEY `start_time` (`start_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- SEO Sayfa Meta tablosu (sayfa bazlı meta title/description override)
+CREATE TABLE IF NOT EXISTS `seo_page_meta` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `page_key` varchar(100) NOT NULL COMMENT 'Sayfa anahtarı: home, blog, contact, ilanlar, danismanlar, vb.',
+  `path_pattern` varchar(500) DEFAULT '' COMMENT 'Boş = varsayılan sayfa; dolu = özel path',
+  `meta_title` varchar(255) DEFAULT NULL,
+  `meta_description` varchar(500) DEFAULT NULL,
+  `meta_robots` varchar(100) DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `page_key_path` (`page_key`,`path_pattern`(191)),
+  KEY `page_key` (`page_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- SEO Kırık Bağlantılar tablosu (404 tespit sonuçları)
+CREATE TABLE IF NOT EXISTS `seo_broken_links` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `url` varchar(1000) NOT NULL,
+  `source` varchar(50) DEFAULT NULL COMMENT 'sitemap, menu, manual',
+  `http_code` int(11) DEFAULT NULL,
+  `checked_at` datetime DEFAULT NULL,
+  `link_text` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `http_code` (`http_code`),
+  KEY `checked_at` (`checked_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- İlan kategorileri (satılık, kiralık, daire, müstakil vb. tek listede)
+CREATE TABLE IF NOT EXISTS `listing_categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `slug` varchar(100) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `kind` varchar(20) NOT NULL DEFAULT 'type',
+  `display_order` int(11) DEFAULT 0,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `kind` (`kind`),
+  KEY `display_order` (`display_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- İlan–kategori ilişkisi (çoklu kategori)
+CREATE TABLE IF NOT EXISTS `realestate_listing_categories` (
+  `listing_id` int(11) NOT NULL,
+  `category_id` int(11) NOT NULL,
+  PRIMARY KEY (`listing_id`, `category_id`),
+  KEY `category_id` (`category_id`),
+  CONSTRAINT `rlc_listing` FOREIGN KEY (`listing_id`) REFERENCES `realestate_listings` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `rlc_category` FOREIGN KEY (`category_id`) REFERENCES `listing_categories` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Sözleşme şablonları tablosu (Elementor tarzı editör)
+CREATE TABLE IF NOT EXISTS `contract_templates` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL COMMENT 'Şablon adı',
+  `slug` varchar(100) NOT NULL COMMENT 'URL/ayırt etmek için',
+  `header_config` json DEFAULT NULL COMMENT 'Başlık: sol/orta/sağ alan tanımları',
+  `table_config` json DEFAULT NULL COMMENT 'Orta tablo: satır/sütun, başlıklar, hücre tipleri, tema rengi',
+  `footer_config` json DEFAULT NULL COMMENT 'Alt: açıklama + imza etiketleri',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- commission_contracts tablosuna şablon ve form verisi kolonları
+ALTER TABLE `commission_contracts`
+  ADD COLUMN `template_id` int(11) DEFAULT NULL AFTER `client_email`,
+  ADD COLUMN `form_data` json DEFAULT NULL AFTER `template_id`,
+  ADD KEY `template_id` (`template_id`);
+  
+ALTER TABLE `contract_templates` ADD COLUMN `name` varchar(255) NOT NULL DEFAULT '' AFTER `id`;
+
+-- Media tablosu performans iyileştirmesi
+-- Bu migration dosyası media tablosuna gerekli indexleri ekler
+-- Mevcut indexler varsa hata vermez
+
+-- created_at index (ORDER BY created_at DESC için)
+CREATE INDEX IF NOT EXISTS `idx_media_created_at` ON `media` (`created_at` DESC);
+
+-- mime_type index (WHERE mime_type LIKE 'image/%' gibi sorgular için)
+CREATE INDEX IF NOT EXISTS `idx_media_mime_type` ON `media` (`mime_type`);
+
+-- Composite index (filtre + sıralama için en optimize)
+CREATE INDEX IF NOT EXISTS `idx_media_type_created` ON `media` (`mime_type`, `created_at` DESC);
+
+-- MySQL 5.7 için alternatif syntax (IF NOT EXISTS desteklenmiyorsa)
+-- ALTER TABLE `media` ADD INDEX `idx_media_created_at` (`created_at` DESC);
+-- ALTER TABLE `media` ADD INDEX `idx_media_mime_type` (`mime_type`);
+-- ALTER TABLE `media` ADD INDEX `idx_media_type_created` (`mime_type`, `created_at` DESC);
+
 
 SET FOREIGN_KEY_CHECKS = 1;

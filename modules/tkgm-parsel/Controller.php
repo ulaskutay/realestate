@@ -48,6 +48,36 @@ class TkgmParselModuleController {
         if (empty($this->settings)) {
             $this->settings = $this->getDefaultSettings();
         }
+        $this->normalizeElevenLabsApiKey();
+    }
+
+    /**
+     * Tek bir ElevenLabs API key alanı kullan: eski adlar (eleven_labs_api_key, tts_api_key) varsa
+     * elevenlabs_api_key boşsa değeri oraya taşı; böylece iki ayrı alan kaynaklı karışıklık giderilir.
+     */
+    private function normalizeElevenLabsApiKey() {
+        $main = isset($this->settings['elevenlabs_api_key']) ? trim((string) $this->settings['elevenlabs_api_key']) : '';
+        if ($main !== '') {
+            return;
+        }
+        $alternates = ['eleven_labs_api_key', 'tts_api_key', 'xi_api_key'];
+        foreach ($alternates as $key) {
+            if (!empty($this->settings[$key])) {
+                $val = trim((string) $this->settings[$key]);
+                if ($val !== '') {
+                    $this->settings['elevenlabs_api_key'] = $val;
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Kullanılacak ElevenLabs API key (tek kaynak).
+     */
+    private function getElevenLabsApiKey() {
+        $this->ensureInitialized();
+        return isset($this->settings['elevenlabs_api_key']) ? trim((string) $this->settings['elevenlabs_api_key']) : '';
     }
 
     private function getDefaultSettings() {
@@ -60,6 +90,8 @@ class TkgmParselModuleController {
             'google_maps_api_key' => '',
             'cesium_ion_access_token' => '',
             'gemini_api_key' => '',
+            'elevenlabs_api_key' => '',
+            'drone_video_source' => 'browser',
             'ffmpeg_path' => '',
             'api_timeout' => 15,
             'cache_ttl' => 60
@@ -132,19 +164,13 @@ class TkgmParselModuleController {
     }
 
     /**
-     * Admin dashboard
+     * Admin: redirect to Parsel Sorgu (dashboard removed).
      */
     public function admin_index() {
         $this->ensureInitialized();
         $this->requireLogin();
-
-        $sonDroneVideolari = $this->getSonDroneVideolari(10);
-
-        $this->adminView('index', [
-            'title' => 'TKGM Parsel Sorgu',
-            'settings' => $this->settings,
-            'sonDroneVideolari' => $sonDroneVideolari
-        ]);
+        header('Location: ' . admin_url('module/tkgm-parsel/sorgu'));
+        exit;
     }
 
     /**
@@ -219,6 +245,46 @@ class TkgmParselModuleController {
             }
         }
         $log("TÜM DENEMELER BAŞARISIZ");
+        return false;
+    }
+
+    /**
+     * Videodan kapak görseli (thumbnail) çıkarır. 1. saniyedeki kare kullanılır.
+     * @param string $videoPath Video dosya yolu (MP4 veya WebM)
+     * @param string $thumbPath Çıktı JPEG dosya yolu
+     * @param float  $timeSec   Alınacak karenin saniye cinsinden zamanı
+     * @return bool Başarılı ise true
+     */
+    private function extractVideoThumbnail($videoPath, $thumbPath, $timeSec = 1.0) {
+        if (!is_file($videoPath) || filesize($videoPath) <= 0) {
+            return false;
+        }
+        $ffmpeg = $this->findFfmpeg();
+        if ($ffmpeg === '') {
+            return false;
+        }
+        $dir = dirname($thumbPath);
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+            return false;
+        }
+        $t = str_replace(',', '.', (string) $timeSec);
+        $cmd = escapeshellarg($ffmpeg) . ' -y -ss ' . escapeshellarg($t)
+            . ' -i ' . escapeshellarg($videoPath)
+            . ' -vframes 1 -q:v 3 -f image2 ' . escapeshellarg($thumbPath) . ' 2>&1';
+        @unlink($thumbPath);
+        if (function_exists('exec') && !in_array('exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+            $out = [];
+            @exec($cmd, $out, $ret);
+            if (is_file($thumbPath) && filesize($thumbPath) > 0) {
+                return true;
+            }
+        }
+        if (function_exists('shell_exec') && !in_array('shell_exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+            @shell_exec($cmd);
+            if (is_file($thumbPath) && filesize($thumbPath) > 0) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -301,6 +367,7 @@ class TkgmParselModuleController {
             return ['success' => false, 'error' => 'ffmpeg_not_found', 'log_path' => null];
         }
         $audioPath = $opts['audioPath'] ?? null;
+        $keepInputAudio = !empty($opts['keepInputAudio']);
         $srtPath = $opts['srtPath'] ?? null;
         $drawtexts = $opts['drawtexts'] ?? [];
         $inputs = [escapeshellarg($inputPath)];
@@ -335,7 +402,9 @@ class TkgmParselModuleController {
         }
         if ($chain === '') {
             @unlink($outputPath);
-            if ($audioPath && is_file($audioPath)) {
+            if ($keepInputAudio) {
+                $cmd = escapeshellarg($ffmpeg) . ' -y -i ' . $inputs[0] . ' -map 0:v -map 0:a? -c:v copy -c:a aac -b:a 128k ' . escapeshellarg($outputPath) . ' 2>&1';
+            } elseif ($audioPath && is_file($audioPath)) {
                 $cmd = escapeshellarg($ffmpeg) . ' -y -i ' . $inputs[0] . ' -i ' . $inputs[1] . ' -c:v copy -c:a aac -b:a 128k -map 0:v -map 1:a -shortest ' . escapeshellarg($outputPath) . ' 2>&1';
             } else {
                 $cmd = escapeshellarg($ffmpeg) . ' -y -i ' . $inputs[0] . ' -c:v copy -an ' . escapeshellarg($outputPath) . ' 2>&1';
@@ -349,7 +418,9 @@ class TkgmParselModuleController {
         $filterComplex = $chain;
         $mapVideo = '-map ' . $outLabel . ' -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -movflags +faststart';
         $mapAudio = '';
-        if ($audioPath && is_file($audioPath)) {
+        if ($keepInputAudio) {
+            $mapAudio = ' -map 0:a? -c:a aac -b:a 128k';
+        } elseif ($audioPath && is_file($audioPath)) {
             $mapAudio = ' -map 1:a -c:a aac -b:a 128k -shortest';
         } else {
             $mapAudio = ' -an';
@@ -415,7 +486,7 @@ class TkgmParselModuleController {
         try {
             $db = Database::getInstance();
             $limit = (int)$limit;
-            $sql = "SELECT id, file_path, file_url, original_name, mime_type, created_at 
+            $sql = "SELECT id, file_path, file_url, original_name, mime_type, created_at, alt_text, description 
                     FROM media 
                     WHERE mime_type LIKE 'video/%' 
                     AND (original_name LIKE '%parsel%' OR original_name LIKE '%drone%' OR file_path LIKE '%parsel%' OR file_path LIKE '%drone%')
@@ -423,7 +494,7 @@ class TkgmParselModuleController {
                     LIMIT {$limit}";
             $list = $db->fetchAll($sql);
             if (empty($list)) {
-                $sql2 = "SELECT id, file_path, file_url, original_name, mime_type, created_at 
+                $sql2 = "SELECT id, file_path, file_url, original_name, mime_type, created_at, alt_text, description 
                          FROM media 
                          WHERE mime_type LIKE 'video/%' 
                          ORDER BY created_at DESC 
@@ -434,6 +505,32 @@ class TkgmParselModuleController {
         } catch (\Exception $e) {
             return [];
         }
+    }
+
+    /**
+     * Videoya yazılacak lokasyon metnini oluşturur (medya description için).
+     * Format: "İl / İlçe / Mahalle, Ada X Parsel Y"
+     *
+     * @param string|null $il_adi
+     * @param string|null $ilce_adi
+     * @param string|null $mahalle_adi
+     * @param string|null $ada
+     * @param string|null $parsel
+     * @param string|null $descriptionOverride POST'tan gelen hazır description (varsa bu kullanılır)
+     * @return string|null
+     */
+    private function buildLocationDescription($il_adi = null, $ilce_adi = null, $mahalle_adi = null, $ada = null, $parsel = null, $descriptionOverride = null) {
+        if ($descriptionOverride !== null && trim($descriptionOverride) !== '') {
+            return trim($descriptionOverride);
+        }
+        $parts = array_filter([trim($il_adi ?? ''), trim($ilce_adi ?? ''), trim($mahalle_adi ?? '')], function ($v) { return $v !== ''; });
+        $locationLine = implode(' / ', $parts);
+        $ada = trim($ada ?? '');
+        $parsel = trim($parsel ?? '');
+        if ($ada !== '' || $parsel !== '') {
+            $locationLine .= ($locationLine !== '' ? ', ' : '') . ($ada !== '' ? 'Ada ' . $ada : '') . ($ada !== '' && $parsel !== '' ? ' ' : '') . ($parsel !== '' ? 'Parsel ' . $parsel : '');
+        }
+        return $locationLine !== '' ? $locationLine : null;
     }
 
     /**
@@ -482,10 +579,6 @@ class TkgmParselModuleController {
     public function admin_sorgu() {
         $this->ensureInitialized();
         $action = $_GET['action'] ?? $_POST['action'] ?? '';
-        if ($action === 'ffmpeg_asset') {
-            $this->serveFfmpegAsset();
-            return;
-        }
         $this->requireLogin();
 
         $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
@@ -499,59 +592,14 @@ class TkgmParselModuleController {
         }
 
         $sonDroneVideolari = $this->getSonDroneVideolari(10);
+        $droneVideoSource = ($this->settings['drone_video_source'] ?? 'browser') === 'api' ? 'api' : 'browser';
 
         $this->adminView('sorgu', [
             'title' => 'Parsel Sorgu',
             'settings' => $this->settings,
-            'sonDroneVideolari' => $sonDroneVideolari
+            'sonDroneVideolari' => $sonDroneVideolari,
+            'droneVideoSource' => $droneVideoSource,
         ]);
-    }
-
-    /**
-     * Aynı origin üzerinden FFmpeg.wasm core/worker dosyalarını sunar (CORS/blob engelini aşar).
-     */
-    private function serveFfmpegAsset() {
-        $allowed = ['ffmpeg-core.js' => 'text/javascript', 'ffmpeg-core.wasm' => 'application/wasm', '814.ffmpeg.js' => 'text/javascript'];
-        $file = isset($_GET['file']) ? basename($_GET['file']) : '';
-        if (!isset($allowed[$file])) {
-            http_response_code(400);
-            header('Content-Type: text/plain');
-            echo 'Bad request';
-            exit;
-        }
-        while (ob_get_level()) {
-            ob_end_clean();
-        }
-        $base = 'https://cdn.jsdelivr.net/npm';
-        $urls = [
-            'ffmpeg-core.js' => $base . '/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js',
-            'ffmpeg-core.wasm' => $base . '/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.wasm',
-            '814.ffmpeg.js' => $base . '/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js'
-        ];
-        $url = $urls[$file];
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'header' => "User-Agent: Mozilla/5.0 (compatible)\r\n",
-                'timeout' => 60
-            ]
-        ]);
-        $body = @file_get_contents($url, false, $ctx);
-        if ($body === false) {
-            $err = error_get_last();
-            http_response_code(502);
-            header('Content-Type: text/plain');
-            echo 'Upstream fetch failed: ' . ($err ? $err['message'] : 'file_get_contents returned false');
-            if (function_exists('error_log')) {
-                error_log('[TKGM FFmpeg Proxy] Failed to fetch ' . $url . ': ' . ($err ? $err['message'] : 'unknown'));
-            }
-            exit;
-        }
-        header('Content-Type: ' . $allowed[$file]);
-        header('Cache-Control: public, max-age=86400');
-        header('Content-Length: ' . strlen($body));
-        echo $body;
-        exit;
     }
 
     /**
@@ -623,6 +671,58 @@ class TkgmParselModuleController {
                         'il_adi' => $p['Il'] ?? 'Muğla',
                         'ilce_adi' => $p['Ilce'] ?? 'Marmaris',
                         'mahalle_adi' => $p['Mahalle'] ?? 'Karaca',
+                        'geometry' => $f['geometry'] ?? null,
+                        'geojson' => $raw
+                    ];
+                    echo json_encode(['success' => true, 'data' => $detay]);
+                    exit;
+
+                case 'load_json':
+                    header('Content-Type: application/json; charset=utf-8');
+                    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                        echo json_encode(['success' => false, 'message' => 'POST gerekli']);
+                        exit;
+                    }
+                    $jsonRaw = null;
+                    if (!empty($_FILES['json_file']['tmp_name']) && is_uploaded_file($_FILES['json_file']['tmp_name'])) {
+                        $jsonRaw = file_get_contents($_FILES['json_file']['tmp_name']);
+                    } elseif (!empty($_POST['json'])) {
+                        $jsonRaw = $_POST['json'];
+                    } else {
+                        $jsonRaw = file_get_contents('php://input');
+                        if ($jsonRaw !== false && trim($jsonRaw) === '') {
+                            $jsonRaw = null;
+                        }
+                    }
+                    if ($jsonRaw === null || $jsonRaw === false) {
+                        echo json_encode(['success' => false, 'message' => 'JSON verisi veya dosya gerekli']);
+                        exit;
+                    }
+                    $raw = json_decode($jsonRaw, true);
+                    if (!$raw || empty($raw['features'][0])) {
+                        echo json_encode(['success' => false, 'message' => 'Geçersiz GeoJSON. features[0] ve properties gerekli.']);
+                        exit;
+                    }
+                    $f = $raw['features'][0];
+                    $p = $f['properties'] ?? [];
+                    $alanStr = $p['Alan'] ?? '';
+                    $alan = null;
+                    if (is_string($alanStr) && $alanStr !== '') {
+                        $alan = trim(preg_replace('/\s/u', '', $alanStr));
+                        $alan = str_replace('.', '', $alan);
+                        $alan = str_replace(',', '.', $alan);
+                        $alan = is_numeric($alan) ? (float)$alan : null;
+                    }
+                    $detay = [
+                        'from_cbs' => true,
+                        'tasinmaz_no' => '',
+                        'parsel_no' => (string)($p['ParselNo'] ?? ''),
+                        'ada' => (string)($p['Ada'] ?? ''),
+                        'alan_m2' => $alan,
+                        'nitelik' => (string)($p['Nitelik'] ?? ''),
+                        'il_adi' => (string)($p['Il'] ?? ''),
+                        'ilce_adi' => (string)($p['Ilce'] ?? ''),
+                        'mahalle_adi' => (string)($p['Mahalle'] ?? ''),
                         'geometry' => $f['geometry'] ?? null,
                         'geojson' => $raw
                     ];
@@ -706,6 +806,88 @@ class TkgmParselModuleController {
                     ]);
                     exit;
 
+                case 'create_drone_video_api':
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['success' => false, 'message' => 'Harita videosu özelliği şu an kullanılamıyor.']);
+                    exit;
+
+                case 'save_drone_video_from_url':
+                    header('Content-Type: application/json; charset=utf-8');
+                    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                        echo json_encode(['success' => false, 'message' => 'POST gerekli']);
+                        exit;
+                    }
+                    $videoUrl = trim($_POST['url'] ?? '');
+                    if ($videoUrl === '' || strpos($videoUrl, 'http') !== 0) {
+                        echo json_encode(['success' => false, 'message' => 'Geçerli video URL gerekli']);
+                        exit;
+                    }
+                    require_once dirname(dirname(__DIR__)) . '/app/services/MediaHelper.php';
+                    $ada = trim($_POST['ada'] ?? '');
+                    $parsel = trim($_POST['parsel_no'] ?? '');
+                    $ilAdi = trim($_POST['il_adi'] ?? '');
+                    $ilceAdi = trim($_POST['ilce_adi'] ?? '');
+                    $mahalleAdi = trim($_POST['mahalle_adi'] ?? '');
+                    $locationDescription = $this->buildLocationDescription($ilAdi, $ilceAdi, $mahalleAdi, $ada, $parsel, trim($_POST['description'] ?? $_POST['location_display'] ?? ''));
+                    $uploadBase = dirname(dirname(__DIR__)) . '/public/uploads/parsel-drone/';
+                    $yearMonth = date('Y/m');
+                    $uploadDir = $uploadBase . $yearMonth . '/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    $baseName = 'parsel-drone-api' . ($ada ? '-ada-' . preg_replace('/[^0-9]/', '', $ada) : '') . ($parsel ? '-parsel-' . preg_replace('/[^0-9]/', '', $parsel) : '') . '-' . date('Ymd-His');
+                    $savePath = $uploadDir . $baseName . '.mp4';
+                    if (!\MediaHelper::downloadToFile($videoUrl, $savePath)) {
+                        echo json_encode(['success' => false, 'message' => 'Video indirilemedi']);
+                        exit;
+                    }
+                    $relativePath = 'parsel-drone/' . $yearMonth . '/' . basename($savePath);
+                    $fileUrl = site_url('uploads/' . $relativePath);
+                    $thumbPath = $uploadDir . pathinfo($savePath, PATHINFO_FILENAME) . '-thumb.jpg';
+                    $thumbnailPath = null;
+                    if ($this->extractVideoThumbnail($savePath, $thumbPath, 1.0)) {
+                        $thumbnailPath = 'parsel-drone/' . $yearMonth . '/' . basename($thumbPath);
+                    }
+                    $userId = function_exists('get_logged_in_user') ? (get_logged_in_user()['id'] ?? 1) : 1;
+                    require_once dirname(dirname(__DIR__)) . '/app/models/Media.php';
+                    $mediaModel = new \Media();
+                    $mediaData = [
+                        'user_id' => $userId,
+                        'filename' => basename($savePath),
+                        'original_name' => $baseName . '.mp4',
+                        'mime_type' => 'video/mp4',
+                        'file_size' => filesize($savePath),
+                        'file_path' => $relativePath,
+                        'file_url' => $fileUrl,
+                        'alt_text' => $locationDescription,
+                        'description' => $locationDescription,
+                    ];
+                    if ($thumbnailPath !== null) {
+                        $mediaData['thumbnail_path'] = $thumbnailPath;
+                    }
+                    try {
+                        $mediaId = $mediaModel->create($mediaData);
+                    } catch (Throwable $e) {
+                        if (isset($mediaData['thumbnail_path'])) {
+                            unset($mediaData['thumbnail_path']);
+                            $mediaId = $mediaModel->create($mediaData);
+                        } else {
+                            $mediaId = null;
+                        }
+                    }
+                    if (!$mediaId) {
+                        @unlink($savePath);
+                        echo json_encode(['success' => false, 'message' => 'Medya kaydı oluşturulamadı']);
+                        exit;
+                    }
+                    echo json_encode([
+                        'success' => true,
+                        'media_id' => $mediaId,
+                        'file_url' => $fileUrl,
+                        'file_path' => $relativePath,
+                    ]);
+                    exit;
+
                 case 'upload_drone_video':
                     header('Content-Type: application/json; charset=utf-8');
                     if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_FILES['video'])) {
@@ -738,6 +920,10 @@ class TkgmParselModuleController {
                     $ext = (strpos($mime, 'mp4') !== false || $mime === 'video/mp4') ? 'mp4' : 'webm';
                     $ada = trim($_POST['ada'] ?? '');
                     $parsel = trim($_POST['parsel_no'] ?? '');
+                    $ilAdi = trim($_POST['il_adi'] ?? '');
+                    $ilceAdi = trim($_POST['ilce_adi'] ?? '');
+                    $mahalleAdi = trim($_POST['mahalle_adi'] ?? '');
+                    $locationDescription = $this->buildLocationDescription($ilAdi, $ilceAdi, $mahalleAdi, $ada, $parsel, trim($_POST['description'] ?? ''));
                     $baseName = 'parsel-drone' . ($ada ? '-ada-' . preg_replace('/[^0-9]/', '', $ada) : '') . ($parsel ? '-parsel-' . preg_replace('/[^0-9]/', '', $parsel) : '') . '-' . date('Ymd-His');
                     $uploadBase = dirname(dirname(__DIR__)) . '/public/uploads/parsel-drone/';
                     $yearMonth = date('Y/m');
@@ -774,6 +960,12 @@ class TkgmParselModuleController {
                     }
                     $relativePath = 'parsel-drone/' . $yearMonth . '/' . basename($finalPath);
                     $fileUrl = site_url('uploads/' . $relativePath);
+                    $thumbnailPath = null;
+                    $thumbBasename = pathinfo(basename($finalPath), PATHINFO_FILENAME) . '-thumb.jpg';
+                    $thumbFullPath = $uploadDir . $thumbBasename;
+                    if ($this->extractVideoThumbnail($finalPath, $thumbFullPath, 1.0)) {
+                        $thumbnailPath = 'parsel-drone/' . $yearMonth . '/' . $thumbBasename;
+                    }
                     $userId = function_exists('get_logged_in_user') ? (get_logged_in_user()['id'] ?? 1) : 1;
                     require_once dirname(dirname(__DIR__)) . '/app/models/Media.php';
                     $mediaModel = new Media();
@@ -785,12 +977,34 @@ class TkgmParselModuleController {
                         'file_size' => filesize($finalPath),
                         'file_path' => $relativePath,
                         'file_url' => $fileUrl,
-                        'alt_text' => null,
-                        'description' => null
+                        'alt_text' => $locationDescription,
+                        'description' => $locationDescription
                     ];
-                    $mediaId = $mediaModel->create($mediaData);
+                    if ($thumbnailPath !== null) {
+                        $mediaData['thumbnail_path'] = $thumbnailPath;
+                    }
+                    $mediaId = null;
+                    try {
+                        $mediaId = $mediaModel->create($mediaData);
+                        if (!$mediaId && isset($mediaData['thumbnail_path'])) {
+                            unset($mediaData['thumbnail_path']);
+                            $mediaId = $mediaModel->create($mediaData);
+                        }
+                    } catch (Throwable $e) {
+                        if (isset($mediaData['thumbnail_path'])) {
+                            unset($mediaData['thumbnail_path']);
+                            try {
+                                $mediaId = $mediaModel->create($mediaData);
+                            } catch (Throwable $e2) {
+                                $mediaId = null;
+                            }
+                        }
+                    }
                     if (!$mediaId) {
                         @unlink($finalPath);
+                        if ($thumbnailPath !== null && is_file($thumbFullPath)) {
+                            @unlink($thumbFullPath);
+                        }
                         echo json_encode(['success' => false, 'message' => 'Medya kaydı oluşturulamadı']);
                         exit;
                     }
@@ -834,6 +1048,9 @@ class TkgmParselModuleController {
                     $ada = trim($_POST['ada'] ?? '');
                     $parsel = trim($_POST['parsel_no'] ?? $_POST['parsel'] ?? '');
                     $mahalle = trim($_POST['mahalle_adi'] ?? $_POST['mahalle'] ?? '');
+                    $ilAdi = trim($_POST['il_adi'] ?? '');
+                    $ilceAdi = trim($_POST['ilce_adi'] ?? '');
+                    $locationDescription = $this->buildLocationDescription($ilAdi, $ilceAdi, $mahalle, $ada, $parsel, trim($_POST['description'] ?? $_POST['location_display'] ?? ''));
                     $titleText = trim($_POST['title_text'] ?? '');
                     $agentId = (int)($_POST['agent_id'] ?? 0);
                     $agentName = '';
@@ -863,6 +1080,24 @@ class TkgmParselModuleController {
                             $voiceoverPath = null;
                         }
                     }
+                    $videoHasAudio = (isset($_POST['video_has_audio']) && $_POST['video_has_audio'] === '1');
+                    if ($voiceoverPath === null && !$videoHasAudio) {
+                        $ttsText = trim($_POST['tts_text'] ?? '');
+                        $ttsVoiceId = trim($_POST['tts_voice_id'] ?? '');
+                        if ($ttsText !== '' && $ttsVoiceId !== '') {
+                            $ttsServicePath = dirname(dirname(__DIR__)) . '/app/services/TtsService.php';
+                            if (is_file($ttsServicePath)) {
+                                require_once $ttsServicePath;
+                                $tts = new TtsService();
+                                $result = $tts->synthesize($ttsText, $ttsVoiceId, [
+                                    'elevenlabs_api_key' => $this->getElevenLabsApiKey(),
+                                ]);
+                                if ($result['success'] && !empty($result['path']) && is_file($result['path'])) {
+                                    $voiceoverPath = $result['path'];
+                                }
+                            }
+                        }
+                    }
                     $srtPath = null;
                     if (!empty($_FILES['subtitle']['tmp_name']) && is_uploaded_file($_FILES['subtitle']['tmp_name'])) {
                         $srtPath = sys_get_temp_dir() . '/drone_srt_' . uniqid() . '.srt';
@@ -878,6 +1113,7 @@ class TkgmParselModuleController {
                     if (!is_dir($uploadDir)) {
                         mkdir($uploadDir, 0755, true);
                     }
+                    $ffmpeg = $this->findFfmpeg();
                     $baseName = 'parsel-drone-overlay' . ($ada ? '-ada-' . preg_replace('/[^0-9]/', '', $ada) : '') . ($parsel ? '-parsel-' . preg_replace('/[^0-9]/', '', $parsel) : '') . '-' . date('Ymd-His');
                     $outputPath = $uploadDir . $baseName . '.mp4';
                     $normalizedInput = $inputPath;
@@ -891,7 +1127,8 @@ class TkgmParselModuleController {
                     $opts = [
                         'audioPath' => $voiceoverPath,
                         'srtPath' => $srtPath,
-                        'drawtexts' => []
+                        'drawtexts' => [],
+                        'keepInputAudio' => $videoHasAudio
                     ];
                     $y = 80;
                     $fontsize = 28;
@@ -918,6 +1155,16 @@ class TkgmParselModuleController {
                             $agentLine .= ' • ' . $agentPhone;
                         }
                         $opts['drawtexts'][] = ['text' => $agentLine, 'x' => 50, 'y' => $y, 'fontsize' => (int)($fontsize * 0.9), 'start' => 0, 'end' => 99999];
+                    }
+
+                    if ($ffmpeg === '') {
+                        echo json_encode([
+                            'success' => true,
+                            'message' => 'Video tarayıcıda kaydedildi. Sunucuda FFmpeg olmadığı için overlay atlandı.',
+                            'media_id' => $mediaId,
+                            'skipped_ffmpeg' => true
+                        ]);
+                        exit;
                     }
                     $result = $this->runDroneOverlayFfmpeg($normalizedInput, $outputPath, $opts);
                     if ($tempMp4 && is_file($tempMp4)) {
@@ -956,8 +1203,8 @@ class TkgmParselModuleController {
                         'file_size' => filesize($outputPath),
                         'file_path' => $relativePath,
                         'file_url' => $fileUrl,
-                        'alt_text' => null,
-                        'description' => null
+                        'alt_text' => $locationDescription,
+                        'description' => $locationDescription
                     ];
                     $newMediaId = $mediaModel->create($mediaData);
                     if (!$newMediaId) {
@@ -973,6 +1220,135 @@ class TkgmParselModuleController {
                         'file_path' => $relativePath
                     ]);
                     exit;
+
+                case 'get_tts_voices':
+                    header('Content-Type: application/json; charset=utf-8');
+                    $ttsServicePath = dirname(dirname(__DIR__)) . '/app/services/TtsService.php';
+                    if (!is_file($ttsServicePath)) {
+                        echo json_encode(['success' => false, 'error' => 'TTS servisi bulunamadı', 'voices' => []]);
+                        exit;
+                    }
+                    require_once $ttsServicePath;
+                    $apiKey = $this->getElevenLabsApiKey();
+                    $voices = TtsService::fetchVoicesFromApi($apiKey);
+                    if (empty($voices)) {
+                        $voices = TtsService::getVoices();
+                    }
+                    echo json_encode(['success' => true, 'voices' => $voices]);
+                    exit;
+
+                case 'get_tts_audio_url':
+                    set_time_limit(30);
+                    header('Content-Type: application/json; charset=utf-8');
+                    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                        echo json_encode(['success' => false, 'error' => 'Sadece POST', 'url' => null]);
+                        exit;
+                    }
+                    try {
+                        $ttsServicePath = dirname(dirname(__DIR__)) . '/app/services/TtsService.php';
+                        if (!is_file($ttsServicePath)) {
+                            echo json_encode(['success' => false, 'error' => 'TTS servisi bulunamadı', 'url' => null]);
+                            exit;
+                        }
+                        require_once $ttsServicePath;
+                        $text = trim($_POST['tts_text'] ?? $_POST['text'] ?? '');
+                        $voiceId = trim($_POST['tts_voice_id'] ?? $_POST['voice_id'] ?? '');
+                        if ($text === '' || $voiceId === '') {
+                            echo json_encode(['success' => false, 'error' => 'tts_text ve tts_voice_id gerekli', 'url' => null]);
+                            exit;
+                        }
+                        if (mb_strlen($text) > TtsService::MAX_TEXT_LENGTH) {
+                            $text = mb_substr($text, 0, TtsService::MAX_TEXT_LENGTH);
+                        }
+                        $tts = new TtsService();
+                        $result = $tts->synthesize($text, $voiceId, [
+                            'elevenlabs_api_key' => $this->getElevenLabsApiKey(),
+                        ]);
+                        if (!$result['success'] || empty($result['path']) || !is_file($result['path'])) {
+                            echo json_encode([
+                                'success' => false,
+                                'error'   => $result['error'] ?? 'Seslendirme başarısız',
+                                'url'     => null,
+                            ]);
+                            exit;
+                        }
+                        $uploadBase = dirname(dirname(__DIR__)) . '/public/uploads/parsel-drone/';
+                        $tempDir = $uploadBase . 'temp/';
+                        if (!is_dir($tempDir)) {
+                            @mkdir($tempDir, 0755, true);
+                        }
+                        $tempTtsName = 'tts_' . uniqid() . '.mp3';
+                        $tempTtsPath = $tempDir . $tempTtsName;
+                        if (!@copy($result['path'], $tempTtsPath)) {
+                            @unlink($result['path']);
+                            echo json_encode(['success' => false, 'error' => 'Geçici ses dosyası yazılamadı', 'url' => null]);
+                            exit;
+                        }
+                        @unlink($result['path']);
+                        $publicUrl = site_url('uploads/parsel-drone/temp/' . $tempTtsName);
+                        echo json_encode(['success' => true, 'url' => $publicUrl]);
+                        exit;
+                    } catch (\Throwable $e) {
+                        echo json_encode([
+                            'success' => false,
+                            'error'   => 'TTS URL hatası: ' . $e->getMessage(),
+                            'url'     => null,
+                        ]);
+                        exit;
+                    }
+
+                case 'generate_tts':
+                    set_time_limit(30);
+                    header('Content-Type: application/json; charset=utf-8');
+                    try {
+                        $ttsServicePath = dirname(dirname(__DIR__)) . '/app/services/TtsService.php';
+                        if (!is_file($ttsServicePath)) {
+                            echo json_encode(['success' => false, 'error' => 'TTS servisi bulunamadı']);
+                            exit;
+                        }
+                        require_once $ttsServicePath;
+                        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                            echo json_encode(['success' => false, 'error' => 'Sadece POST']);
+                            exit;
+                        }
+                        $text = trim($_POST['text'] ?? '');
+                        $voiceId = trim($_POST['voice_id'] ?? '');
+                        if ($text === '') {
+                            echo json_encode(['success' => false, 'error' => 'Metin gerekli']);
+                            exit;
+                        }
+                        if (mb_strlen($text) > TtsService::MAX_TEXT_LENGTH) {
+                            $text = mb_substr($text, 0, TtsService::MAX_TEXT_LENGTH);
+                        }
+                        $tts = new TtsService();
+                        $result = $tts->synthesize($text, $voiceId, [
+                            'elevenlabs_api_key' => $this->getElevenLabsApiKey(),
+                        ]);
+                        if (!$result['success']) {
+                            echo json_encode(['success' => false, 'error' => $result['error'] ?? 'Seslendirme başarısız']);
+                            exit;
+                        }
+                        $path = $result['path'];
+                        if (!is_file($path) || filesize($path) <= 0) {
+                            echo json_encode(['success' => false, 'error' => 'Ses dosyası oluşturulamadı']);
+                            exit;
+                        }
+                        header('Content-Type: audio/mpeg');
+                        header('Content-Length: ' . filesize($path));
+                        header('Content-Disposition: inline; filename="tts-preview.mp3"');
+                        readfile($path);
+                        @unlink($path);
+                        exit;
+                    } catch (\Throwable $e) {
+                        if (headers_sent() === false) {
+                            header('Content-Type: application/json; charset=utf-8');
+                        }
+                        echo json_encode([
+                            'success' => false,
+                            'error'   => 'Seslendirme hatası: ' . $e->getMessage(),
+                        ]);
+                        exit;
+                    }
 
                 case 'generate_parsel_description':
                     header('Content-Type: application/json; charset=utf-8');
@@ -1106,6 +1482,13 @@ class TkgmParselModuleController {
             $this->settings['hierarchy_api_base_url'] = trim($_POST['hierarchy_api_base_url'] ?? '');
             $this->settings['idariyapi_base_url'] = trim($_POST['idariyapi_base_url'] ?? '');
             $this->settings['google_maps_api_key'] = trim($_POST['google_maps_api_key'] ?? '');
+            $this->settings['elevenlabs_api_key'] = trim($_POST['elevenlabs_api_key'] ?? '');
+            $this->settings['drone_video_source'] = ($_POST['drone_video_source'] ?? '') === 'api' ? 'api' : 'browser';
+            foreach (['eleven_labs_api_key', 'tts_api_key', 'xi_api_key'] as $oldKey) {
+                if (isset($this->settings[$oldKey])) {
+                    unset($this->settings[$oldKey]);
+                }
+            }
             $this->settings['api_timeout'] = (int)($_POST['api_timeout'] ?? 15);
             $this->settings['cache_ttl'] = (int)($_POST['cache_ttl'] ?? 60);
             if (empty($this->settings['api_base_url'])) {
@@ -1151,8 +1534,8 @@ class TkgmParselModuleController {
                 <?php include $basePath . '/app/views/admin/snippets/sidebar.php'; ?>
                 <div class="flex-1 flex flex-col lg:ml-64">
                     <?php include $basePath . '/app/views/admin/snippets/top-header.php'; ?>
-                    <main class="flex-1 p-4 sm:p-6 lg:p-10 bg-gray-50 dark:bg-[#15202b] overflow-y-auto">
-                        <div class="max-w-7xl mx-auto">
+                    <main class="flex-1 p-4 sm:p-6 lg:p-10 bg-gray-50 dark:bg-[#15202b] overflow-y-auto w-full">
+                        <div class="w-full max-w-none">
                             <?php include $viewPath; ?>
                         </div>
                     </main>

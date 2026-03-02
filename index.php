@@ -58,6 +58,12 @@ if ($needsInstall) {
     exit;
 }
 
+// Composer autoload (vendor)
+$autoload = __DIR__ . '/vendor/autoload.php';
+if (file_exists($autoload)) {
+    require_once $autoload;
+}
+
 // Core dosyalarını yükle (kurulum tamamlandıysa)
 require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/core/Router.php';
@@ -90,6 +96,36 @@ ThemeLoader::getInstance(); // Tema modüllerini yüklemek için
 // Modül frontend route'larını kontrol et
 $requestPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $requestPath = trim($requestPath, '/');
+// index.php ile biten veya içeren path'ten script adını kaldır (bazı sunucularda REQUEST_URI farklı gelebilir)
+if (strpos($requestPath, 'index.php') === 0) {
+    $requestPath = trim(substr($requestPath, strlen('index.php')), '/');
+}
+
+// Çeviri modülü aktifse URL'deki dil önekini kaldır (örn: en/ilanlar -> ilanlar) böylece modül route'u eşleşir
+$pathForModule = $requestPath;
+if (class_exists('ModuleLoader')) {
+    $ml = ModuleLoader::getInstance();
+    $translationModule = $ml->getModule('translation');
+    if ($translationModule && !empty($translationModule['is_active'])) {
+        $pathParts = explode('/', $requestPath);
+        if (!empty($pathParts[0]) && strlen($pathParts[0]) === 2) {
+            require_once __DIR__ . '/modules/translation/models/TranslationModel.php';
+            $translationModel = new TranslationModel();
+            if ($translationModel->isValidLanguage($pathParts[0])) {
+                $langCode = strtolower($pathParts[0]);
+                $translationController = $ml->getModuleController('translation');
+                if ($translationController && method_exists($translationController, 'getLanguageService')) {
+                    $languageService = $translationController->getLanguageService();
+                    if ($languageService && method_exists($languageService, 'setCurrentLanguage')) {
+                        $languageService->setCurrentLanguage($langCode);
+                    }
+                }
+                array_shift($pathParts);
+                $pathForModule = implode('/', $pathParts);
+            }
+        }
+    }
+}
 
 // Analytics API routes
 if (strpos($requestPath, 'api/track') === 0) {
@@ -109,6 +145,16 @@ if (strpos($requestPath, 'api/track') === 0) {
 if (strpos($requestPath, 'public/') === 0) {
     $filePath = __DIR__ . '/' . $requestPath;
     if (file_exists($filePath) && is_file($filePath)) {
+        // CORS: Video dosyaları embed için
+        if (strpos($requestPath, 'public/uploads/') === 0) {
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, HEAD, OPTIONS');
+            header('Access-Control-Expose-Headers: Content-Length, Content-Range, Accept-Ranges');
+            if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+                http_response_code(204);
+                exit;
+            }
+        }
         // MIME type belirle
         $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         $mimeTypes = [
@@ -131,13 +177,50 @@ if (strpos($requestPath, 'public/') === 0) {
         ];
         
         $mimeType = $mimeTypes[$ext] ?? 'application/octet-stream';
+        $isVideo = in_array($ext, ['mp4', 'webm', 'ogg'], true);
+        $filesize = filesize($filePath);
+        $filemtime = filemtime($filePath);
+
+        // Video: Range (byte-range) desteği
+        if ($isVideo && $filesize > 0) {
+            $rangeHeader = isset($_SERVER['HTTP_RANGE']) ? trim($_SERVER['HTTP_RANGE']) : '';
+            if ($rangeHeader !== '' && preg_match('/^bytes=(\d*)-(\d*)$/', $rangeHeader, $m)) {
+                $start = $m[1] === '' ? 0 : (int) $m[1];
+                $end = $m[2] === '' ? $filesize - 1 : min((int) $m[2], $filesize - 1);
+                if ($start <= $end) {
+                    $length = $end - $start + 1;
+                    header('HTTP/1.1 206 Partial Content');
+                    header('Content-Type: ' . $mimeType);
+                    header('Content-Length: ' . $length);
+                    header('Content-Range: bytes ' . $start . '-' . $end . '/' . $filesize);
+                    header('Accept-Ranges: bytes');
+                    if (strpos($requestPath, 'public/uploads/') === 0) {
+                        header('Access-Control-Allow-Origin: *');
+                        header('Access-Control-Expose-Headers: Content-Length, Content-Range, Accept-Ranges');
+                    }
+                    header('Cache-Control: public, max-age=2592000');
+                    $fp = fopen($filePath, 'rb');
+                    if ($fp) {
+                        fseek($fp, $start, SEEK_SET);
+                        $bufferSize = 8192;
+                        $remaining = $length;
+                        while ($remaining > 0 && !feof($fp)) {
+                            $read = (int) min($bufferSize, $remaining);
+                            echo fread($fp, $read);
+                            $remaining -= $read;
+                        }
+                        fclose($fp);
+                    }
+                    exit;
+                }
+            }
+        }
+
         header('Content-Type: ' . $mimeType);
         
         // Cache headers - CSS ve JS için uzun süreli cache
         if (in_array($ext, ['css', 'js', 'woff', 'woff2', 'ttf', 'eot', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'mp4', 'webm', 'ogg'])) {
             // ETag oluştur (dosya boyutu + değişiklik zamanı)
-            $filemtime = filemtime($filePath);
-            $filesize = filesize($filePath);
             $etag = md5($filePath . $filemtime . $filesize);
             
             header('ETag: "' . $etag . '"');
@@ -171,8 +254,32 @@ if (strpos($requestPath, 'public/') === 0) {
             header('Cache-Control: public, max-age=3600'); // 1 saat
         }
         
+        if ($isVideo) {
+            header('Accept-Ranges: bytes');
+        }
+        
         readfile($filePath);
         exit;
+    }
+}
+
+// Modül asset'lerini frontend üzerinden servis et (admin.php'ye gerek kalmaz, MIME/404 sorunu olmaz)
+$moduleAssetPos = strpos($requestPath, 'module-asset/');
+if ($moduleAssetPos !== false) {
+    $suffix = substr($requestPath, $moduleAssetPos + strlen('module-asset/'));
+    $parts = explode('/', $suffix, 2);
+    $moduleName = isset($parts[0]) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $parts[0]) : '';
+    $file = isset($parts[1]) ? $parts[1] : '';
+    if ($moduleName !== '' && $file !== '' && strpos($file, '..') === false && preg_match('/^[a-zA-Z0-9_.-]+$/', $file)) {
+        $filePath = __DIR__ . '/modules/' . $moduleName . '/assets/' . $file;
+        if (is_file($filePath)) {
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            $mimeTypes = ['css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'woff' => 'font/woff', 'woff2' => 'font/woff2'];
+            header('Content-Type: ' . ($mimeTypes[$ext] ?? 'application/octet-stream'));
+            header('Cache-Control: public, max-age=86400');
+            readfile($filePath);
+            exit;
+        }
     }
 }
 
@@ -242,10 +349,16 @@ if (strpos($requestPath, 'themes/') === 0) {
     }
 }
 
+// public/ önekli URL'ler (statik dosya değilse) modül route eşleşmesi için öneki kaldır
+// Örn: public/sozlesme-imza/{token} -> sozlesme-imza/{token} (karşı taraf imza linki)
+if (strpos($pathForModule, 'public/') === 0) {
+    $pathForModule = substr($pathForModule, strlen('public/'));
+}
+
 // Önce modül route'larını dene (contact sayfası hariç - direkt HomeController kullanılacak)
-if ($requestPath !== 'contact' && $requestPath !== 'iletisim') {
+if ($pathForModule !== 'contact' && $pathForModule !== 'iletisim') {
     try {
-        if ($moduleLoader->handleFrontendRoute($requestPath)) {
+        if ($moduleLoader->handleFrontendRoute($pathForModule)) {
             exit;
         }
     } catch (Exception $e) {
@@ -281,6 +394,11 @@ $router->get('/rezervasyon', 'HomeController@reservation');
 
 // Arama sayfası
 $router->get('/search', 'HomeController@search');
+
+// İlanlar modülü fallback (handleFrontendRoute eşleşmezse Router üzerinden çalışır)
+$router->get('/ilanlar', 'ModuleProxyController@listingsIndex');
+$router->get('/ilanlar/kategori/{slug}', 'ModuleProxyController@listingsCategory');
+$router->get('/ilan/{slug}', 'ModuleProxyController@listingDetail');
 
 // Form gönderimi (frontend)
 $router->post('/forms/submit', 'FormController@submit');

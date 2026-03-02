@@ -22,19 +22,72 @@ class MediaPicker {
     }
     
     init() {
-        this.createModal();
-        this.bindEvents();
+        this.addStyles();
+        this._setupDocumentDelegation();
+        this._setupLazyLoading();
     }
     
-    createModal() {
-        // Modal zaten varsa oluşturma
+    _setupLazyLoading() {
+        // IntersectionObserver ile görsel lazy loading
+        if ('IntersectionObserver' in window && !this._lazyObserver) {
+            this._lazyObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        if (img.dataset.src && img.src !== img.dataset.src) {
+                            img.src = img.dataset.src;
+                            img.dataset.src = '';
+                        }
+                        this._lazyObserver.unobserve(img);
+                    }
+                });
+            }, {
+                root: null,
+                rootMargin: '100px', // 100px önceden yükle
+                threshold: 0.01
+            });
+        }
+    }
+    
+    _observeLazyImages(container) {
+        if (!this._lazyObserver) return;
+        const images = container.querySelectorAll('img.media-lazy[data-src]');
+        images.forEach(img => {
+            if (img.dataset.src) {
+                this._lazyObserver.observe(img);
+            }
+        });
+    }
+    
+    _setupDocumentDelegation() {
+        if (window._mediaPickerDelegationBound) return;
+        window._mediaPickerDelegationBound = true;
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest && e.target.closest('#media-picker-select-btn');
+            if (!btn || btn.disabled) return;
+            // Modal açık mı kontrol et (style.display veya hidden class)
+            var modal = window.mediaPicker && window.mediaPicker.modal;
+            var isVisible = modal && (modal.style.display === 'flex' || modal.style.display === 'block' || !modal.classList.contains('hidden'));
+            if (isVisible) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.mediaPicker.confirmSelection();
+            }
+        });
+    }
+    
+    _ensureModal() {
+        if (this.modal) return;
         if (document.getElementById('media-picker-modal')) {
             this.modal = document.getElementById('media-picker-modal');
             return;
         }
-        
+        this._createModal();
+    }
+    
+    _createModal() {
         const modalHTML = `
-            <div id="media-picker-modal" class="fixed inset-0 z-[99999] hidden">
+            <div id="media-picker-modal" class="fixed inset-0 z-[99999]" style="display: none;">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="window.mediaPicker?.close()"></div>
                 <div class="absolute inset-4 md:inset-8 lg:inset-12 bg-white dark:bg-background-dark rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="max-height: calc(100vh - 2rem);">
                     <!-- Header -->
@@ -135,9 +188,7 @@ class MediaPicker {
         
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         this.modal = document.getElementById('media-picker-modal');
-        
-        // Add styles
-        this.addStyles();
+        this.bindEvents();
     }
     
     addStyles() {
@@ -222,6 +273,8 @@ class MediaPicker {
             });
         });
         
+        // Seç butonu: event delegation ile document'ta dinleniyor (_setupDocumentDelegation)
+        
         // File input
         const fileInput = document.getElementById('media-picker-file-input');
         if (fileInput) {
@@ -257,11 +310,15 @@ class MediaPicker {
         this.selectedItems = [];
         this.currentPage = 1;
         
-        // Reset filters
-        document.querySelectorAll('.media-filter-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.filter === 'all');
+        this._ensureModal();
+        
+        // Filtre: verilen type korunur (örn. type: 'image' logo/favicon için)
+        var type = this.options.type || 'all';
+        var filterBtns = document.querySelectorAll('.media-filter-btn');
+        filterBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === type);
         });
-        this.options.type = 'all';
+        this.options.type = type;
         
         // Reset search
         const searchInput = document.getElementById('media-picker-search');
@@ -269,9 +326,10 @@ class MediaPicker {
         
         // Show modal
         this.modal.classList.remove('hidden');
+        this.modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
         
-        // Load media
+        // Load media (async; loading göstergesi loadMedia içinde)
         this.loadMedia();
         
         // Update selection UI
@@ -279,11 +337,21 @@ class MediaPicker {
     }
     
     close() {
-        this.modal.classList.add('hidden');
-        document.body.style.overflow = '';
-        
-        // Hide upload area
-        document.getElementById('media-picker-upload-area')?.classList.add('hidden');
+        try {
+            if (this.modal) {
+                this.modal.classList.add('hidden');
+                this.modal.style.display = 'none';
+            }
+            document.body.style.overflow = '';
+            
+            // Hide upload area
+            const uploadArea = document.getElementById('media-picker-upload-area');
+            if (uploadArea) {
+                uploadArea.classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('Media picker close error:', e);
+        }
     }
     
     showUpload() {
@@ -296,6 +364,8 @@ class MediaPicker {
         const loading = document.getElementById('media-picker-loading');
         const empty = document.getElementById('media-picker-empty');
         
+        if (!grid || !loading) return;
+        
         grid.innerHTML = '';
         loading.classList.remove('hidden');
         empty.classList.add('hidden');
@@ -303,11 +373,27 @@ class MediaPicker {
         const search = document.getElementById('media-picker-search')?.value || '';
         const type = this.options.type || 'all';
         
+        // Cache key oluştur
+        const cacheKey = `media_${type}_${search}_${this.currentPage}`;
+        
+        // Önbellekte varsa kullan (5 dakika geçerli)
+        const cached = this._getCache(cacheKey);
+        if (cached) {
+            loading.classList.add('hidden');
+            this._renderMediaItems(grid, cached, empty);
+            return;
+        }
+        
+        const url = this.getAdminUrl('media/list') + '&type=' + encodeURIComponent(type) + '&search=' + encodeURIComponent(search) + '&p=' + this.currentPage;
+        
+        const fetchWithTimeout = (url, ms) => {
+            const controller = new AbortController();
+            const t = setTimeout(() => controller.abort(), ms);
+            return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(t));
+        };
+        
         try {
-            const url = this.getAdminUrl('media/list') + '&type=' + encodeURIComponent(type) + '&search=' + encodeURIComponent(search) + '&p=' + this.currentPage;
-            const response = await fetch(url);
-            
-            // Önce text olarak al, sonra JSON parse et
+            const response = await fetchWithTimeout(url, 10000);
             const text = await response.text();
             
             let data;
@@ -315,39 +401,95 @@ class MediaPicker {
                 data = JSON.parse(text);
             } catch (parseError) {
                 console.error('JSON parse error:', parseError);
-                console.error('Response text:', text);
                 loading.classList.add('hidden');
-                grid.innerHTML = '<div class="col-span-full text-center text-red-500 py-8">Sunucu yanıtı geçersiz. Konsolu kontrol edin.</div>';
+                grid.innerHTML = '<div class="col-span-full text-center text-red-500 py-8">Sunucu yanıtı geçersiz.</div>';
                 return;
             }
             
             loading.classList.add('hidden');
             
             if (data.success && data.media && data.media.length > 0) {
-                data.media.forEach(item => {
-                    grid.appendChild(this.createMediaItem(item));
-                });
+                // Önbelleğe kaydet
+                this._setCache(cacheKey, data.media);
+                this._renderMediaItems(grid, data.media, empty);
             } else {
                 empty.classList.remove('hidden');
             }
         } catch (error) {
-            console.error('Media load error:', error);
+            if (error.name === 'AbortError') {
+                grid.innerHTML = '<div class="col-span-full text-center text-amber-600 dark:text-amber-400 py-8">Yükleme zaman aşımına uğradı. Sayfayı yenileyip tekrar deneyin.</div>';
+            } else {
+                grid.innerHTML = '<div class="col-span-full text-center text-red-500 py-8">Yüklenirken hata: ' + (error.message || 'Bağlantı hatası') + '</div>';
+            }
             loading.classList.add('hidden');
-            grid.innerHTML = '<div class="col-span-full text-center text-red-500 py-8">Dosyalar yüklenirken bir hata oluştu: ' + error.message + '</div>';
         }
+    }
+    
+    // Önbellek yönetimi
+    _getCache(key) {
+        try {
+            const item = sessionStorage.getItem(key);
+            if (!item) return null;
+            const { data, timestamp } = JSON.parse(item);
+            // 5 dakika geçerliliği kontrol et
+            if (Date.now() - timestamp > 300000) {
+                sessionStorage.removeItem(key);
+                return null;
+            }
+            return data;
+        } catch (e) {
+            return null;
+        }
+    }
+    
+    _setCache(key, data) {
+        try {
+            sessionStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+        } catch (e) {
+            // Storage dolu olabilir, temizle
+            try { sessionStorage.clear(); } catch (e2) {}
+        }
+    }
+    
+    // Toplu render - DocumentFragment kullanarak performans artışı
+    _renderMediaItems(grid, items, emptyEl) {
+        if (!items || items.length === 0) {
+            emptyEl?.classList.remove('hidden');
+            return;
+        }
+        
+        const fragment = document.createDocumentFragment();
+        items.forEach(item => {
+            fragment.appendChild(this.createMediaItem(item));
+        });
+        grid.appendChild(fragment);
+        
+        // Lazy loading observer'ı başlat
+        requestAnimationFrame(() => {
+            this._observeLazyImages(grid);
+        });
     }
     
     createMediaItem(item) {
         const div = document.createElement('div');
         div.className = 'media-picker-item bg-gray-100 dark:bg-white/5';
         div.dataset.id = item.id;
-        div.dataset.url = item.file_url;
-        div.dataset.name = item.original_name;
-        div.dataset.type = item.file_type;
+        div.dataset.url = item.file_url || '';
+        div.dataset.name = item.original_name || '';
+        div.dataset.type = item.file_type || '';
         
         let preview = '';
+        const safeUrl = (item.file_url || '').replace(/"/g, '&quot;');
+        const safeName = (item.original_name || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        
+        // Placeholder SVG (çok hafif)
+        const placeholder = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23e5e7eb%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E';
+        const errorImg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath fill=%22%23999%22 d=%22M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z%22/%3E%3C/svg%3E';
+        
         if (item.file_type === 'image') {
-            preview = `<img src="${item.file_url}" alt="${item.original_name}" class="w-full h-full object-cover">`;
+            // Thumbnail varsa kullan, yoksa orijinal URL (lazy + placeholder)
+            const thumbUrl = item.thumbnail_url || safeUrl;
+            preview = `<img src="${placeholder}" data-src="${thumbUrl}" data-full="${safeUrl}" alt="${safeName}" class="w-full h-full object-cover media-lazy" loading="lazy" decoding="async" onload="if(this.dataset.src && this.src!==this.dataset.src){this.src=this.dataset.src;this.dataset.src='';}" onerror="this.onerror=null;this.src='${errorImg}';">`;
         } else if (item.file_type === 'video') {
             preview = `<div class="w-full h-full flex items-center justify-center bg-gray-800"><span class="material-symbols-outlined text-white text-3xl">play_circle</span></div>`;
         } else if (item.file_type === 'audio') {
@@ -362,7 +504,7 @@ class MediaPicker {
                 <span class="material-symbols-outlined text-sm">check</span>
             </div>
             <div class="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
-                <p class="text-white text-xs truncate">${item.original_name}</p>
+                <p class="text-white text-xs truncate">${safeName}</p>
             </div>
         `;
         
@@ -393,43 +535,111 @@ class MediaPicker {
     
     updateSelectionUI() {
         const count = this.selectedItems.length;
-        document.getElementById('media-picker-selected-count').textContent = count;
-        document.getElementById('media-picker-select-btn').disabled = count === 0;
+        const countEl = document.getElementById('media-picker-selected-count');
+        const btn = document.getElementById('media-picker-select-btn');
+        
+        if (countEl) countEl.textContent = count;
+        if (btn) btn.disabled = count === 0;
     }
     
     confirmSelection() {
-        if (this.selectedItems.length === 0) return;
+        // Buton disabled kontrolü
+        const btn = document.getElementById('media-picker-select-btn');
+        if (btn && btn.disabled) return;
         
-        const selected = this.options.multiple ? this.selectedItems : this.selectedItems[0];
-        
-        // Update target input if provided
-        if (this.options.targetInput) {
-            const input = document.getElementById(this.options.targetInput) || document.querySelector(this.options.targetInput);
-            if (input) {
-                input.value = this.options.multiple 
-                    ? this.selectedItems.map(i => i.file_url).join(',')
-                    : selected.file_url;
-            }
+        if (!this.selectedItems || this.selectedItems.length === 0) {
+            this.close();
+            return;
         }
         
-        // Update preview if provided
-        if (this.options.targetPreview) {
-            const preview = document.getElementById(this.options.targetPreview) || document.querySelector(this.options.targetPreview);
-            if (preview) {
-                if (selected.file_type === 'image') {
-                    preview.innerHTML = `<img src="${selected.file_url}" alt="${selected.original_name}" class="max-w-full max-h-full object-contain">`;
-                } else {
-                    preview.innerHTML = `<span class="material-symbols-outlined text-4xl">${selected.file_type === 'video' ? 'videocam' : 'description'}</span><p class="text-sm mt-2">${selected.original_name}</p>`;
+        let callbackError = null;
+        
+        try {
+            const selected = this.options.multiple ? this.selectedItems : this.selectedItems[0];
+            
+            // Null/undefined kontrolü
+            if (!selected) {
+                this.close();
+                return;
+            }
+            
+            // Callback'e her zaman file_url/url içeren obje ver (API alan adı farklı olabilir)
+            const url = selected.file_url || selected.url || '';
+            const payload = { 
+                ...selected, 
+                file_url: url, 
+                url: url,
+                id: selected.id || null,
+                original_name: selected.original_name || '',
+                file_type: selected.file_type || 'unknown',
+                mime_type: selected.mime_type || ''
+            };
+            
+            // Update target input if provided
+            if (this.options.targetInput) {
+                try {
+                    const input = document.getElementById(this.options.targetInput) || document.querySelector(this.options.targetInput);
+                    if (input) {
+                        input.value = this.options.multiple 
+                            ? this.selectedItems.map(i => i.file_url || i.url || '').join(',')
+                            : (payload.file_url || '');
+                    }
+                } catch (inputErr) {
+                    console.error('Media picker targetInput error:', inputErr);
                 }
             }
+            
+            // Update preview if provided
+            if (this.options.targetPreview) {
+                try {
+                    const preview = document.getElementById(this.options.targetPreview) || document.querySelector(this.options.targetPreview);
+                    if (preview && payload.file_url) {
+                        if ((payload.file_type || '') === 'image') {
+                            preview.innerHTML = `<img src="${(payload.file_url || '').replace(/"/g, '&quot;')}" alt="${(payload.original_name || '').replace(/"/g, '&quot;')}" class="max-w-full max-h-full object-contain">`;
+                        } else {
+                            preview.innerHTML = `<span class="material-symbols-outlined text-4xl">videocam</span><p class="text-sm mt-2">${(payload.original_name || '').replace(/</g, '&lt;')}</p>`;
+                        }
+                    }
+                } catch (previewErr) {
+                    console.error('Media picker targetPreview error:', previewErr);
+                }
+            }
+            
+            // Call onSelect callback
+            if (this.options.onSelect && typeof this.options.onSelect === 'function') {
+                try {
+                    this.options.onSelect(payload);
+                } catch (err) {
+                    callbackError = err;
+                    console.error('Media picker onSelect callback error:', err);
+                }
+            }
+        } catch (mainErr) {
+            console.error('Media picker confirmSelection error:', mainErr);
         }
         
-        // Call onSelect callback
-        if (this.options.onSelect) {
-            this.options.onSelect(selected);
+        // Modal HER DURUMDA kapanmalı - ayrı try-catch ile
+        try {
+            this.close();
+        } catch (closeErr) {
+            console.error('Media picker close error after selection:', closeErr);
+            // Son çare: DOM'dan direkt kapat
+            try {
+                const modal = document.getElementById('media-picker-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    modal.classList.add('hidden');
+                }
+                document.body.style.overflow = '';
+            } catch (e) {}
         }
         
-        this.close();
+        // Callback hatası varsa kullanıcıya bildir (modal kapandıktan sonra)
+        if (callbackError) {
+            setTimeout(() => {
+                console.warn('Media seçimi sırasında hata oluştu, konsolu kontrol edin.');
+            }, 100);
+        }
     }
     
     async handleUpload(files) {

@@ -97,7 +97,11 @@ $menuLocation = $menu['location'] ?? 'header';
         /* Menu Item Styles */
         .menu-item { user-select: none; transition: margin-left 0.2s; }
         .menu-item.sortable-ghost { opacity: 0.4; }
-        .menu-item.sortable-chosen { box-shadow: 0 4px 12px rgba(19, 127, 236, 0.3); }
+        .menu-item.sortable-chosen {
+            box-shadow: 0 4px 12px rgba(19, 127, 236, 0.3);
+            z-index: 999999 !important;
+            position: relative;
+        }
         
         /* Nested levels */
         .nested-container { 
@@ -106,31 +110,26 @@ $menuLocation = $menu['location'] ?? 'header';
             border-left: 2px dashed rgba(19, 127, 236, 0.3); 
             min-height: 10px;
             transition: all 0.2s;
+            padding: 0.5rem 0 0.5rem 1rem;
         }
-        body:not(.is-dragging) .nested-container.hidden { display: none !important; }
-        .nested-container:not(.hidden) { padding: 0.5rem 0 0.5rem 1rem; }
-        
-        /* Show nested drop zone when dragging */
-        body.is-dragging .nested-container.hidden {
-            display: block !important;
-            min-height: 50px;
+        /* Empty nested: always visible, no hidden - so add/order work reliably */
+        .nested-container.nested-container--empty {
+            min-height: 44px;
+            padding: 8px 12px;
             background: rgba(19, 127, 236, 0.05);
-            border: 2px dashed rgba(19, 127, 236, 0.3);
+            border: 2px dashed rgba(19, 127, 236, 0.25);
             border-radius: 8px;
-            margin-top: 8px;
+            margin-top: 6px;
         }
-        body.is-dragging .nested-container.hidden::before {
-            content: 'Alt menü için buraya bırakın';
+        .nested-container.nested-container--empty::before {
+            content: 'Alt menü: buraya sürükleyin veya [+] ile ekleyin';
             display: flex;
             align-items: center;
-            justify-content: center;
-            height: 100%;
-            min-height: 50px;
-            color: rgba(19, 127, 236, 0.6);
+            min-height: 28px;
+            color: rgba(19, 127, 236, 0.55);
             font-size: 12px;
         }
         
-        /* Highlight drop zone */
         .nested-container.sortable-fallback,
         .nested-container:has(.sortable-ghost) {
             background: rgba(19, 127, 236, 0.1);
@@ -149,6 +148,16 @@ $menuLocation = $menu['location'] ?? 'header';
         /* Empty state */
         .empty-drop-zone { border: 2px dashed rgba(107, 114, 128, 0.3); min-height: 200px; }
         .empty-drop-zone.drag-over { border-color: #137fec; background: rgba(19, 127, 236, 0.05); }
+        
+        /* Menü listesi scroll alanı - taşmayı önler */
+        #menuItemsScroll {
+            overscroll-behavior: contain;
+        }
+        #menuItemsScroll::-webkit-scrollbar { width: 8px; }
+        #menuItemsScroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); border-radius: 4px; }
+        #menuItemsScroll::-webkit-scrollbar-thumb { background: rgba(107, 114, 128, 0.4); border-radius: 4px; }
+        .dark #menuItemsScroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .dark #menuItemsScroll::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); }
     </style>
 </head>
 <body class="font-display bg-background-light dark:bg-background-dark">
@@ -269,32 +278,53 @@ $menuLocation = $menu['location'] ?? 'header';
                                 </div>
                             </div>
                                     
-                            <!-- Kategoriler Accordion -->
+                            <!-- Emlak Tipleri (realestate-listings modül ayarlarından) -->
                             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                                 <button type="button" onclick="toggleAccordion('categories')" class="w-full px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors min-h-[44px]">
                                     <span class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                        <span class="material-symbols-outlined text-purple-500 text-lg sm:text-xl flex-shrink-0">folder</span>
-                                        <span class="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm truncate">Kategoriler</span>
+                                        <span class="material-symbols-outlined text-purple-500 text-lg sm:text-xl flex-shrink-0">category</span>
+                                        <span class="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm truncate">Emlak Tipleri</span>
                                     </span>
                                     <span class="material-symbols-outlined text-gray-400 accordion-arrow text-lg sm:text-xl flex-shrink-0" id="arrow-categories">expand_more</span>
                                 </button>
                                 <div class="accordion-content" id="accordion-categories">
                                     <div class="px-3 sm:px-4 pb-3 sm:pb-4 space-y-2 max-h-60 overflow-y-auto">
-                                        <?php if (!empty($categories)): ?>
-                                            <?php foreach ($categories as $cat): ?>
+                                        <?php if (!empty($listing_categories)): ?>
+                                            <?php foreach ($listing_categories as $cat): 
+                                                $typeUrl = '/ilanlar/kategori/' . rawurlencode($cat['slug']);
+                                            ?>
                                             <label class="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg cursor-pointer">
-                                                <input type="checkbox" class="category-checkbox w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" 
+                                                <input type="checkbox" class="propertyType-checkbox w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" 
                                                        data-title="<?php echo esc_attr($cat['name']); ?>" 
-                                                       data-url="<?php echo esc_attr('/kategori/' . $cat['slug']); ?>">
+                                                       data-url="<?php echo esc_attr($typeUrl); ?>">
                                                 <span class="text-sm text-gray-700 dark:text-gray-300"><?php echo esc_html($cat['name']); ?></span>
                                             </label>
                                             <?php endforeach; ?>
+                                            <button type="button" onclick="addAllPropertyTypes()" class="w-full mt-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-xs font-medium flex items-center justify-center gap-2">
+                                                <span class="material-symbols-outlined text-base">playlist_add</span>
+                                                Tüm kategorileri menüye ekle
+                                            </button>
+                                        <?php elseif (!empty($property_types)): ?>
+                                            <?php foreach ($property_types as $typeKey => $typeLabel): 
+                                                $typeUrl = '/ilanlar?type=' . rawurlencode($typeKey);
+                                            ?>
+                                            <label class="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg cursor-pointer">
+                                                <input type="checkbox" class="propertyType-checkbox w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" 
+                                                       data-title="<?php echo esc_attr($typeLabel); ?>" 
+                                                       data-url="<?php echo esc_attr($typeUrl); ?>">
+                                                <span class="text-sm text-gray-700 dark:text-gray-300"><?php echo esc_html($typeLabel); ?></span>
+                                            </label>
+                                            <?php endforeach; ?>
+                                            <button type="button" onclick="addAllPropertyTypes()" class="w-full mt-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-xs font-medium flex items-center justify-center gap-2">
+                                                <span class="material-symbols-outlined text-base">playlist_add</span>
+                                                Tüm emlak tiplerini menüye ekle
+                                            </button>
                                         <?php else: ?>
-                                            <p class="text-sm text-gray-500 py-2">Henüz kategori oluşturulmamış</p>
+                                            <p class="text-sm text-gray-500 py-2">İlan kategorileri Real Estate Listings modülü ayarlarından gelir. <a href="<?php echo esc_attr(admin_url('module/realestate-listings/settings')); ?>" class="text-primary hover:underline">Modül ayarları</a>ndan emlak tipi ve ilan durumu ekleyin.</p>
                                         <?php endif; ?>
-                                        <button type="button" onclick="addCheckedItems('category')" class="w-full mt-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center justify-center gap-2">
+                                        <button type="button" onclick="addCheckedItems('propertyType')" class="w-full mt-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center justify-center gap-2">
                                             <span class="material-symbols-outlined text-lg">add</span>
-                                            Menüye Ekle
+                                            Seçilenleri Menüye Ekle
                                         </button>
                                     </div>
                                 </div>
@@ -357,6 +387,7 @@ $menuLocation = $menu['location'] ?? 'header';
                                 
                                 <!-- Menu Items -->
                                 <div class="p-4 sm:p-6" id="menuBuilderContainer">
+                                    <div class="max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-lg pr-1 -mr-1" id="menuItemsScroll">
                                     <div id="menuItems" class="space-y-2 min-h-[300px]">
                                     <?php if (empty($items)): ?>
                                         <div id="emptyState" class="empty-drop-zone rounded-xl flex flex-col items-center justify-center py-16 text-center">
@@ -386,10 +417,21 @@ $menuLocation = $menu['location'] ?? 'header';
                                                     </div>
                                                     
                                                     <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                                        <button type="button" onclick="toggleItemEdit(<?php echo $item['id']; ?>)" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center" title="Düzenle">
+                                                        <button type="button" onclick="addSubItem('<?php echo addslashes((string)$item['id']); ?>')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center" title="Alt menü ekle">
+                                                            <span class="material-symbols-outlined text-base sm:text-lg">add</span>
+                                                        </button>
+                                                        <button type="button" onclick="moveItemAsChildOfPrevious('<?php echo addslashes((string)$item['id']); ?>')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center" title="Bir üsttekinin altına taşı (Alt menü yap)">
+                                                            <span class="material-symbols-outlined text-base sm:text-lg">subdirectory_arrow_right</span>
+                                                        </button>
+                                                        <?php if ($level > 0): ?>
+                                                        <button type="button" onclick="moveItemToParentLevel('<?php echo addslashes((string)$item['id']); ?>')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center" title="Üst seviyeye taşı">
+                                                            <span class="material-symbols-outlined text-base sm:text-lg">subdirectory_arrow_left</span>
+                                                        </button>
+                                                        <?php endif; ?>
+                                                        <button type="button" onclick="toggleItemEdit('<?php echo addslashes((string)$item['id']); ?>')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center" title="Düzenle">
                                                             <span class="material-symbols-outlined text-base sm:text-lg">expand_more</span>
                                                         </button>
-                                                        <button type="button" onclick="removeItem(<?php echo $item['id']; ?>)" class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center" title="Kaldır">
+                                                        <button type="button" onclick="removeItem('<?php echo addslashes((string)$item['id']); ?>')" class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center" title="Kaldır">
                                                             <span class="material-symbols-outlined text-base sm:text-lg">close</span>
                                                         </button>
                                                     </div>
@@ -429,19 +471,19 @@ $menuLocation = $menu['location'] ?? 'header';
                                                             <input type="checkbox" class="edit-status w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" <?php echo $item['status'] === 'active' ? 'checked' : ''; ?>>
                                                             <span class="text-sm text-gray-700 dark:text-gray-300">Aktif</span>
                                                         </label>
-                                                        <button type="button" onclick="saveItemEdit(<?php echo $item['id']; ?>)" class="px-4 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary/90 transition-colors min-h-[36px] w-full sm:w-auto">
+                                                        <button type="button" onclick="saveItemEdit('<?php echo addslashes((string)$item['id']); ?>')" class="px-4 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary/90 transition-colors min-h-[36px] w-full sm:w-auto">
                                                             Güncelle
                                                         </button>
                                                     </div>
                                                 </div>
                                                 
-                                                <?php if (!empty($children)): ?>
-                                                <div class="nested-container mt-2 space-y-2 sortable-nested">
+                                                <?php 
+                                                $isEmptyNested = empty($children);
+                                                $nestedClass = 'nested-container mt-2 space-y-2 sortable-nested' . ($isEmptyNested ? ' nested-container--empty' : '');
+                                                ?>
+                                                <div class="<?php echo $nestedClass; ?>" data-parent="<?php echo $item['id']; ?>">
                                                     <?php foreach ($children as $child): renderMenuItemNew($child, $allItems, $level + 1); endforeach; ?>
                                                 </div>
-                                                <?php else: ?>
-                                                <div class="nested-container mt-2 space-y-2 sortable-nested hidden"></div>
-                                                <?php endif; ?>
                                                 </div>
                                             <?php
                                             }
@@ -453,14 +495,15 @@ $menuLocation = $menu['location'] ?? 'header';
                                             ?>
                                         <?php endif; ?>
                                     </div>
+                                    </div>
                                     
                                     <!-- Help Text -->
                                     <div class="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">
                                         <div class="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                                             <span class="material-symbols-outlined text-base sm:text-lg flex-shrink-0 mt-0.5">info</span>
                                             <div class="min-w-0">
-                                                <p class="mb-1"><strong>İpucu:</strong> Öğeleri sürükleyerek sıralayın.</p>
-                                                <p class="break-words">Alt menü oluşturmak için bir öğeyi başka bir öğenin üzerine sürükleyin.</p>
+                                                <p class="mb-1"><strong>İpucu:</strong> Öğeleri sürükleyerek sıralayın veya <strong>başka bir öğenin altına bırakarak</strong> alt menü yapın.</p>
+                                                <p class="break-words">Alt menü: Öğeyi bir öğenin hemen altındaki gri alana sürükleyip bırakın; veya <strong>+</strong> ile yeni alt öğe ekleyin; <strong>→</strong> ile bir üsttekinin altına taşıyın; <strong>←</strong> ile üst seviyeye çıkarın.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -501,7 +544,7 @@ $menuLocation = $menu['location'] ?? 'header';
             const container = document.getElementById('menuItems');
             if (!container) return;
             
-            // Main container
+            // Ana liste ve alt menü listeleri aynı grup ile: sürükle-bırak ile alt menü oluşturulabilir
             new Sortable(container, {
                 animation: 150,
                 handle: '.drag-handle',
@@ -509,77 +552,85 @@ $menuLocation = $menu['location'] ?? 'header';
                 chosenClass: 'sortable-chosen',
                 fallbackOnBody: true,
                 swapThreshold: 0.65,
-                group: {
-                    name: 'menu',
-                    pull: true,
-                    put: true
-                },
+                filter: '#emptyState',
+                group: 'menu-items',
+                scroll: true,
+                scrollSensitivity: 60,
+                scrollSpeed: 18,
+                bubbleScroll: true,
+                forceAutoScrollFallback: true,
                 onEnd: handleSort,
-                onMove: handleMove
+                onAdd: function(evt) {
+                    if (evt.to.classList.contains('sortable-nested')) {
+                        evt.to.classList.remove('nested-container--empty');
+                        updateNestedLevels();
+                        reinitNestedSortables();
+                    }
+                },
+                onRemove: function(evt) {
+                    if (evt.from.classList.contains('sortable-nested') && evt.from.children.length === 0) {
+                        evt.from.classList.add('nested-container--empty');
+                    }
+                    updateNestedLevels();
+                }
             });
             
-            // Nested containers
+            // Nested containers (alt menü alanları) - aynı group ile ana listeden veya başka alt menüden sürüklenebilir
             document.querySelectorAll('.sortable-nested').forEach(initNestedSortable);
         }
         
         function initNestedSortable(el) {
-            // Show container if it has children
+            if (!el || el._sortableInited) return;
+            el._sortableInited = true;
             if (el.children.length > 0) {
-                el.classList.remove('hidden');
+                el.classList.remove('nested-container--empty');
+            } else {
+                el.classList.add('nested-container--empty');
             }
-            
-                new Sortable(el, {
-                    animation: 150,
-                    handle: '.drag-handle',
-                    ghostClass: 'sortable-ghost',
-                    chosenClass: 'sortable-chosen',
+            new Sortable(el, {
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
                 fallbackOnBody: true,
                 swapThreshold: 0.65,
-                group: {
-                    name: 'menu',
-                    pull: true,
-                    put: true
-                },
+                group: 'menu-items',
+                scroll: true,
+                scrollSensitivity: 60,
+                scrollSpeed: 18,
+                bubbleScroll: true,
+                forceAutoScrollFallback: true,
                 onEnd: handleSort,
                 onAdd: function(evt) {
-                    // Show container when item added
-                    evt.to.classList.remove('hidden');
+                    evt.to.classList.remove('nested-container--empty');
                     updateNestedLevels();
+                    reinitNestedSortables();
                 },
                 onRemove: function(evt) {
-                    // Hide container if empty
                     if (evt.from.children.length === 0) {
-                        evt.from.classList.add('hidden');
+                        evt.from.classList.add('nested-container--empty');
                     }
                     updateNestedLevels();
                 }
             });
         }
         
-        function handleMove(evt) {
-            // Prevent moving an item into its own children
-            const draggedItem = evt.dragged;
-            const targetContainer = evt.to;
-            
-            // Check if target is inside dragged item
-            if (draggedItem.contains(targetContainer)) {
-                return false;
-            }
-            return true;
+        // Yeni eklenen nested container'ları Sortable yap (drag-drop sonrası boş alanlar da hedef olabilsin)
+        function reinitNestedSortables() {
+            document.querySelectorAll('.sortable-nested').forEach(function(el) {
+                if (!el._sortableInited) initNestedSortable(el);
+            });
         }
         
         function handleSort(evt) {
             hasChanges = true;
-            
-            // Show/hide nested containers based on content
             document.querySelectorAll('.sortable-nested').forEach(container => {
                 if (container.children.length > 0) {
-                    container.classList.remove('hidden');
+                    container.classList.remove('nested-container--empty');
                 } else {
-                    container.classList.add('hidden');
+                    container.classList.add('nested-container--empty');
                 }
             });
-            
             updateNestedLevels();
         }
         
@@ -622,6 +673,19 @@ $menuLocation = $menu['location'] ?? 'header';
             });
         }
         
+        // Emlak tipleri bölümündeki tüm tipleri tek seferde menüye ekle
+        function addAllPropertyTypes() {
+            const checkboxes = document.querySelectorAll('.propertyType-checkbox');
+            if (checkboxes.length === 0) {
+                alert('Henüz emlak tipi yok.');
+                return;
+            }
+            checkboxes.forEach(cb => {
+                addItemToMenu(cb.dataset.title, cb.dataset.url);
+            });
+            hasChanges = true;
+        }
+        
         // Add custom link
         function addCustomLink() {
             const title = document.getElementById('customTitle').value.trim();
@@ -637,7 +701,7 @@ $menuLocation = $menu['location'] ?? 'header';
             document.getElementById('customUrl').value = '#';
         }
         
-        // Add item to menu
+        // Add item to menu (root level)
         function addItemToMenu(title, url) {
             const container = document.getElementById('menuItems');
             const emptyState = document.getElementById('emptyState');
@@ -659,6 +723,60 @@ $menuLocation = $menu['location'] ?? 'header';
             hasChanges = true;
         }
         
+        // Alt menü (alt kategori) ekle – seçili öğenin altına yeni öğe ekler
+        function addSubItem(parentId) {
+            const parentItem = document.querySelector(`[data-id="${parentId}"]`);
+            if (!parentItem) return;
+            
+            const nested = parentItem.querySelector(':scope > .sortable-nested');
+            if (!nested) return;
+            
+            const itemId = 'new_' + itemIdCounter++;
+            const itemHtml = createMenuItemHtml(itemId, 'Yeni alt menü', '#');
+            
+            nested.insertAdjacentHTML('beforeend', itemHtml);
+            nested.classList.remove('nested-container--empty');
+            
+            const newItem = nested.querySelector(`[data-id="${itemId}"]`);
+            const newNested = newItem ? newItem.querySelector('.sortable-nested') : null;
+            if (newNested) initNestedSortable(newNested);
+            
+            hasChanges = true;
+        }
+        
+        // Move item as child of previous sibling (Alt menü yap)
+        function moveItemAsChildOfPrevious(itemId) {
+            const item = document.querySelector(`[data-id="${itemId}"]`);
+            if (!item) return;
+            const myList = item.parentElement;
+            if (!myList || !myList.classList.contains('sortable-nested')) return;
+            const prev = item.previousElementSibling;
+            if (!prev || !prev.classList.contains('menu-item')) return;
+            const prevNested = prev.querySelector(':scope > .sortable-nested');
+            if (!prevNested) return;
+            prevNested.appendChild(item);
+            prevNested.classList.remove('nested-container--empty');
+            if (myList.children.length === 0) myList.classList.add('nested-container--empty');
+            updateNestedLevels();
+            hasChanges = true;
+        }
+        
+        // Move item to parent level (Üst seviyeye taşı)
+        function moveItemToParentLevel(itemId) {
+            const item = document.querySelector(`[data-id="${itemId}"]`);
+            if (!item) return;
+            const parentContainer = item.closest('.sortable-nested');
+            if (!parentContainer) return;
+            const ownerItem = parentContainer.closest('.menu-item');
+            if (!ownerItem) return;
+            const targetContainer = ownerItem.parentElement;
+            if (!targetContainer) return;
+            targetContainer.appendChild(item);
+            if (parentContainer.children.length === 0) parentContainer.classList.add('nested-container--empty');
+            updateNestedLevels();
+            hasChanges = true;
+        }
+        
         // Create menu item HTML
         function createMenuItemHtml(id, title, url) {
             return `
@@ -672,10 +790,19 @@ $menuLocation = $menu['location'] ?? 'header';
                             <span class="item-url text-xs text-gray-500 dark:text-gray-400 truncate block">${escapeHtml(url)}</span>
                         </div>
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button type="button" onclick="toggleItemEdit('${id}')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+                            <button type="button" onclick="addSubItem('${id}')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Alt menü ekle">
+                                <span class="material-symbols-outlined text-lg">add</span>
+                            </button>
+                            <button type="button" onclick="moveItemAsChildOfPrevious('${id}')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Bir üsttekinin altına taşı (Alt menü yap)">
+                                <span class="material-symbols-outlined text-lg">subdirectory_arrow_right</span>
+                            </button>
+                            <button type="button" onclick="moveItemToParentLevel('${id}')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Üst seviyeye taşı">
+                                <span class="material-symbols-outlined text-lg">subdirectory_arrow_left</span>
+                            </button>
+                            <button type="button" onclick="toggleItemEdit('${id}')" class="p-1.5 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Düzenle">
                                 <span class="material-symbols-outlined text-lg">expand_more</span>
                             </button>
-                            <button type="button" onclick="removeItem('${id}')" class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                            <button type="button" onclick="removeItem('${id}')" class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Kaldır">
                                 <span class="material-symbols-outlined text-lg">close</span>
                             </button>
                         </div>
@@ -718,23 +845,10 @@ $menuLocation = $menu['location'] ?? 'header';
                             </button>
                         </div>
                     </div>
-                    <div class="nested-container mt-2 space-y-2 sortable-nested hidden" data-parent="${id}"></div>
+                    <div class="nested-container mt-2 space-y-2 sortable-nested nested-container--empty" data-parent="${id}"></div>
                 </div>
             `;
         }
-        
-        // Make nested visible on hover during drag
-        let isDragging = false;
-        document.addEventListener('mousedown', function(e) {
-            if (e.target.closest('.drag-handle')) {
-                isDragging = true;
-                document.body.classList.add('is-dragging');
-            }
-        });
-        document.addEventListener('mouseup', function() {
-            isDragging = false;
-            document.body.classList.remove('is-dragging');
-        });
         
         // Toggle item edit form
         function toggleItemEdit(id) {
@@ -808,7 +922,7 @@ $menuLocation = $menu['location'] ?? 'header';
                     const isNew = String(id).startsWith('new_');
                     
                     const itemData = {
-                        id: isNew ? null : parseInt(id),
+                        id: isNew ? id : parseInt(id),
                         title: item.querySelector('.edit-title')?.value || item.querySelector('.item-title').textContent,
                         url: item.querySelector('.edit-url')?.value || item.querySelector('.item-url').textContent,
                         target: item.querySelector('.edit-target')?.value || '_self',

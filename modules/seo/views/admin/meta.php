@@ -516,6 +516,17 @@ html.dark .seo-page,
                 
                 <div class="form-group">
                     <label class="form-label">
+                        <span class="material-symbols-outlined">web</span>
+                        Diğer Tüm Sayfalar Title
+                    </label>
+                    <input type="text" name="meta_title_default" class="form-input"
+                           value="<?php echo esc_attr($settings['meta_title_default'] ?? '{page_title} - {site_name}'); ?>"
+                           placeholder="{page_title} - {site_name}">
+                    <p style="color: var(--text-dim); font-size: 0.8125rem; margin-top: 6px;">Ana sayfa, yazı ve kategori dışındaki tüm sayfalarda (modül sayfaları, iletişim, teklif al vb.) kullanılır.</p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
                         <span class="material-symbols-outlined">remove</span>
                         Ayraç
                     </label>
@@ -538,8 +549,28 @@ html.dark .seo-page,
                         <span class="variable-tag">{category_name}</span>
                         <span class="variable-tag">{tag_name}</span>
                         <span class="variable-tag">{page_number}</span>
+                        <span class="variable-tag">{page_title}</span>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Tüm Sayfaların SEO'su (Modül sayfaları dahil) -->
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon">
+                    <span class="material-symbols-outlined">web</span>
+                </div>
+                <h2 class="section-title">Tüm Sayfaların SEO'su</h2>
+            </div>
+            <div class="section-body">
+                <p class="form-description" style="color: var(--text-dim); font-size: 0.9375rem; margin: 0 0 16px; line-height: 1.5;">
+                    Ana sayfa, blog, yazı ve kategori için yukarıdaki şablonlar kullanılır. <strong>Modül sayfaları</strong> (İlanlar, İlan detay, Danışmanlar, Harita, İletişim, Teklif Al, Sözleşmeler vb.) ve <strong>tüm sayfa tipleri</strong> için meta title ve description’ı sayfa sayfa düzenlemek isterseniz aşağıdaki bağlantıyı kullanın.
+                </p>
+                <a href="<?php echo admin_url('module/seo/page_meta'); ?>" class="btn-submit" style="display: inline-flex; text-decoration: none;">
+                    <span class="material-symbols-outlined">edit_note</span>
+                    Sayfa Meta Yönetimi (Tüm sayfalar)
+                </a>
             </div>
         </div>
         
@@ -563,11 +594,21 @@ html.dark .seo-page,
                 
                 <div class="form-group">
                     <label class="form-label">
+                        <span class="material-symbols-outlined">web</span>
+                        Diğer Tüm Sayfalar Description
+                    </label>
+                    <textarea name="meta_description_other" class="form-textarea"
+                              placeholder="Ana sayfa, yazı ve kategori dışındaki sayfalarda kullanılacak varsayılan açıklama..."><?php echo esc_html($settings['meta_description_other'] ?? ''); ?></textarea>
+                    <p style="color: var(--text-dim); font-size: 0.8125rem; margin-top: 6px;">Modül sayfaları (İlanlar, Danışmanlar, Harita vb.) ve diğer sayfalarda özel meta girilmediğinde kullanılır.</p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
                         <span class="material-symbols-outlined">text_snippet</span>
                         Varsayılan Description
                     </label>
                     <textarea name="meta_description_default" class="form-textarea"
-                              placeholder="Özel açıklama girilmediğinde kullanılacak varsayılan metin..."><?php echo esc_html($settings['meta_description_default'] ?? ''); ?></textarea>
+                              placeholder="Özel açıklama girilmediğinde kullanılacak genel varsayılan metin..."><?php echo esc_html($settings['meta_description_default'] ?? ''); ?></textarea>
                 </div>
                 
                 <!-- Google Preview -->

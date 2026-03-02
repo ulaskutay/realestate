@@ -170,6 +170,50 @@ class ViewRenderer {
     }
     
     /**
+     * Verilen içerik ile layout render eder (header/footer dahil).
+     * Modül sayfalarının tema layout'u ile göstermesi için kullanılır.
+     */
+    public function renderWithContent(string $layoutName, string $content, array $data = []): void {
+        $sections = $data['sections'] ?? [];
+        $sections['content'] = $content;
+        
+        if (!empty($this->sections)) {
+            $sections = array_merge($sections, $this->sections);
+        }
+        
+        if ($this->hasActiveTheme()) {
+            $themeStyles = $this->themeLoader->getHeadOutput();
+            if (!empty($themeStyles)) {
+                $sections['styles'] = ($sections['styles'] ?? '') . $themeStyles;
+            }
+            $themeScripts = $this->themeLoader->getFooterOutput();
+            if (!empty($themeScripts)) {
+                $sections['scripts'] = ($sections['scripts'] ?? '') . $themeScripts;
+            }
+        }
+        
+        if (function_exists('apply_filters')) {
+            $content = apply_filters('the_content', $content);
+        }
+        
+        $layoutPath = $this->resolveLayoutPath($layoutName);
+        if (!$layoutPath || !file_exists($layoutPath)) {
+            echo $content;
+            return;
+        }
+        
+        $layoutData = array_merge($data, [
+            'sections' => $sections,
+            'content' => $content,
+            'themeLoader' => $this->themeLoader,
+            'renderer' => $this,
+            'current_page' => $data['current_page'] ?? '',
+        ]);
+        extract($layoutData);
+        require $layoutPath;
+    }
+    
+    /**
      * View dosya yolunu çözümle (tema öncelikli)
      */
     private function resolveViewPath(string $viewName): ?string {

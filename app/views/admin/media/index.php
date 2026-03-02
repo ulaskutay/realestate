@@ -285,9 +285,22 @@
                                                      class="w-full h-full object-cover"
                                                      loading="lazy">
                                             <?php elseif ($fileType === 'video'): ?>
-                                                <div class="w-full h-full flex items-center justify-center bg-gray-800">
-                                                    <span class="material-symbols-outlined text-white text-4xl">play_circle</span>
-                                                </div>
+                                                <?php
+                                                $videoThumb = !empty($item['thumbnail_path']) ? site_url('uploads/' . $item['thumbnail_path']) : null;
+                                                ?>
+                                                <?php if ($videoThumb): ?>
+                                                    <img src="<?php echo esc_url($videoThumb); ?>"
+                                                         alt="<?php echo esc_attr($item['alt_text'] ?? $item['original_name']); ?>"
+                                                         class="w-full h-full object-cover"
+                                                         loading="lazy">
+                                                    <div class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
+                                                        <span class="material-symbols-outlined text-white text-3xl drop-shadow">play_circle</span>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="w-full h-full flex items-center justify-center bg-gray-800">
+                                                        <span class="material-symbols-outlined text-white text-4xl">play_circle</span>
+                                                    </div>
+                                                <?php endif; ?>
                                             <?php elseif ($fileType === 'audio'): ?>
                                                 <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500">
                                                     <span class="material-symbols-outlined text-white text-4xl">audiotrack</span>

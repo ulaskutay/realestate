@@ -214,6 +214,13 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
         if (mb_strlen($desc) > 800) {
             $desc = mb_substr($desc, 0, 800);
         }
+        $minChars = 700;
+        if (mb_strlen($desc) < $minChars) {
+            return [
+                'success' => false,
+                'error' => 'Yapay zeka metni en az ' . $minChars . ' karakter olmalı; şu an ' . mb_strlen($desc) . ' karakter üretildi. Lütfen tekrar deneyin veya parsel bilgilerini (yakın lokasyonlar vb.) zenginleştirin.'
+            ];
+        }
         return ['success' => true, 'description' => $desc];
     }
 
@@ -227,9 +234,12 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
         $yakınLok = $data['yakın_lokasyonlar'] ?? [];
         $yakınLokStr = '';
         if (!empty($yakınLok) && is_array($yakınLok)) {
-            $yakınLokStr = "\n- Yakın Lokasyonlar: " . implode(' | ', array_map('trim', $yakınLok));
+            $yakınLokStr = "\n- Yakın Lokasyonlar (kullanıcının belirttiği bilgiler – metne MUTLAKA dahil et):\n  " . implode("\n  ", array_map(function ($x) { return '• ' . trim($x); }, $yakınLok));
         }
-        return "Aşağıdaki parsel bilgilerine göre drone videoda kullanılacak seslendirme metni yaz. Emlak tanıtımı tarzında, profesyonel ve ikna edici bir metin.\n\nParsel Bilgileri:\n- Konum: {$konumStr}\n- Ada: {$ada}\n- Parsel: {$parselNo}\n- Alan: {$alan}\n- Nitelik: {$nitelik}{$yakınLokStr}\n\nFormat örneği: \"[İl]'un [ilçe] ilçesi [mahalle] Mahallesi'nde yer alan, ada [sayı yazıyla], parsel [sayı] numaralı, [alan metrekare yazıyla] metrekarelik [nitelik] nitelikli tek tapulu arazimiz satışa sunulmuştur. [Varsa yakın lokasyonları burada doğal biçimde ekle: Örneğin '...konum avantajı sunarken, yakınında X kilometre mesafede Y, Z kilometrede W gibi önemli noktalar bulunmaktadır.'] Bu geniş arazi, yatırımcılar için eşsiz bir fırsat sunarken... Değer kazanma potansiyeline sahiptir. Detaylı bilgi almak için hemen iletişime geçin.\"\n\nGereksinimler: Türkçe, maksimum 800 karakter. Ada ve parsel numaralarını yazıyla yaz. Alanı metrekare olarak yazıyla ifade et. Nitelik kelimesini metne dahil et. Yakın lokasyonlar verildiyse, bunları metne doğal ve akıcı şekilde ekle (mesafe bilgisiyle birlikte). Yatırımcıyı cezbeden, bölge avantajlarını vurgulayan, sonunda iletişime geçin çağrısı olan akıcı bir seslendirme metni yaz. Sadece metni yaz, başlık ekleme.";
+        $gereksinimYakin = !empty($yakınLok) && is_array($yakınLok)
+            ? " Yakın lokasyonlar bölümünde kullanıcının belirttiği HER BİR bilgiyi metne mutlaka ekle; konum avantajı olarak doğal ve akıcı cümlelerle (mesafe/özellik vurgulayarak) seslendirme metnine dahil et. Bu maddeler atlanmamalıdır."
+            : "";
+        return "Aşağıdaki parsel bilgilerine göre drone videoda kullanılacak seslendirme metni yaz. Emlak tanıtımı tarzında, profesyonel ve ikna edici bir metin.\n\nParsel Bilgileri:\n- Konum: {$konumStr}\n- Ada: {$ada}\n- Parsel: {$parselNo}\n- Alan: {$alan}\n- Nitelik: {$nitelik}{$yakınLokStr}\n\nGereksinimler:\n- Türkçe, en az 700 karakter ve maksimum 800 karakter olmalı; metin mutlaka 700 karakteri geçsin.\n- Ada ve parsel numaralarını yazıyla yaz.\n- Alanı metrekare olarak yazıyla ifade et.\n- Nitelik kelimesini metne dahil et.\n- Yatırımcıyı cezbeden, bölge avantajlarını vurgulayan, sonunda iletişime geçin çağrısı olan akıcı bir seslendirme metni yaz.\n- Sadece metni yaz, başlık ekleme.{$gereksinimYakin}";
     }
 
     /**

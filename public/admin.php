@@ -58,7 +58,9 @@ $ajaxEndpoints = [
     'themes/getSections',
     'themes/getSectionData',
     'test_smtp_connection',
-    'send_test_email'
+    'send_test_email',
+    'module/video-timeline/save-timeline',
+    'module/video-timeline/delete-timeline'
 ];
 
 $isAjaxEndpoint = false;
@@ -77,6 +79,12 @@ if ($isAjaxEndpoint) {
     // Normal sayfalar için hata raporlamayı aç (geliştirme için)
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
+}
+
+// Composer autoload (vendor)
+$autoload = __DIR__ . '/../vendor/autoload.php';
+if (file_exists($autoload)) {
+    require_once $autoload;
 }
 
 // Core dosyalarını yükle
@@ -102,6 +110,25 @@ try {
     do_action('admin_init');
 } catch (Exception $e) {
     error_log("Module loader error: " . $e->getMessage());
+}
+
+// Modül asset proxy (CSS/JS dosyaları modules/MODULE/assets/ üzerinden sunulur)
+if (($page ?? '') === 'module-asset') {
+    $module = isset($_GET['module']) ? preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$_GET['module']) : '';
+    $file = isset($_GET['file']) ? (string)$_GET['file'] : '';
+    if ($module !== '' && $file !== '' && strpos($file, '..') === false && strpos($file, "\0") === false && preg_match('/^[a-zA-Z0-9_.-]+$/', $file)) {
+        $path = dirname(__DIR__) . '/modules/' . $module . '/assets/' . $file;
+        if (is_file($path)) {
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            $mimes = ['css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'woff' => 'font/woff', 'woff2' => 'font/woff2'];
+            header('Content-Type: ' . ($mimes[$ext] ?? 'application/octet-stream'));
+            header('Cache-Control: public, max-age=86400');
+            readfile($path);
+            exit;
+        }
+    }
+    header('HTTP/1.0 404 Not Found');
+    exit;
 }
 
 // Slider route'larını kontrol et

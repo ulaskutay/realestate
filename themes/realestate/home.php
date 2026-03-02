@@ -32,8 +32,8 @@ $defaultSections = [
         ]
     ],
     'featured-listings' => [
-        'title' => __('Featured Properties'),
-        'subtitle' => __('Discover our handpicked selection of premium properties')
+        'title' => __('Öne Çıkan İlanlar'),
+        'subtitle' => __('Özenle seçilmiş premium mülk koleksiyonumuzu keşfedin.')
     ],
     'consultants' => [
         'title' => __('Uzman Danışmanlarımız'),
@@ -128,12 +128,12 @@ $defaultSections = [
         ]
     ],
     'cta' => [
-        'title' => __('Ready to Find Your Dream Home?'),
-        'subtitle' => __('Let us help you find the perfect property. Contact us today for a free consultation.'),
+        'title' => __('Hayalinizdeki Evi Bulmaya Hazır mısınız?'),
+        'subtitle' => __('Mükemmel mülkü bulmanıza yardımcı olalım. Ücretsiz danışmanlık için bugün bizimle iletişime geçin.'),
         'settings' => [
-            'button_text' => __('Get Started Today'),
+            'button_text' => __('Hemen Başlayın'),
             'button_link' => '/contact',
-            'secondary_button_text' => __('Browse Properties'),
+            'secondary_button_text' => __('İlanları İncele'),
             'secondary_button_link' => '/ilanlar'
         ]
     ]

@@ -675,9 +675,10 @@ class HomeController extends Controller
             exit;
         }
 
-        // Template yoksa page() metoduna yönlendir (slug bazlı)
-        // Bu sayede panelden oluşturulan sayfa doğru şekilde handle edilir
-        $this->page('teklif-al');
+        // Mevcut temada teklif al sayfası yoksa 404 vermek yerine iletişim sayfasına yönlendir (farklı temadan kalan linkler için)
+        $contactUrl = function_exists('site_url') ? site_url('iletisim') : '/iletisim';
+        header('Location: ' . $contactUrl, true, 301);
+        exit;
     }
 
     /**
@@ -832,10 +833,12 @@ class HomeController extends Controller
                 $listingsModule = $moduleLoader->getModule('realestate-listings');
                 
                 if ($listingsModule && $listingsModule['status'] === 'active') {
-                    // Listings model'ini yükle
-                    $listingsModelPath = __DIR__ . '/../../themes/realestate/modules/realestate-listings/Model.php';
+                    // Listings model'ini yükle (özel modül modules/realestate-listings)
+                    $listingsModelPath = dirname(dirname(__DIR__)) . '/modules/realestate-listings/Model.php';
                     if (file_exists($listingsModelPath)) {
-                        require_once $listingsModelPath;
+                        if (!class_exists('RealEstateListingsModel')) {
+                            require_once $listingsModelPath;
+                        }
                         if (class_exists('RealEstateListingsModel')) {
                             $listingsModel = new RealEstateListingsModel();
                             

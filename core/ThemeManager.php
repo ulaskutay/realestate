@@ -653,6 +653,11 @@ class ThemeManager {
             }
         }
         
+        // Logo/favicon ve URL içeren key'ler çeviri filter'ına hiç girmez (footer/header logosu boş dönmesin)
+        $neverTranslateKeys = ['site_logo', 'site_favicon', 'logo_width', 'logo_height'];
+        if (in_array($key, $neverTranslateKeys, true)) {
+            return $value;
+        }
         // Çevirilmemesi gereken ayarlar (URL'ler, teknik değerler, virgüllü listeler vb.)
         $noTranslateKeys = [
             'animated_words', 'button_link', 'secondary_button_link', 'top_button_link',

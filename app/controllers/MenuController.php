@@ -65,10 +65,11 @@ class MenuController extends Controller {
     public function create() {
         $this->checkAuth();
         
-        // Sayfaları, yazıları ve kategorileri getir
+        // Sayfaları, yazıları, emlak tiplerini ve ilan kategorilerini getir
         $pages = $this->getPages();
         $posts = $this->getPosts();
-        $categories = $this->getCategories();
+        $property_types = $this->getPropertyTypes();
+        $listing_categories = $this->getListingCategories();
         
         $data = [
             'title' => 'Yeni Menü Oluştur',
@@ -78,7 +79,8 @@ class MenuController extends Controller {
             'locations' => $this->menuModel->getLocations(),
             'pages' => $pages,
             'posts' => $posts,
-            'categories' => $categories,
+            'property_types' => $property_types,
+            'listing_categories' => $listing_categories,
             'message' => $_SESSION['menu_message'] ?? null,
             'messageType' => $_SESSION['menu_message_type'] ?? null
         ];
@@ -106,10 +108,11 @@ class MenuController extends Controller {
         // Menü öğelerini getir
         $items = $this->itemModel->getAllByMenuId($id);
         
-        // Sayfaları, yazıları ve kategorileri getir
+        // Sayfaları, yazıları, emlak tiplerini ve ilan kategorilerini getir
         $pages = $this->getPages();
         $posts = $this->getPosts();
-        $categories = $this->getCategories();
+        $property_types = $this->getPropertyTypes();
+        $listing_categories = $this->getListingCategories();
         
         $data = [
             'title' => 'Menü Düzenle: ' . $menu['name'],
@@ -119,7 +122,8 @@ class MenuController extends Controller {
             'locations' => $this->menuModel->getLocations(),
             'pages' => $pages,
             'posts' => $posts,
-            'categories' => $categories,
+            'property_types' => $property_types,
+            'listing_categories' => $listing_categories,
             'message' => $_SESSION['menu_message'] ?? null,
             'messageType' => $_SESSION['menu_message_type'] ?? null
         ];
@@ -210,13 +214,16 @@ class MenuController extends Controller {
             foreach ($items as $item) {
                 $parentId = null;
                 
-                // Parent ID'yi çözümle
-                if (!empty($item['parent_id'])) {
-                    if (is_numeric($item['parent_id'])) {
-                        $parentId = isset($idMap[$item['parent_id']]) ? $idMap[$item['parent_id']] : (int)$item['parent_id'];
-                    } elseif (strpos($item['parent_id'], 'temp_new_') === 0) {
-                        $tempId = str_replace('temp_', '', $item['parent_id']);
-                        $parentId = $idMap[$tempId] ?? null;
+                // Parent ID çözümle: temp_ prefix (yeni öğe), sayısal string veya integer (mevcut öğe)
+                $rawParentId = $item['parent_id'] ?? null;
+                if ($rawParentId !== null && $rawParentId !== '') {
+                    $rawStr = is_string($rawParentId) ? $rawParentId : (string)$rawParentId;
+                    if (strpos($rawStr, 'temp_') === 0) {
+                        $tempId = substr($rawStr, 5); // "temp_new_1" -> "new_1"
+                        $parentId = isset($idMap[$tempId]) ? $idMap[$tempId] : null;
+                    } elseif (is_numeric($rawParentId)) {
+                        $key = is_int($rawParentId) ? $rawParentId : (int)$rawParentId;
+                        $parentId = isset($idMap[$key]) ? $idMap[$key] : null;
                     }
                 }
                 
@@ -233,8 +240,8 @@ class MenuController extends Controller {
                     'order' => $item['sort_order'] ?? 0
                 ]);
                 
-                // ID eşleştirmesini kaydet
-                if (!empty($item['id'])) {
+                // ID eşleştirmesini kaydet (yeni öğelerin geçici ID'si "new_1" gibi string de olabilir)
+                if (isset($item['id']) && $item['id'] !== null && $item['id'] !== '') {
                     $idMap[$item['id']] = $newId;
                 }
             }
@@ -322,12 +329,40 @@ class MenuController extends Controller {
     }
     
     /**
-     * Kategorileri getir
+     * Emlak tiplerini getir (realestate-listings modül ayarlarından).
+     * Menüde "Emlak Tipleri" olarak listelenir; link /ilanlar?type=key olur.
      */
-    private function getCategories() {
+    private function getPropertyTypes() {
+        $defaults = [
+            'house' => 'Müstakil Ev',
+            'apartment' => 'Daire',
+            'villa' => 'Villa',
+            'commercial' => 'Ticari',
+            'land' => 'Arsa',
+        ];
+        if (function_exists('get_module_settings')) {
+            $settings = get_module_settings('realestate-listings') ?: [];
+            $types = $settings['property_types'] ?? $defaults;
+            return is_array($types) ? $types : $defaults;
+        }
+        return $defaults;
+    }
+    
+    /**
+     * İlan kategorileri (listing_categories - Satılık, Kiralık, Daire, Müstakil vb.) menü için
+     * @return array [['id'=>,'slug'=>,'name'=>,'kind'=>], ...]
+     */
+    private function getListingCategories() {
+        if (!class_exists('Database')) {
+            return [];
+        }
         try {
-            $stmt = $this->db->query("SELECT id, name, slug FROM categories WHERE status = 'active' ORDER BY name ASC LIMIT 50");
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $db = Database::getInstance();
+            $stmt = $db->getConnection()->query("SHOW TABLES LIKE 'listing_categories'");
+            if (!$stmt || $stmt->rowCount() === 0) {
+                return [];
+            }
+            return $db->fetchAll("SELECT id, slug, name, kind FROM listing_categories ORDER BY kind ASC, display_order ASC, name ASC");
         } catch (Exception $e) {
             return [];
         }

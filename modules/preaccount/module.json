@@ -1,0 +1,32 @@
+{
+  "name": "preaccount",
+  "title": "Ön Muhasebe",
+  "version": "1.0.0",
+  "description": "Emlakçılık için ön muhasebe modülü: hesaplar, kategoriler ve gelir-gider hareketleri.",
+  "author": "Codetic",
+  "website": "https://example.com",
+  "requires_php": "7.4",
+  "requires_cms": "1.0",
+  "main_file": "Controller.php",
+  "controller_class": "PreaccountModuleController",
+  "admin_menu": {
+    "title": "Ön Muhasebe",
+    "icon": "receipt_long",
+    "position": 35,
+    "submenu": [
+      {"slug": "index", "title": "Pano"},
+      {"slug": "accounts", "title": "Hesaplar"},
+      {"slug": "categories", "title": "Kategoriler"},
+      {"slug": "currencies", "title": "Para Birimleri"},
+      {"slug": "transactions", "title": "Hareketler"},
+      {"slug": "reports", "title": "Raporlar"},
+      {"slug": "settings", "title": "Ayarlar"}
+    ]
+  },
+  "routes": [],
+  "shortcodes": [],
+  "widgets": [],
+  "settings": true,
+  "permissions": ["preaccount.view", "preaccount.create", "preaccount.edit", "preaccount.delete"],
+  "hooks": {"actions": [], "filters": []}
+}

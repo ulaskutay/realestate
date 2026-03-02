@@ -333,13 +333,9 @@ class AdminController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Genel Ayarlar
             if (isset($_POST['save_general'])) {
-                // Logo ve favicon URL'lerini kaydet (İçerik Kütüphanesi'nden seçilen)
-                if (isset($_POST['site_logo_url'])) {
-                    update_option('site_logo', $_POST['site_logo_url']);
-                }
-                if (isset($_POST['site_favicon_url'])) {
-                    update_option('site_favicon', $_POST['site_favicon_url']);
-                }
+                // Logo ve favicon URL'lerini kaydet (İçerik Kütüphanesi'nden seçilen; boş da olabilir)
+                update_option('site_logo', trim((string)($_POST['site_logo_url'] ?? '')));
+                update_option('site_favicon', trim((string)($_POST['site_favicon_url'] ?? '')));
                 update_option('google_analytics', $_POST['google_analytics'] ?? '');
                 update_option('google_tag_manager', $_POST['google_tag_manager'] ?? '');
                 update_option('google_ads', $_POST['google_ads'] ?? '');

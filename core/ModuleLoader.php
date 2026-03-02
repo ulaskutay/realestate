@@ -378,6 +378,10 @@ class ModuleLoader {
             if ($existing && empty($existing['is_theme_module'])) {
                 continue; // Özel modülü koru, tema modülü ile üzerine yazma
             }
+            $path = $module['path'] ?? '';
+            if ($path === '' || !is_dir($path)) {
+                continue; // Tema modülü dizini yoksa (taşınmış/silinmiş) ekleme
+            }
             $this->all_modules[$name] = $module;
         }
     }
@@ -794,10 +798,22 @@ class ModuleLoader {
     }
     
     /**
-     * Belirli bir modülü döndürür
+     * Belirli bir modülü döndürür.
+     * Tema modülü kayıtlı ama dizin yoksa (tema modülü taşınmış/silinmiş) modules/ altındaki özel modülü döndürür.
      */
     public function getModule($name) {
-        return $this->all_modules[$name] ?? null;
+        $module = $this->all_modules[$name] ?? null;
+        if ($module && !empty($module['is_theme_module'])) {
+            $path = $module['path'] ?? '';
+            if ($path === '' || !is_dir($path)) {
+                $appModule = $this->tryLoadSingleModuleFromModulesDir($name);
+                if ($appModule) {
+                    $this->all_modules[$name] = $appModule;
+                    return $appModule;
+                }
+            }
+        }
+        return $module;
     }
     
     /**
@@ -1133,6 +1149,153 @@ class ModuleLoader {
     // ==================== ROUTE HANDLING ====================
     
     /**
+     * Modülün özel modül (modules/ dizininde, tema modülü değil) olup olmadığını döndürür.
+     * Tema modülleri themes/TEMA/modules/ altındadır; özel modüller core/../modules/ altındadır.
+     */
+    public function isCustomModule($module) {
+        if (!$module || empty($module['path'])) {
+            return false;
+        }
+        if (isset($module['is_theme_module']) && $module['is_theme_module']) {
+            return false;
+        }
+        $realPath = str_replace('\\', '/', realpath($module['path']) ?: $module['path']);
+        $realModulesDir = str_replace('\\', '/', realpath($this->modules_dir) ?: $this->modules_dir);
+        return $realModulesDir !== false && $realPath !== false && strpos($realPath, $realModulesDir) === 0;
+    }
+
+    /**
+     * Veritabanındaki modül path'i dizin yoksa (eski tema yolu vb.) günceller.
+     */
+    private function fixModulePathInDbIfMissing($slug, $newPath) {
+        try {
+            $row = $this->db->fetch("SELECT path FROM modules WHERE slug = ?", [$slug]);
+            if (!$row) {
+                return;
+            }
+            $dbPath = $row['path'] ?? '';
+            if ($dbPath !== '' && is_dir($dbPath)) {
+                return;
+            }
+            $this->db->query("UPDATE modules SET path = ?, updated_at = NOW() WHERE slug = ?", [$newPath, $slug]);
+        } catch (Exception $e) {
+            // Sessizce devam et
+        }
+    }
+
+    /**
+     * Özel modülü veritabanına kaydeder (yoksa ekler, varsa aktif yapar) ve yükler.
+     * Sadece modules/ altındaki özel modüller için kullanılır; tema modülleri karışmaz.
+     */
+    public function ensureCustomModuleRegisteredAndLoaded($name, $module) {
+        if (!$this->isCustomModule($module)) {
+            return false;
+        }
+        try {
+            $existing = $this->db->fetch("SELECT id, path FROM modules WHERE slug = ?", [$name]);
+            $isSystem = isset($module['is_system']) ? (int)$module['is_system'] : 0;
+            if ($existing) {
+                $updatePath = false;
+                $dbPath = $existing['path'] ?? '';
+                if ($dbPath === '' || !is_dir($dbPath)) {
+                    $updatePath = true;
+                }
+                if ($updatePath) {
+                    $this->db->query(
+                        "UPDATE modules SET is_active = 1, is_system = ?, path = ?, updated_at = NOW() WHERE slug = ?",
+                        [$isSystem, $module['path'], $name]
+                    );
+                } else {
+                    $this->db->query(
+                        "UPDATE modules SET is_active = 1, is_system = ?, updated_at = NOW() WHERE slug = ?",
+                        [$isSystem, $name]
+                    );
+                }
+            } else {
+                $this->db->query(
+                    "INSERT INTO modules (name, slug, label, description, icon, version, author, path, is_active, is_system, installed_at, created_at) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())",
+                    [
+                        $module['name'],
+                        $module['name'],
+                        $module['title'],
+                        $module['description'] ?? '',
+                        $module['admin_menu']['icon'] ?? 'extension',
+                        $module['version'],
+                        $module['author'] ?? '',
+                        $module['path'],
+                        $isSystem
+                    ]
+                );
+            }
+            $this->active_modules[$name] = ['slug' => $name, 'is_active' => 1];
+            $this->loadModule($module);
+            $controller = $this->getModuleController($name);
+            if ($controller && method_exists($controller, 'onActivate')) {
+                $controller->onActivate();
+            }
+            return true;
+        } catch (Exception $e) {
+            error_log("ModuleLoader::ensureCustomModuleRegisteredAndLoaded - {$name}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Özel modül (modules/ dizini) all_modules'da yoksa dosyadan tek modül manifest yükler.
+     * Tema modülleri themes/ altında olduğu için bu yolu kullanmaz.
+     */
+    private function tryLoadSingleModuleFromModulesDir($module_name) {
+        $module_path = $this->modules_dir . '/' . $module_name;
+        $manifest_file = $module_path . '/module.json';
+        if (!is_dir($module_path) || !is_readable($manifest_file)) {
+            return null;
+        }
+        $manifest = $this->readManifest($manifest_file);
+        if (!$manifest || ($manifest['name'] ?? '') !== $module_name) {
+            return null;
+        }
+        $manifest['path'] = $module_path;
+        $manifest['dir'] = $module_name;
+        $manifest['is_theme_module'] = false;
+        $manifest['is_active'] = isset($this->active_modules[$module_name]) || $this->isModuleActiveInDB($module_name);
+        $this->all_modules[$module_name] = $manifest;
+        return $manifest;
+    }
+
+    /**
+     * Aktif temanın modules/ dizininden modül manifest yükler (tema modülü).
+     * Admin panelinde ThemeLoader çalışmadığı için tema modülü all_modules'da olmayabilir.
+     */
+    private function tryLoadModuleFromActiveTheme($module_name) {
+        if (!class_exists('ThemeManager')) {
+            require_once __DIR__ . '/ThemeManager.php';
+        }
+        $themeManager = ThemeManager::getInstance();
+        $activeTheme = $themeManager->getActiveTheme();
+        if (!$activeTheme || empty($activeTheme['slug'])) {
+            return null;
+        }
+        $themePath = $themeManager->getThemesPath() . '/' . $activeTheme['slug'];
+        $module_path = $themePath . '/modules/' . $module_name;
+        $manifest_file = $module_path . '/module.json';
+        if (!is_dir($module_path) || !is_readable($manifest_file)) {
+            return null;
+        }
+        $manifest = $this->readManifest($manifest_file);
+        if (!$manifest || ($manifest['name'] ?? '') !== $module_name) {
+            return null;
+        }
+        $manifest['path'] = $module_path;
+        $manifest['dir'] = $module_name;
+        $manifest['is_theme_module'] = true;
+        $manifest['theme_path'] = $themePath;
+        $manifest['is_active'] = true;
+        $this->all_modules[$module_name] = $manifest;
+        return $manifest;
+    }
+
+    /**
      * Admin modül route'unu işler
      */
     public function handleAdminRoute($page) {
@@ -1151,16 +1314,38 @@ class ModuleLoader {
             // Modül yüklü mü kontrol et
             $controller = $this->getModuleController($module_name);
             
-            // Controller yoksa, modülü yüklemeyi dene (aktifse veya tema modülü ise)
+            // Controller yoksa, modülü yüklemeyi dene (aktifse, tema modülü ise veya özel modülse)
             if (!$controller) {
                 $module = $this->getModule($module_name);
+                if (!$module) {
+                    // all_modules'da yoksa özel modül dizininden tek seferlik yükle (tema modülleri themes/ altında)
+                    $module = $this->tryLoadSingleModuleFromModulesDir($module_name);
+                }
+                if (!$module) {
+                    // Tema modülü olabilir: aktif temanın modules/ dizininden dene (admin'de ThemeLoader çalışmıyor)
+                    $module = $this->tryLoadModuleFromActiveTheme($module_name);
+                }
                 if ($module) {
-                    // Tema modülü ise veritabanı kontrolü yapmadan yükle
                     $isThemeModule = isset($module['is_theme_module']) && $module['is_theme_module'];
+                    $pathExists = !empty($module['path']) && is_dir($module['path']);
+                    // Tema modülü kayıtlı ama dizin yoksa (taşınmış/silinmiş) önce modules/ altındakini dene
+                    if ($isThemeModule && !$pathExists) {
+                        $appModule = $this->tryLoadSingleModuleFromModulesDir($module_name);
+                        if ($appModule) {
+                            $module = $appModule;
+                            $isThemeModule = false;
+                            $this->fixModulePathInDbIfMissing($module_name, $module['path']);
+                        }
+                    }
                     if ($isThemeModule || $this->isModuleActiveInDB($module_name)) {
-                        // Modülü yükle
                         $this->loadModule($module);
                         $controller = $this->getModuleController($module_name);
+                    }
+                    if (!$controller && $this->isCustomModule($module)) {
+                        // Özel modül (modules/ altında) ama DB'de yok/aktif değil: kaydet ve yükle (tema modülleri karışmaz)
+                        if ($this->ensureCustomModuleRegisteredAndLoaded($module_name, $module)) {
+                            $controller = $this->getModuleController($module_name);
+                        }
                     }
                 }
             }
@@ -1170,7 +1355,31 @@ class ModuleLoader {
                 return false;
             }
             
-            // Admin action'ı çağır
+            // Kayıtlı admin route'larına göre tam path ile eşleştir (örn. realestate-listings/categories -> admin_categories_index)
+            $innerPath = $module_name . '/' . $action . (empty($params) ? '' : '/' . implode('/', $params));
+            $adminRoutes = $this->routes['admin'] ?? [];
+            foreach ($adminRoutes as $route) {
+                if (($route['module'] ?? '') !== $module_name) {
+                    continue;
+                }
+                $routePath = trim($route['path'] ?? '', '/');
+                $pattern = $this->routeToPattern($routePath);
+                if (preg_match($pattern, $innerPath, $matches)) {
+                    $handler = $route['handler'] ?? '';
+                    if ($handler && method_exists($controller, $handler)) {
+                        array_shift($matches);
+                        try {
+                            call_user_func_array([$controller, $handler], $matches);
+                            return true;
+                        } catch (Exception $e) {
+                            error_log("ModuleLoader::handleAdminRoute - Exception in $module_name::{$handler}: " . $e->getMessage());
+                            throw $e;
+                        }
+                    }
+                }
+            }
+            
+            // Route eşleşmediyse eski davranış: admin_$action veya admin_{$action}_index
             $method = 'admin_' . str_replace('-', '_', $action);
             
             if (method_exists($controller, $method)) {
@@ -1180,20 +1389,27 @@ class ModuleLoader {
                 } catch (Exception $e) {
                     error_log("ModuleLoader::handleAdminRoute - Exception in $module_name::$method: " . $e->getMessage());
                     error_log("Stack trace: " . $e->getTraceAsString());
-                    // Exception'ı tekrar fırlat ki admin.php'deki catch bloğu yakalasın
                     throw $e;
                 }
             }
             
-            // Fallback: normal action
+            // Örn. "categories" -> admin_categories_index (liste sayfası)
+            if (empty($params) && method_exists($controller, $method . '_index')) {
+                try {
+                    call_user_func([$controller, $method . '_index']);
+                    return true;
+                } catch (Exception $e) {
+                    error_log("ModuleLoader::handleAdminRoute - Exception in $module_name::{$method}_index: " . $e->getMessage());
+                    throw $e;
+                }
+            }
+            
             if (method_exists($controller, $action)) {
                 try {
                     call_user_func_array([$controller, $action], $params);
                     return true;
                 } catch (Exception $e) {
                     error_log("ModuleLoader::handleAdminRoute - Exception in $module_name::$action: " . $e->getMessage());
-                    error_log("Stack trace: " . $e->getTraceAsString());
-                    // Exception'ı tekrar fırlat ki admin.php'deki catch bloğu yakalasın
                     throw $e;
                 }
             }
@@ -1220,8 +1436,17 @@ class ModuleLoader {
         // Path'i normalize et (baştaki ve sondaki slash'leri kaldır)
         $path = trim($path, '/');
         
-        // Aktif temayı al (sadece aktif temanın modüllerini kullanmak için)
-        $activeTheme = get_option('active_theme', 'realestate');
+        // Aktif temayı al (ThemeManager ile ThemeLoader ile aynı kaynak kullanılır)
+        $activeTheme = 'realestate';
+        if (class_exists('ThemeManager')) {
+            $themeManager = ThemeManager::getInstance();
+            $activeThemeData = $themeManager->getActiveTheme();
+            if (!empty($activeThemeData['slug'])) {
+                $activeTheme = $activeThemeData['slug'];
+            }
+        } else {
+            $activeTheme = get_option('active_theme', 'realestate');
+        }
         
         // Debug modu kontrolü
         $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
@@ -1234,6 +1459,10 @@ class ModuleLoader {
                     error_log("  Route #{$idx}: module={$route['module']}, path={$route['path']}, handler={$route['handler']}");
                 }
             }
+        }
+        
+        if (empty($this->routes['frontend'])) {
+            return false;
         }
         
         foreach ($this->routes['frontend'] as $index => $route) {
@@ -1271,6 +1500,13 @@ class ModuleLoader {
             
             if ($debugMode) {
                 error_log("  Route #$index: '{$routePath}' (handler: {$route['handler']})");
+            }
+            
+            // HTTP metodu kontrolü (route'ta method tanımlıysa eşleşmeli)
+            $requestMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+            $routeMethod = strtoupper($route['method'] ?? 'GET');
+            if ($routeMethod !== $requestMethod) {
+                continue;
             }
             
             // Tam eşleşme kontrolü (parametreli route'lar için)

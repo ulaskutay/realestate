@@ -64,6 +64,60 @@ class Media extends Model {
     }
     
     /**
+     * Picker için hafif liste (sadece gerekli alanlar; yanıt hızlı olur)
+     */
+    public function getPaginatedForPicker($page = 1, $perPage = 24, $type = null, $search = null) {
+        $offset = ($page - 1) * $perPage;
+        $cols = '`id`, `file_url`, `original_name`, `mime_type`, `thumbnail_path`';
+        
+        // WHERE koşullarını oluştur
+        $where = "1=1";
+        $params = [];
+        
+        if ($type && $type !== 'all') {
+            if ($type === 'image') {
+                $where .= " AND `mime_type` LIKE 'image/%'";
+            } elseif ($type === 'video') {
+                $where .= " AND `mime_type` LIKE 'video/%'";
+            } elseif ($type === 'document') {
+                $where .= " AND (`mime_type` LIKE 'application/pdf%' OR `mime_type` LIKE 'application/msword%' OR `mime_type` LIKE 'application/vnd%' OR `mime_type` LIKE 'text/%')";
+            } elseif ($type === 'audio') {
+                $where .= " AND `mime_type` LIKE 'audio/%'";
+            }
+        }
+        
+        if ($search) {
+            $where .= " AND `original_name` LIKE ?";
+            $params[] = '%' . $search . '%';
+        }
+        
+        // Önce veriyi çek (LIMIT + 1 ile sonraki sayfa var mı kontrol et)
+        $sql = "SELECT {$cols} FROM `{$this->table}` WHERE {$where} ORDER BY `created_at` DESC LIMIT " . ((int) $perPage + 1) . " OFFSET " . (int) $offset;
+        $items = $this->db->fetchAll($sql, $params);
+        
+        // Sonraki sayfa var mı?
+        $hasMore = count($items) > $perPage;
+        if ($hasMore) {
+            array_pop($items); // Fazla item'ı çıkar
+        }
+        
+        // Toplam sayfa tahmini (tam count yapmadan)
+        $totalPages = $hasMore ? $page + 1 : $page;
+        if ($page === 1 && !$hasMore) {
+            $totalPages = 1;
+        }
+        
+        return [
+            'items' => $items,
+            'total' => -1, // Performans için tam count yapılmıyor
+            'page' => $page,
+            'perPage' => $perPage,
+            'totalPages' => $totalPages,
+            'hasMore' => $hasMore
+        ];
+    }
+    
+    /**
      * Kullanıcıya göre medya dosyalarını getirir
      */
     public function getByUser($userId, $limit = null) {

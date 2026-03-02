@@ -24,7 +24,7 @@
                         <p class="text-gray-500 dark:text-gray-400 text-sm sm:text-base">Frontend temanızı yönetin ve özelleştirin.</p>
                     </div>
                     <div class="flex items-center gap-2 w-full sm:w-auto">
-                        <button onclick="document.getElementById('upload-modal').classList.remove('hidden')" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[44px] w-full sm:w-auto justify-center sm:justify-start">
+                        <button onclick="document.getElementById('upload-modal').style.display='flex'" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[44px] w-full sm:w-auto justify-center sm:justify-start">
                             <span class="material-symbols-outlined text-lg sm:text-xl">upload</span>
                             <span class="text-sm font-medium">Tema Yükle</span>
                         </button>
@@ -175,7 +175,7 @@
                         <span class="material-symbols-outlined text-5xl sm:text-6xl text-gray-400 mb-4 block">palette</span>
                         <p class="text-gray-500 dark:text-gray-400 text-base sm:text-lg mb-2">Henüz tema yüklenmemiş</p>
                         <p class="text-gray-400 dark:text-gray-500 text-sm mb-6">Bir tema yükleyerek başlayın</p>
-                        <button onclick="document.getElementById('upload-modal').classList.remove('hidden')" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[44px]">
+                        <button onclick="document.getElementById('upload-modal').style.display='flex'" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[44px]">
                             Tema Yükle
                         </button>
                     </div>
@@ -204,11 +204,11 @@
 </div>
 
 <!-- Upload Modal -->
-<div id="upload-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+<div id="upload-modal" class="fixed inset-0 bg-black/50 z-50 items-center justify-center p-4" style="display: none;">
     <div class="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4 sm:mb-6">
             <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Tema Yükle</h3>
-            <button onclick="document.getElementById('upload-modal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center">
+            <button onclick="document.getElementById('upload-modal').style.display='none'" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 min-h-[36px] min-w-[36px] flex items-center justify-center">
                 <span class="material-symbols-outlined text-lg sm:text-xl">close</span>
             </button>
         </div>
@@ -227,7 +227,7 @@
             </div>
             
             <div class="flex flex-col sm:flex-row justify-end gap-3">
-                <button type="button" onclick="document.getElementById('upload-modal').classList.add('hidden')" class="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors min-h-[44px] order-2 sm:order-1">
+                <button type="button" onclick="document.getElementById('upload-modal').style.display='none'" class="px-4 py-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors min-h-[44px] order-2 sm:order-1">
                     İptal
                 </button>
                 <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[44px] order-1 sm:order-2">

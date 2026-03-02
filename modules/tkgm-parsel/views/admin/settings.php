@@ -60,6 +60,18 @@ $testResult = $testResult ?? null;
                     <input type="number" name="cache_ttl" id="cache_ttl" value="<?php echo esc_attr($settings['cache_ttl'] ?? 60); ?>" min="0" max="10080" class="w-full max-w-xs px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">0 = önbellek kapalı. İl/ilçe/mahalle listeleri bu süre boyunca saklanır.</p>
                 </div>
+                <div>
+                    <label for="elevenlabs_api_key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ElevenLabs API Key (drone seslendirme – Flash/Turbo)</label>
+                    <input type="text" name="elevenlabs_api_key" id="elevenlabs_api_key" value="<?php echo esc_attr(trim($settings['elevenlabs_api_key'] ?? '')); ?>" placeholder="xi_..." class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" autocomplete="off">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Drone video seslendirmesi sadece ElevenLabs (Flash/Turbo) ile yapılır. API key: <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener" class="text-primary hover:underline">elevenlabs.io</a> — Ücretsiz plan / Startup Grant kullanılabilir. <strong>Tek alan:</strong> Eski sürümlerde farklı isimle kaydedilmiş key bu alana taşınır; “geçersiz veya süresi dolmuş” hatası alırsanız yeni bir key oluşturup buraya yapıştırın.</p>
+                </div>
+                <div>
+                    <label for="drone_video_source" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Drone video kaynağı</label>
+                    <select name="drone_video_source" id="drone_video_source" class="w-full max-w-md px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="browser" <?php echo ($settings['drone_video_source'] ?? 'browser') === 'browser' ? 'selected' : ''; ?>>Tarayıcıda 3D kayıt (Cesium + MediaRecorder)</option>
+                    </select>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Drone videoları tarayıcıda kaydedilir; overlay sunucuda FFmpeg ile eklenir (FFmpeg kurulu ise).</p>
+                </div>
             </div>
         </div>
         <div class="flex flex-wrap gap-2">

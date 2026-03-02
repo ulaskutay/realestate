@@ -118,9 +118,11 @@ class SeoModuleController {
             'meta_title_home' => '{site_name}',
             'meta_title_post' => '{post_title} - {site_name}',
             'meta_title_category' => '{category_name} - {site_name}',
+            'meta_title_default' => '{page_title} - {site_name}',
             'meta_title_separator' => ' - ',
             'meta_description_home' => '',
             'meta_description_default' => '',
+            'meta_description_other' => '',
             
             // Schema.org ayarları
             'schema_enabled' => true,
@@ -178,7 +180,14 @@ class SeoModuleController {
         // Sayfalar (type='page') - blog uzantısı olmadan
         if ($this->settings['sitemap_pages'] ?? true) {
             $pages = $this->model->getPagesForSitemap();
+            // Teklif al sayfası sadece temasında teklif-al.php varsa sitemap'e ekle (codetic dışı temalarda 404 olmasın)
+            $activeTheme = function_exists('get_option') ? get_option('active_theme', 'codetic') : 'codetic';
+            $themeRoot = dirname(dirname(__DIR__)) . '/themes/' . $activeTheme;
+            $teklifAlSupported = file_exists($themeRoot . '/teklif-al.php');
             foreach ($pages as $page) {
+                if (in_array($page['slug'], ['teklif-al', 'quote-request'], true) && !$teklifAlSupported) {
+                    continue;
+                }
                 $lastmod = $page['updated_at'] ?: $page['published_at'];
                 echo $this->sitemapUrl(
                     $siteUrl . '/' . $page['slug'],
@@ -226,6 +235,20 @@ class SeoModuleController {
                     date('c', strtotime($tag['updated_at'])),
                     $this->settings['sitemap_changefreq_tags'] ?? 'monthly',
                     $this->settings['sitemap_priority_tags'] ?? '0.4'
+                );
+            }
+        }
+        
+        // İlan kategorileri (listing_categories - tema bazlı)
+        if (($this->settings['sitemap_categories'] ?? true) && $this->model->hasListingCategories()) {
+            $listingCats = $this->model->getListingCategoriesForSitemap();
+            foreach ($listingCats as $category) {
+                $lastmod = $category['updated_at'] ? date('c', strtotime($category['updated_at'])) : date('c');
+                echo $this->sitemapUrl(
+                    $siteUrl . '/ilanlar/kategori/' . $category['slug'],
+                    $lastmod,
+                    $this->settings['sitemap_changefreq_categories'] ?? 'weekly',
+                    $this->settings['sitemap_priority_categories'] ?? '0.6'
                 );
             }
         }
@@ -415,7 +438,8 @@ class SeoModuleController {
             'title' => 'SEO Yönetimi',
             'stats' => $stats,
             'redirectStats' => $redirectStats,
-            'settings' => $this->settings
+            'settings' => $this->settings,
+            'has_listing_categories' => $this->model->hasListingCategories()
         ]);
     }
     
@@ -513,9 +537,11 @@ class SeoModuleController {
             $this->settings['meta_title_home'] = $_POST['meta_title_home'] ?? '{site_name}';
             $this->settings['meta_title_post'] = $_POST['meta_title_post'] ?? '{post_title} - {site_name}';
             $this->settings['meta_title_category'] = $_POST['meta_title_category'] ?? '{category_name} - {site_name}';
+            $this->settings['meta_title_default'] = $_POST['meta_title_default'] ?? '{page_title} - {site_name}';
             $this->settings['meta_title_separator'] = $_POST['meta_title_separator'] ?? ' - ';
             $this->settings['meta_description_home'] = $_POST['meta_description_home'] ?? '';
             $this->settings['meta_description_default'] = $_POST['meta_description_default'] ?? '';
+            $this->settings['meta_description_other'] = $_POST['meta_description_other'] ?? '';
             
             ModuleLoader::getInstance()->saveModuleSettings('seo', $this->settings);
             
@@ -529,6 +555,69 @@ class SeoModuleController {
             'title' => 'Meta Tag Ayarları',
             'settings' => $this->settings
         ]);
+    }
+    
+    /**
+     * Sayfa bazlı meta title/description yönetimi
+     */
+    public function admin_page_meta() {
+        $this->ensureInitialized();
+        
+        $pageKeys = $this->getPageMetaKeys();
+        $saved = [];
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            foreach ($pageKeys as $key => $label) {
+                $meta = [
+                    'meta_title' => trim($_POST['meta_title'][$key] ?? ''),
+                    'meta_description' => trim($_POST['meta_description'][$key] ?? ''),
+                    'meta_robots' => trim($_POST['meta_robots'][$key] ?? '')
+                ];
+                $this->model->savePageMeta($key, $meta, '');
+            }
+            $_SESSION['flash_message'] = 'Sayfa meta ayarları kaydedildi';
+            $_SESSION['flash_type'] = 'success';
+            $this->redirect('page_meta');
+            return;
+        }
+        
+        $allMeta = $this->model->getAllPageMeta();
+        foreach ($allMeta as $row) {
+            $pk = $row['page_key'];
+            $pp = $row['path_pattern'] ?? '';
+            if ($pp === '' || $pp === null) {
+                $saved[$pk] = $row;
+            }
+        }
+        
+        $this->adminView('page-meta', [
+            'title' => 'Sayfa Meta Yönetimi',
+            'pageKeys' => $pageKeys,
+            'saved' => $saved
+        ]);
+    }
+    
+    /**
+     * Sayfa anahtarları ve etiketleri (admin form için)
+     */
+    private function getPageMetaKeys() {
+        return [
+            'home' => 'Ana Sayfa',
+            'blog' => 'Blog Listesi',
+            'blog_post' => 'Blog Yazısı (şablon)',
+            'blog_category' => 'Blog Kategori (şablon)',
+            'contact' => 'İletişim',
+            'teklif-al' => 'Teklif Al',
+            'rezervasyon' => 'Rezervasyon',
+            'search' => 'Arama',
+            'ilanlar' => 'İlanlar Listesi (modül)',
+            'ilan_kategori' => 'İlan Kategorisi Listesi (modül)',
+            'ilan_detay' => 'İlan Detay (şablon)',
+            'danismanlar' => 'Danışmanlar Listesi (modül)',
+            'danisman_detay' => 'Danışman Detay (şablon)',
+            'harita-ilanlar' => 'Harita İlanlar (modül)',
+            'sozlesmeler' => 'Sözleşmeler',
+            'page_slug' => 'Slug ile Sayfa (varsayılan şablon)'
+        ];
     }
     
     /**
@@ -553,9 +642,14 @@ class SeoModuleController {
     public function admin_redirect_create() {
         $this->ensureInitialized();
         
+        $redirect = null;
+        if (!empty($_GET['source_url'])) {
+            $redirect = ['source_url' => trim($_GET['source_url'], '/') ?: '/', 'target_url' => '', 'type' => '301', 'status' => 'active', 'note' => ''];
+        }
+        
         $this->adminView('redirect-form', [
             'title' => 'Yeni Yönlendirme',
-            'redirect' => null,
+            'redirect' => $redirect,
             'action' => 'redirect_store'
         ]);
     }
@@ -670,6 +764,95 @@ class SeoModuleController {
         }
         
         $this->redirect('redirects');
+    }
+    
+    /**
+     * Kırık bağlantılar (404 tespit) listesi
+     */
+    public function admin_broken_links() {
+        $this->ensureInitialized();
+        
+        $allResults = $this->model->getAllLastScanResults();
+        $brokenOnly = $this->model->getLastBrokenLinks(true);
+        $siteUrl = $this->getSiteUrl();
+        
+        $this->adminView('broken-links', [
+            'title' => 'Kırık Bağlantılar (404 Kontrolü)',
+            'allResults' => $allResults,
+            'brokenOnly' => $brokenOnly,
+            'siteUrl' => $siteUrl
+        ]);
+    }
+    
+    /**
+     * Kırık bağlantı taraması başlat (senkron).
+     * GET isteği + tarayıcı User-Agent kullanır; tema bazlı URL listesi ile yanlış 404 azaltılır.
+     */
+    public function admin_broken_links_scan() {
+        $this->ensureInitialized();
+        
+        $siteUrl = $this->getSiteUrl();
+        $activeTheme = function_exists('get_option') ? get_option('active_theme', '') : '';
+        $urls = $this->model->getInternalUrlsForScan($siteUrl, $activeTheme);
+        $results = [];
+        $timeout = 10;
+        $maxUrls = 200;
+        $browserUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        
+        foreach (array_slice($urls, 0, $maxUrls) as $item) {
+            $url = $item['url'];
+            $code = null;
+            if (function_exists('curl_init')) {
+                $ch = curl_init($url);
+                curl_setopt_array($ch, [
+                    CURLOPT_NOBODY => false,
+                    CURLOPT_HTTPGET => true,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => $timeout,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_MAXREDIRS => 5,
+                    CURLOPT_USERAGENT => $browserUserAgent,
+                    CURLOPT_SSL_VERIFYPEER => true,
+                    CURLOPT_ENCODING => '',
+                    CURLOPT_HTTPHEADER => [
+                        'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Accept-Language: tr-TR,tr;q=0.9,en;q=0.8',
+                    ],
+                ]);
+                curl_exec($ch);
+                $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+            } else {
+                $opts = [
+                    'http' => [
+                        'timeout' => $timeout,
+                        'ignore_errors' => true,
+                        'method' => 'GET',
+                        'header' => "User-Agent: $browserUserAgent\r\nAccept: text/html,application/xhtml+xml\r\n",
+                    ],
+                ];
+                if (strpos($url, 'https') === 0) {
+                    $opts['ssl'] = ['verify_peer' => true];
+                }
+                $ctx = stream_context_create($opts);
+                $headers = @get_headers($url, 0, $ctx);
+                if ($headers && isset($headers[0]) && preg_match('/\d{3}/', $headers[0], $m)) {
+                    $code = (int) $m[0];
+                }
+            }
+            $results[] = [
+                'url' => $url,
+                'source' => $item['source'] ?? 'sitemap',
+                'http_code' => $code,
+                'link_text' => $item['link_text'] ?? '',
+            ];
+        }
+        
+        $this->model->saveBrokenLinkScanResult($results);
+        $brokenCount = count(array_filter($results, function ($r) { return $r['http_code'] >= 400 || $r['http_code'] === null; }));
+        $_SESSION['flash_message'] = count($results) . ' URL tarandı. ' . $brokenCount . ' kırık/hata bulundu.';
+        $_SESSION['flash_type'] = 'success';
+        $this->redirect('broken_links');
     }
     
     /**
