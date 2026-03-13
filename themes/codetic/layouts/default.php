@@ -222,7 +222,6 @@
     <?php endif; ?>
     
     <?php 
-    // Google Analytics, Tag Manager ve Ads
     $googleAnalytics = get_option('google_analytics', '');
     $googleTagManager = get_option('google_tag_manager', '');
     $googleAds = get_option('google_ads', '');
@@ -328,7 +327,10 @@
         })();
     </script>
     
-    <!-- Privacy-Friendly Analytics -->
+    <!-- Ziyaretçi istatistikleri: tek snippet, tüm sayfalarda çalışır; sayfa URL + title otomatik gider -->
+    <script>
+        window.CODETIC_ANALYTICS_TRACK_URL = <?php echo json_encode(rtrim(function_exists('site_url') ? site_url() : (isset($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] . '://' . ($_SERVER['HTTP_HOST'] ?? '') : ''), '/') . '/api/track'); ?>;
+    </script>
     <script src="<?php echo ViewRenderer::assetUrl('frontend/js/analytics.js'); ?>" defer></script>
     
     <script>

@@ -247,6 +247,35 @@ class CrmModel extends Model {
     }
     
     /**
+     * Sayfalı liste (arama/filtre yok) - lead listesi için
+     */
+    public function getPaginated($limit = 20, $offset = 0) {
+        $limit = (int) max(1, $limit);
+        $offset = (int) max(0, $offset);
+        try {
+            $sql = "SELECT * FROM `{$this->table}` ORDER BY `created_at` DESC LIMIT " . $limit . " OFFSET " . $offset;
+            $result = $this->db->fetchAll($sql, []);
+            return $result === null || $result === false ? [] : $result;
+        } catch (Exception $e) {
+            error_log("CRM getPaginated error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Toplam kayıt sayısı (filtresiz)
+     */
+    public function getTotalCount() {
+        try {
+            $row = $this->db->fetch("SELECT COUNT(*) as cnt FROM `{$this->table}`", []);
+            return isset($row['cnt']) ? (int) $row['cnt'] : 0;
+        } catch (Exception $e) {
+            error_log("CRM getTotalCount error: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * Son leadler
      */
     public function getRecent($limit = 10) {

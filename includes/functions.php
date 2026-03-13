@@ -107,6 +107,34 @@ function update_option($key, $value) {
 }
 
 /**
+ * Ziyaretçi istatistikleri (dashboard) takip script'ini çıktılar.
+ * Ayarlar > Genel'de "Dashboard ziyaretçi istatistikleri" açıksa script basılır.
+ *
+ * Yeni temalarda: Layout veya header snippet'in sonuna şunu ekleyin:
+ *   <?php if (function_exists('output_analytics_tracking')) output_analytics_tracking(); ?>
+ * Böylece tüm sayfalarda (ana sayfa, iç sayfalar, ilan detay vb.) veri toplanır.
+ *
+ * @return void
+ */
+function output_analytics_tracking() {
+    if ((int) get_option('analytics_tracking_enabled', 1) !== 1) {
+        return;
+    }
+    $base = function_exists('site_url') ? site_url() : '';
+    if ($base === '' && isset($_SERVER['REQUEST_SCHEME'], $_SERVER['HTTP_HOST'])) {
+        $base = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'];
+    }
+    $base = rtrim($base, '/');
+    $trackUrl = $base . '/api/track';
+    $jsUrl = $base . '/public/frontend/js/analytics.js';
+    if (class_exists('ViewRenderer') && method_exists('ViewRenderer', 'assetUrl')) {
+        $jsUrl = ViewRenderer::assetUrl('frontend/js/analytics.js');
+    }
+    echo '<script>window.CODETIC_ANALYTICS_TRACK_URL = ' . json_encode($trackUrl) . ';</script>' . "\n";
+    echo '<script src="' . esc_url($jsUrl) . '" defer></script>' . "\n";
+}
+
+/**
  * String'i serialize eder (gerekirse)
  */
 function maybe_serialize($data) {

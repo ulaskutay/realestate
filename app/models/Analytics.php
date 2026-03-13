@@ -8,9 +8,40 @@ class Analytics extends Model {
     protected $table = 'page_views';
     
     /**
+     * page_views tablosu yoksa oluştur (kurulumda veya ilk kullanımda)
+     */
+    public function ensureTable() {
+        $sql = "CREATE TABLE IF NOT EXISTS `{$this->table}` (
+            `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `session_hash` VARCHAR(64) NOT NULL COMMENT 'Anonim session hash',
+            `page_url` VARCHAR(500) NOT NULL,
+            `page_title` VARCHAR(255) DEFAULT NULL,
+            `referrer` VARCHAR(500) DEFAULT NULL,
+            `user_agent` TEXT DEFAULT NULL,
+            `device_type` ENUM('desktop', 'mobile', 'tablet') DEFAULT 'desktop',
+            `is_bot` TINYINT(1) DEFAULT 0,
+            `visit_duration` INT(11) DEFAULT 0,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_session_hash` (`session_hash`),
+            KEY `idx_page_url` (`page_url`(191)),
+            KEY `idx_created_at` (`created_at`),
+            KEY `idx_device_type` (`device_type`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        try {
+            $this->db->query($sql, []);
+            return true;
+        } catch (Exception $e) {
+            error_log("Analytics ensureTable: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
      * Yeni sayfa görüntülenmesi kaydet
      */
     public function trackPageView($data) {
+        $this->ensureTable();
         error_log('========== ANALYTICS MODEL trackPageView ==========');
         error_log('Input data: ' . print_r($data, true));
         
@@ -26,11 +57,16 @@ class Analytics extends Model {
         $deviceType = $this->detectDeviceType($data['user_agent'] ?? '');
         error_log('Device type: ' . $deviceType);
         
+        $rawUrl = trim((string)($data['page_url'] ?? ''));
+        $normalizedUrl = $this->sanitizeUrl($rawUrl);
+        if ($normalizedUrl === null || $normalizedUrl === '') {
+            $normalizedUrl = $rawUrl !== '' ? substr($rawUrl, 0, 500) : '/';
+        }
         $viewData = [
             'session_hash' => $sessionHash,
-            'page_url' => $this->sanitizeUrl($data['page_url'] ?? ''),
-            'page_title' => $data['page_title'] ?? null,
-            'referrer' => $this->sanitizeUrl($data['referrer'] ?? ''),
+            'page_url' => $normalizedUrl,
+            'page_title' => trim((string)($data['page_title'] ?? '')) ?: null,
+            'referrer' => $this->sanitizeUrl($data['referrer'] ?? '') ?: '',
             'user_agent' => substr($data['user_agent'] ?? '', 0, 500),
             'device_type' => $deviceType,
             'is_bot' => $isBot ? 1 : 0,

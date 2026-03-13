@@ -29,6 +29,7 @@ $filters = $filters ?? [];
 <!-- Arama ve Filtreler -->
 <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
     <form method="GET" action="<?php echo admin_url('module/crm/leads'); ?>" class="space-y-4">
+        <input type="hidden" name="page" value="module/crm/leads">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Arama -->
             <div class="md:col-span-2">

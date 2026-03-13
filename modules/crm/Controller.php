@@ -238,38 +238,41 @@ class CrmModuleController {
             $offset = ($page - 1) * $perPage;
             
             // Arama ve filtreleme
-            $search = $_GET['search'] ?? '';
-            $status = $_GET['status'] ?? '';
-            $source = $_GET['source'] ?? '';
-            $dateFrom = $_GET['date_from'] ?? '';
-            $dateTo = $_GET['date_to'] ?? '';
+            $search = trim((string)($_GET['search'] ?? ''));
+            $status = trim((string)($_GET['status'] ?? ''));
+            $source = trim((string)($_GET['source'] ?? ''));
+            $dateFrom = trim((string)($_GET['date_from'] ?? ''));
+            $dateTo = trim((string)($_GET['date_to'] ?? ''));
+            
+            $hasSearchOrFilters = ($search !== '' || $status !== '' || $source !== '' || $dateFrom !== '' || $dateTo !== '');
             
             try {
-                $leads = $this->leadModel->search($search, [
-                    'status' => $status,
-                    'source' => $source,
-                    'date_from' => $dateFrom,
-                    'date_to' => $dateTo
-                ], $perPage, $offset);
+                if (!$hasSearchOrFilters) {
+                    // Arama/filtre yok: doğrudan sayfalı liste (daha güvenilir)
+                    $leads = $this->leadModel->getPaginated($perPage, $offset);
+                    $total = $this->leadModel->getTotalCount();
+                } else {
+                    $leads = $this->leadModel->search($search, [
+                        'status' => $status,
+                        'source' => $source,
+                        'date_from' => $dateFrom,
+                        'date_to' => $dateTo
+                    ], $perPage, $offset);
+                    $total = $this->leadModel->searchCount($search, [
+                        'status' => $status,
+                        'source' => $source,
+                        'date_from' => $dateFrom,
+                        'date_to' => $dateTo
+                    ]);
+                }
                 
                 // Eğer null veya false dönerse boş array yap
                 if ($leads === null || $leads === false) {
                     $leads = [];
                 }
-                
-                // Array değilse boş array yap
                 if (!is_array($leads)) {
                     $leads = [];
                 }
-                
-                $total = $this->leadModel->searchCount($search, [
-                    'status' => $status,
-                    'source' => $source,
-                    'date_from' => $dateFrom,
-                    'date_to' => $dateTo
-                ]);
-                
-                // Total değeri de kontrol et
                 if (!is_numeric($total)) {
                     $total = 0;
                 }

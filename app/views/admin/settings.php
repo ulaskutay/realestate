@@ -172,7 +172,16 @@
                                     </div>
                                 </div>
 
-                                <!-- Google Analytics -->
+                                <!-- Dashboard ziyaretçi istatistikleri (yerel takip) -->
+                                <div class="flex flex-col gap-2">
+                                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" name="analytics_tracking_enabled" value="1" <?php echo !empty($settings['analytics_tracking_enabled']) ? 'checked' : ''; ?> class="w-5 h-5 rounded border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-primary focus:ring-primary">
+                                        <span class="text-gray-700 dark:text-gray-300 text-sm font-medium">Dashboard ziyaretçi istatistikleri (yerel takip)</span>
+                                    </label>
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Açıksa temalarda <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">output_analytics_tracking()</code> kullanıldığı sayfalarda veri toplanır; dashboard’da görüntülenme, canlı ziyaretçi vb. gösterilir.</p>
+                                </div>
+
+                                <!-- Google Analytics (site genelinde takip; dashboard canlı sayı kendi yapımızdan) -->
                                 <div class="flex flex-col gap-2">
                                     <label for="google_analytics" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">Google Analytics ID</label>
                                     <input 
@@ -183,49 +192,7 @@
                                         placeholder="G-XXXXXXXXXX veya UA-XXXXXXXXX-X"
                                         class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                     />
-                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Google Analytics takip kodunuzu girin (G-XXXXXXXXXX veya UA-XXXXXXXXX-X formatında).</p>
-                                </div>
-
-                                <!-- GA4 Dashboard – Nasıl yapılır? -->
-                                <details class="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-800/50 p-3">
-                                    <summary class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">GA4 Dashboard istatistikleri – Nasıl yapılır?</summary>
-                                    <ol class="mt-2 text-xs text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
-                                        <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Google Cloud Console</a> → Proje seç/oluştur → "Google Analytics Data API" etkinleştir.</li>
-                                        <li>IAM → Servis hesapları → Yeni hesap → JSON anahtar oluştur ve indir.</li>
-                                        <li><a href="https://analytics.google.com/" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Google Analytics</a> → Yönetim → Özellik → Özellik erişim yönetimi → Servis hesabı e-postasını "Görüntüleyici" olarak ekle.</li>
-                                        <li>GA4 Yönetim → Özellik ayarları → "Özellik ID" (sadece sayı) kopyala.</li>
-                                        <li>Aşağıya GA4 Property ID ve indirdiğiniz JSON içeriğini yapıştırıp kaydedin.</li>
-                                    </ol>
-                                </details>
-
-                                <!-- GA4 Property ID (Dashboard API) -->
-                                <div class="flex flex-col gap-2">
-                                    <label for="ga4_property_id" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">GA4 Property ID</label>
-                                    <input 
-                                        type="text" 
-                                        id="ga4_property_id" 
-                                        name="ga4_property_id" 
-                                        value="<?php echo esc_attr($settings['ga4_property_id'] ?? ''); ?>"
-                                        placeholder="Örn. 123456789"
-                                        class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    />
-                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Dashboard'da istatistik göstermek için: GA4 Yönetim → Özellik ayarları → Özellik ID (sadece sayı).</p>
-                                </div>
-
-                                <!-- GA4 Servis hesabı JSON -->
-                                <div class="flex flex-col gap-2">
-                                    <label for="ga4_service_account_json" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">GA4 Servis hesabı JSON</label>
-                                    <?php if (!empty($settings['ga4_credentials_configured'])): ?>
-                                    <p class="text-xs text-green-600 dark:text-green-400">Yapılandırıldı. Değiştirmek için aşağıya yeni JSON yapıştırın.</p>
-                                    <?php endif; ?>
-                                    <textarea 
-                                        id="ga4_service_account_json" 
-                                        name="ga4_service_account_json" 
-                                        rows="6"
-                                        placeholder="Google Cloud Console'dan indirdiğiniz servis hesabı JSON içeriğini yapıştırın."
-                                        class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm"
-                                    ></textarea>
-                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Google Cloud Console → IAM → Servis hesapları → Anahtar oluştur (JSON). GA4 özelliğinde bu hesaba Görüntüleyici verin.</p>
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Site genelinde takip için. Dashboard’daki canlı ziyaretçi sayısı kendi sistemimizden gösterilir.</p>
                                 </div>
 
                                 <!-- Google Tag Manager -->

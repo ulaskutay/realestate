@@ -266,6 +266,7 @@
     <?php endif; ?>
     
     <!-- Analytics Tracking -->
+    <script>window.CODETIC_ANALYTICS_TRACK_URL = <?php echo json_encode(rtrim(function_exists('site_url') ? site_url() : (isset($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] . '://' . ($_SERVER['HTTP_HOST'] ?? '') : ''), '/') . '/api/track'); ?>;</script>
     <script src="<?php echo ViewRenderer::assetUrl('frontend/js/analytics.js'); ?>" defer></script>
     
     <!-- Theme JS -->

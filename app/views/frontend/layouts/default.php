@@ -299,7 +299,10 @@
         })();
     </script>
     
-    <!-- Privacy-Friendly Analytics -->
-    <script src="/public/frontend/js/analytics.js" defer></script>
+    <!-- Ziyaretçi istatistikleri: tek snippet, tüm sayfalarda çalışır -->
+    <script>
+        window.CODETIC_ANALYTICS_TRACK_URL = <?php echo json_encode(rtrim(function_exists('site_url') ? site_url() : '', '/') . '/api/track'); ?>;
+    </script>
+    <script src="<?php echo defined('ViewRenderer') && method_exists('ViewRenderer', 'assetUrl') ? ViewRenderer::assetUrl('frontend/js/analytics.js') : rtrim(site_url(), '/') . '/public/frontend/js/analytics.js'; ?>" defer></script>
 </body>
 </html>

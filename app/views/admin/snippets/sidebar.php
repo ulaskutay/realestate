@@ -269,9 +269,11 @@ function can_view($module) {
                         (function_exists('current_user_can_any_for_module') && current_user_can_any_for_module($moduleKey))
                     );
                     if (!$canView) continue;
+                    // CRM için doğrudan lead listesine git (dashboard yerine)
+                    $crmLink = ($menuModule === 'crm') ? 'module/crm/leads' : $menuSlug;
                 ?>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg <?php echo $isActive ? 'bg-primary/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'; ?>" 
-                   href="<?php echo admin_url($menuSlug); ?>">
+                   href="<?php echo admin_url($crmLink); ?>">
                     <span class="material-symbols-outlined <?php echo $isActive ? 'text-primary' : 'text-gray-600 dark:text-gray-300'; ?> text-2xl">
                         <?php echo esc_html($menu['icon']); ?>
                     </span>

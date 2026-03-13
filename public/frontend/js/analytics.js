@@ -1,33 +1,29 @@
 /**
  * Privacy-Friendly Analytics Tracker
- * Hafif ve GDPR uyumlu sayfa tracking sistemi
+ * Layout head'da tek script olarak yüklenir; tüm sayfalarda çalışır.
+ * Sayfa URL ve <title> otomatik gönderilir.
  */
 
 (function() {
     'use strict';
     
-    // Tracking API endpoint
-    const TRACK_ENDPOINT = '/api/track';
+    // Header'da PHP ile set edilir (site_url + /api/track) – alt klasör / farklı domain için doğru URL
+    var TRACK_ENDPOINT = window.CODETIC_ANALYTICS_TRACK_URL || (window.location.origin + '/api/track');
     
-    // Sayfa yükleme zamanı
-    const pageLoadTime = Date.now();
-    
-    // Tracking verisi
-    let trackingData = null;
+    var pageLoadTime = Date.now();
+    var trackingData = null;
     
     /**
-     * Sayfa görüntülenmesini track et
+     * Sayfa görüntülenmesini track et – bulunulan sayfanın URL ve title'ı gönderilir
      */
     function trackPageView() {
         trackingData = {
             page_url: window.location.href,
-            page_title: document.title,
+            page_title: document.title || '',
             referrer: document.referrer || null,
             user_agent: navigator.userAgent,
             timestamp: Date.now()
         };
-        
-        // API'ye gönder
         sendTrackingData(trackingData);
     }
     

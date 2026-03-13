@@ -146,3 +146,5 @@ $homeUrl = function_exists('localized_url') ? localized_url('/') : (function_exi
     </div>
 </div>
 <label for="cizgiaks-nav-mobile-check" class="cizgiaks-mobile-menu-backdrop" id="cizgiaks-mobile-backdrop" aria-label="<?php echo esc_attr(__('Menüyü kapat')); ?>"></label>
+
+<?php if (function_exists('output_analytics_tracking')) output_analytics_tracking(); ?>
