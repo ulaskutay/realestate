@@ -1,6 +1,7 @@
 /**
  * Harita Üzerinde İlanlar – Google Maps frontend
- * Uses window.listingsMapConfig: { apiKey, defaultLat, defaultLng, defaultZoom, listings }
+ * Uses window.listingsMapConfig: { apiKey, defaultLat, defaultLng, defaultZoom, listings, mapId? }
+ * Set mapId (e.g. DEMO_MAP_ID or your Cloud Console map ID) to use AdvancedMarkerElement and avoid deprecation warnings.
  */
 (function () {
     var config = window.listingsMapConfig;
@@ -32,7 +33,9 @@
             window._listingsMapGmapsResolve = function () { finish(); };
             var t = setTimeout(function () { finish(new Error('Google Maps timeout')); }, 15000);
             var s = document.createElement('script');
-            s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(config.apiKey) + '&callback=_listingsMapGmapsResolve';
+            var url = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(config.apiKey) + '&loading=async&callback=_listingsMapGmapsResolve';
+            if (config.mapId) url += '&libraries=marker';
+            s.src = url;
             s.async = true;
             s.defer = true;
             s.onerror = function () { clearTimeout(t); finish(new Error('Google Maps script failed')); };
@@ -52,16 +55,20 @@
 
     function initMap() {
         var center = { lat: config.defaultLat, lng: config.defaultLng };
-        var map = new google.maps.Map(mapEl, {
+        var mapTypeId = (config.mapType === 'satellite') ? google.maps.MapTypeId.SATELLITE : google.maps.MapTypeId.ROADMAP;
+        var mapOptions = {
             center: center,
             zoom: config.defaultZoom,
+            mapTypeId: mapTypeId,
             mapTypeControl: true,
             mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.DROPDOWN_MENU },
             fullscreenControl: true,
             zoomControl: true,
             scaleControl: false,
             streetViewControl: false,
-        });
+        };
+        if (config.mapId) mapOptions.mapId = config.mapId;
+        var map = new google.maps.Map(mapEl, mapOptions);
 
         var listings = config.listings || [];
         var markers = [];
@@ -70,24 +77,42 @@
         var primary = (colors.primary && colors.primary.replace) ? colors.primary.replace('#', '') : 'bc1a1a';
         var accent = (colors.accent && colors.accent.replace) ? colors.accent.replace('#', '') : '9a1615';
         var pinColor = function (status) { return (status === 'rent') ? ('#' + accent) : ('#' + primary); };
+        var useAdvancedMarkers = config.mapId && (google.maps.marker && google.maps.marker.AdvancedMarkerElement);
 
         listings.forEach(function (item) {
             var iconUrl = pinSvgUrl(pinColor(item.listing_status || 'sale'));
-            var marker = new google.maps.Marker({
-                position: { lat: item.lat, lng: item.lng },
-                map: map,
-                title: item.title || (item.label + ' – ' + item.price),
-                icon: { url: iconUrl, scaledSize: new google.maps.Size(32, 40), anchor: new google.maps.Point(16, 40) },
-                listing: item,
-            });
-            marker.addListener('click', function () {
+            var position = { lat: item.lat, lng: item.lng };
+            var marker;
+            if (useAdvancedMarkers) {
+                var pinEl = document.createElement('img');
+                pinEl.src = iconUrl;
+                pinEl.style.width = '32px';
+                pinEl.style.height = '40px';
+                pinEl.style.display = 'block';
+                marker = new google.maps.marker.AdvancedMarkerElement({
+                    position: position,
+                    map: map,
+                    title: item.title || (item.label + ' – ' + item.price),
+                    content: pinEl,
+                });
+            } else {
+                marker = new google.maps.Marker({
+                    position: position,
+                    map: map,
+                    title: item.title || (item.label + ' – ' + item.price),
+                    icon: { url: iconUrl, scaledSize: new google.maps.Size(32, 40), anchor: new google.maps.Point(16, 40) },
+                });
+            }
+            marker.listing = item;
+            var clickEvent = useAdvancedMarkers ? 'gmp-click' : 'click';
+            marker.addListener(clickEvent, function () {
                 var textMuted = (colors.text_muted || '#6b7280').replace('#', '');
                 var primaryHex = '#' + primary;
                 var content = '<div class="listings-map-infowindow" style="min-width:220px;max-width:280px;padding:8px 0;font-family:system-ui,sans-serif;">';
                 content += '<div style="font-weight:700;font-size:14px;margin-bottom:6px;line-height:1.3;">' + escapeHtml(item.title || item.label || 'İlan') + '</div>';
                 if (item.label) content += '<div style="font-size:12px;color:#' + textMuted + ';margin-bottom:4px;">' + escapeHtml(item.label) + '</div>';
                 if (item.price) content += '<div style="font-size:15px;font-weight:600;color:' + primaryHex + ';margin-bottom:8px;">' + escapeHtml(item.price) + '</div>';
-                if (item.detail_url) content += '<a href="' + escapeHtml(item.detail_url) + '" style="display:inline-block;padding:6px 12px;background:' + primaryHex + ';color:#fff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:500;">İlanı görüntüle</a>';
+                if (item.detail_url) content += '<a href="' + escapeHtml(item.detail_url) + '" target="_top" style="display:inline-block;padding:6px 12px;background:' + primaryHex + ';color:#fff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:500;">İlanı görüntüle</a>';
                 content += '</div>';
                 infoWindow.setContent(content);
                 infoWindow.open(map, marker);
@@ -95,14 +120,15 @@
             markers.push(marker);
         });
 
-        if (window.markerClusterer && typeof window.markerClusterer.MarkerClusterer === 'function') {
+        if (window.markerClusterer && typeof window.markerClusterer.MarkerClusterer === 'function' && !useAdvancedMarkers) {
             new window.markerClusterer.MarkerClusterer({ map: map, markers: markers });
         }
         if (listings.length > 0) {
             var bounds = new google.maps.LatLngBounds();
-            markers.forEach(function (m) { bounds.extend(m.getPosition()); });
+            var getPos = function (m) { return useAdvancedMarkers ? m.position : m.getPosition(); };
+            markers.forEach(function (m) { bounds.extend(getPos(m)); });
             if (listings.length === 1) {
-                map.setCenter(markers[0].getPosition());
+                map.setCenter(getPos(markers[0]));
                 map.setZoom(15);
             } else {
                 try {

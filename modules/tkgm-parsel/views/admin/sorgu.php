@@ -418,7 +418,7 @@ $uploadsBaseUrl = rtrim(site_url('uploads'), '/') . '/';
             var t = setTimeout(function() { finish(new Error('Google Maps zaman aşımı.')); }, 15000);
             window._googleMapsResolve = function() { clearTimeout(t); finish(); };
             var s = document.createElement('script');
-            s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(googleMapsApiKey) + '&callback=_googleMapsResolve';
+            s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(googleMapsApiKey) + '&loading=async&callback=_googleMapsResolve';
             s.onerror = function() { clearTimeout(t); finish(new Error('Google Maps script yüklenemedi')); };
             document.head.appendChild(s);
         });

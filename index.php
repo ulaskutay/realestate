@@ -4,6 +4,18 @@
  * Tüm frontend istekleri buradan yönlendirilir
  */
 
+// HTTP → HTTPS yönlendirme (.htaccess çalışmazsa yedek; mobil dahil)
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+if (!$isHttps) {
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $uri = $_SERVER['REQUEST_URI'] ?? '/';
+    if ($host !== '') {
+        header('Location: https://' . $host . $uri, true, 301);
+        exit;
+    }
+}
+
 // Session başlat
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -70,7 +82,6 @@ require_once __DIR__ . '/core/Router.php';
 require_once __DIR__ . '/core/Controller.php';
 require_once __DIR__ . '/core/Model.php';
 require_once __DIR__ . '/core/ViewRenderer.php';
-require_once __DIR__ . '/core/Role.php';
 
 // Hook Sistemi ve Modül Yükleyiciyi yükle
 require_once __DIR__ . '/core/HookSystem.php';
@@ -163,6 +174,7 @@ if (strpos($requestPath, 'public/') === 0) {
             'jpeg' => 'image/jpeg',
             'gif' => 'image/gif',
             'webp' => 'image/webp',
+            'avif' => 'image/avif',
             'svg' => 'image/svg+xml',
             'css' => 'text/css',
             'js' => 'application/javascript',
@@ -219,7 +231,7 @@ if (strpos($requestPath, 'public/') === 0) {
         header('Content-Type: ' . $mimeType);
         
         // Cache headers - CSS ve JS için uzun süreli cache
-        if (in_array($ext, ['css', 'js', 'woff', 'woff2', 'ttf', 'eot', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'mp4', 'webm', 'ogg'])) {
+        if (in_array($ext, ['css', 'js', 'woff', 'woff2', 'ttf', 'eot', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'ico', 'mp4', 'webm', 'ogg'])) {
             // ETag oluştur (dosya boyutu + değişiklik zamanı)
             $etag = md5($filePath . $filemtime . $filesize);
             
@@ -244,7 +256,7 @@ if (strpos($requestPath, 'public/') === 0) {
             // Cache-Control: CSS/JS/Fonts için 1 yıl, görseller için 6 ay, videolar için 1 ay
             if (in_array($ext, ['css', 'js', 'woff', 'woff2', 'ttf', 'eot'])) {
                 header('Cache-Control: public, max-age=31536000, immutable'); // 1 yıl, immutable
-            } elseif (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico'])) {
+            } elseif (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'ico'])) {
                 header('Cache-Control: public, max-age=15552000'); // 6 ay
             } elseif (in_array($ext, ['mp4', 'webm', 'ogg'])) {
                 header('Cache-Control: public, max-age=2592000'); // 1 ay
@@ -274,7 +286,7 @@ if ($moduleAssetPos !== false) {
         $filePath = __DIR__ . '/modules/' . $moduleName . '/assets/' . $file;
         if (is_file($filePath)) {
             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-            $mimeTypes = ['css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', 'woff' => 'font/woff', 'woff2' => 'font/woff2'];
+            $mimeTypes = ['css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'avif' => 'image/avif', 'svg' => 'image/svg+xml', 'woff' => 'font/woff', 'woff2' => 'font/woff2'];
             header('Content-Type: ' . ($mimeTypes[$ext] ?? 'application/octet-stream'));
             header('Cache-Control: public, max-age=86400');
             readfile($filePath);
@@ -295,6 +307,7 @@ if (strpos($requestPath, 'themes/') === 0) {
             'jpeg' => 'image/jpeg',
             'gif' => 'image/gif',
             'webp' => 'image/webp',
+            'avif' => 'image/avif',
             'svg' => 'image/svg+xml',
             'css' => 'text/css',
             'js' => 'application/javascript',
@@ -309,7 +322,7 @@ if (strpos($requestPath, 'themes/') === 0) {
         header('Content-Type: ' . $mimeType);
         
         // Cache headers - CSS ve JS için uzun süreli cache
-        if (in_array($ext, ['css', 'js', 'woff', 'woff2', 'ttf', 'eot', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico'])) {
+        if (in_array($ext, ['css', 'js', 'woff', 'woff2', 'ttf', 'eot', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg', 'ico'])) {
             // ETag oluştur (dosya boyutu + değişiklik zamanı)
             $filemtime = filemtime($filePath);
             $filesize = filesize($filePath);
@@ -355,16 +368,36 @@ if (strpos($pathForModule, 'public/') === 0) {
     $pathForModule = substr($pathForModule, strlen('public/'));
 }
 
-// Önce modül route'larını dene (contact sayfası hariç - direkt HomeController kullanılacak)
-if ($pathForModule !== 'contact' && $pathForModule !== 'iletisim') {
-    try {
-        if ($moduleLoader->handleFrontendRoute($pathForModule)) {
-            exit;
-        }
-    } catch (Exception $e) {
-        error_log("Module frontend route error: " . $e->getMessage());
-        error_log("Stack trace: " . $e->getTraceAsString());
+// About/contact/iletisim/hakkimizda: Doğrudan HomeController'a git (modül ve Router'ı atla - her zaman Çizgi Aks)
+$staticPageSlugs = ['about', 'about.php', 'hakkimizda', 'hakkimizda.php', 'contact', 'contact.php', 'iletisim', 'iletisim.php'];
+$pathForStaticCheck = $pathForModule;
+if (strlen($pathForStaticCheck) > 4 && substr($pathForStaticCheck, -4) === '.php') {
+    $pathForStaticCheck = substr($pathForStaticCheck, 0, -4);
+}
+$isStaticPage = in_array($pathForModule, $staticPageSlugs, true) || in_array($pathForStaticCheck, ['about', 'hakkimizda', 'contact', 'iletisim'], true);
+
+if ($isStaticPage) {
+    $staticAction = [
+        'about' => 'about',
+        'hakkimizda' => 'hakkimizda',
+        'contact' => 'contact',
+        'iletisim' => 'iletisim',
+    ][$pathForStaticCheck] ?? null;
+    if ($staticAction) {
+        require_once __DIR__ . '/app/controllers/HomeController.php';
+        $home = new HomeController();
+        $home->$staticAction();
+        exit;
     }
+}
+
+try {
+    if ($moduleLoader->handleFrontendRoute($pathForModule)) {
+        exit;
+    }
+} catch (Exception $e) {
+    error_log("Module frontend route error: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
 }
 
 // Router oluştur
@@ -381,9 +414,9 @@ $router->get('/blog/{slug}', 'HomeController@blogPost');
 // Sözleşme route'ları
 $router->get('/sozlesmeler/{slug}', 'AgreementController@show');
 
-// İletişim sayfası (fallback - modül route'u çalışmazsa)
-$router->get('/contact', 'HomeController@contact');
-$router->get('/iletisim', 'HomeController@contact');
+// İletişim formu gönderimi
+$router->post('/contact/submit', 'HomeController@contactSubmit');
+$router->post('/iletisim/submit', 'HomeController@contactSubmit');
 
 // Teklif alma sayfası (özel route)
 $router->get('/teklif-al', 'HomeController@quoteRequest');
@@ -403,8 +436,19 @@ $router->get('/ilan/{slug}', 'ModuleProxyController@listingDetail');
 // Form gönderimi (frontend)
 $router->post('/forms/submit', 'FormController@submit');
 
-// Sayfa route'ları (slug bazlı - en son kontrol edilmeli, diğer route'ları engellememesi için)
-$router->get('/{slug}', 'HomeController@page');
+// Firmaya özel sayfalar (sayfa yapıcı/modülden bağımsız)
+$router->get('/contact', 'HomeController@contact');
+$router->get('/iletisim', 'HomeController@iletisim');
+$router->get('/hakkimizda', 'HomeController@hakkimizda');
+$router->get('/about', 'HomeController@about');
+// .php uzantılı URL'ler (bazı sunucularda Router normalizasyonu farklı çalışabiliyor)
+$router->get('/about.php', 'HomeController@about');
+$router->get('/hakkimizda.php', 'HomeController@hakkimizda');
+$router->get('/contact.php', 'HomeController@contact');
+$router->get('/iletisim.php', 'HomeController@iletisim');
+
+// Sayfa route'ları (tema modülü theme_pages üzerinden gösterilir)
+$router->get('/{slug}', 'HomeController@pageProxy');
 
 // Hook: Modüller ek route ekleyebilir
 do_action('register_routes', $router);

@@ -1,6 +1,7 @@
 <?php
 $timelines = $timelines ?? [];
 $title = $title ?? 'Video Timeline';
+$search = $search ?? '';
 ?>
 <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
     <div class="flex flex-col gap-2">
@@ -12,6 +13,14 @@ $title = $title ?? 'Video Timeline';
         <span class="text-sm font-medium">Yeni</span>
     </a>
 </header>
+
+<form method="get" action="<?php echo esc_attr(admin_url('module/video-timeline/index')); ?>" class="mb-6 flex flex-wrap items-center gap-2">
+    <input type="search" name="search" value="<?php echo esc_attr($search); ?>" placeholder="Proje adına göre ara..." class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white min-w-[200px]">
+    <button type="submit" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium">Ara</button>
+    <?php if ($search !== ''): ?>
+    <a href="<?php echo admin_url('module/video-timeline/index'); ?>" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:underline text-sm">Filtreyi temizle</a>
+    <?php endif; ?>
+</form>
 
 <?php if (isset($_SESSION['flash_message'])): ?>
 <div class="mb-6 p-4 rounded-lg <?php echo ($_SESSION['flash_type'] ?? 'success') === 'success' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 text-green-800 dark:text-green-200' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 text-red-800 dark:text-red-200'; ?>">
@@ -45,6 +54,7 @@ $title = $title ?? 'Video Timeline';
                     <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-sm"><?php echo date('d.m.Y H:i', strtotime($t['created_at'] ?? 'now')); ?></td>
                     <td class="px-4 py-3">
                         <a href="<?php echo admin_url('module/video-timeline/editor', ['id' => (int)$t['id']]); ?>" class="inline-flex items-center gap-1 px-2 py-1 text-primary hover:underline text-sm">Düzenle</a>
+                        <a href="<?php echo admin_url('module/video-timeline/duplicate-timeline', ['id' => (int)$t['id']]); ?>" class="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-400 hover:underline text-sm">Çoğalt</a>
                         <button type="button" data-timeline-id="<?php echo (int)$t['id']; ?>" data-timeline-name="<?php echo esc_attr($t['name']); ?>" class="video-timeline-delete inline-flex items-center gap-1 px-2 py-1 text-red-600 dark:text-red-400 hover:underline text-sm">Sil</button>
                     </td>
                 </tr>

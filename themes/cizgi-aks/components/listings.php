@@ -47,7 +47,8 @@ $propertyTypeLabels = [
 $ilanBase = function_exists('localized_url') ? rtrim(localized_url('/ilan'), '/') : (function_exists('site_url') ? rtrim(site_url('/ilan'), '/') : '/ilan');
 $listingsPageUrl = function_exists('localized_url') ? localized_url('/ilanlar') : (function_exists('site_url') ? site_url('/ilanlar') : '/ilanlar');
 $haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ilanlar') : (function_exists('site_url') ? rtrim(site_url('/harita-ilanlar'), '/') : '/harita-ilanlar');
-$danismanBase = function_exists('localized_url') ? rtrim(localized_url('/danismanlar'), '/') : (function_exists('site_url') ? rtrim(site_url('/danismanlar'), '/') : '/danismanlar');
+$danismanDetailBase = function_exists('localized_url') ? rtrim(localized_url('/danisman'), '/') : (function_exists('site_url') ? rtrim(site_url('/danisman'), '/') : '/danisman');
+$danismanListUrl = function_exists('localized_url') ? localized_url('/danismanlar') : (function_exists('site_url') ? site_url('/danismanlar') : '/danismanlar');
 $talepLink = $themeLoader->getSetting('talep_link', '/contact', 'header');
 $talepLinkUrl = function_exists('localized_url') ? localized_url($talepLink) : $talepLink;
 $primaryColor = $themeLoader->getColor('primary', '#bc1a1a');
@@ -87,7 +88,7 @@ if (!$unified) {
                             $img = !empty($listing['featured_image']) ? $listing['featured_image'] : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800';
                             $realtorName = trim(($listing['realtor_first_name'] ?? '') . ' ' . ($listing['realtor_last_name'] ?? ''));
                             $realtorSlug = $listing['realtor_slug'] ?? '';
-                            $realtorUrl = $realtorSlug ? $danismanBase . '/' . $realtorSlug : $danismanBase;
+                            $realtorUrl = $realtorSlug ? ($danismanDetailBase . '/' . $realtorSlug) : $danismanListUrl;
                             $realtorPhoto = $listing['realtor_photo'] ?? '';
                         ?>
                             <article class="cizgiaks-listing-card cizgiaks-listing-card--vitrin">
@@ -97,10 +98,15 @@ if (!$unified) {
                                     </a>
                                     <div class="cizgiaks-listing-ribbons">
                                         <span class="cizgiaks-ribbon cizgiaks-ribbon-<?php echo $listingStatus === 'rent' ? 'kiralik' : 'satilik'; ?>"><?php echo esc_html($statusLabel); ?></span>
-                                        <?php if (!empty($listing['label_yeni'])): ?><span class="cizgiaks-ribbon cizgiaks-ribbon-yeni"><?php echo esc_html(__('Yeni')); ?></span><?php endif; ?>
-                                        <?php if (!empty($listing['label_firsat'])): ?><span class="cizgiaks-ribbon cizgiaks-ribbon-firsat"><?php echo esc_html(__('Fırsat')); ?></span><?php endif; ?>
-                                        <?php if (!empty($listing['label_yatirimlik'])): ?><span class="cizgiaks-ribbon cizgiaks-ribbon-yatirimlik"><?php echo esc_html(__('Yatırımlık')); ?></span><?php endif; ?>
-                                        <?php if (!empty($listing['label_acil'])): ?><span class="cizgiaks-ribbon cizgiaks-ribbon-acil"><?php echo esc_html(__('Acil')); ?></span><?php endif; ?>
+                                        <?php
+                                        $listingBadges = isset($listing['badges']) && is_array($listing['badges']) ? $listing['badges'] : [];
+                                        $badgeLabels = function_exists('get_module_settings') ? (get_module_settings('realestate-listings')['badges'] ?? []) : [];
+                                        $badgeDisplayFallback = ['firsat' => 'Fırsat', 'yatirimlik' => 'Yatırımlık', 'yeni' => 'Yeni', 'acil' => 'Acil'];
+                                        foreach ($listingBadges as $bKey):
+                                            $bLabel = $badgeDisplayFallback[$bKey] ?? (isset($badgeLabels[$bKey]) ? $badgeLabels[$bKey] : $bKey);
+                                        ?><span class="cizgiaks-ribbon cizgiaks-ribbon-<?php echo esc_attr($bKey); ?>"><?php echo esc_html($bLabel); ?></span><?php
+                                        endforeach;
+                                        ?>
                                     </div>
                                 </div>
                                 <div class="cizgiaks-listing-card-body">

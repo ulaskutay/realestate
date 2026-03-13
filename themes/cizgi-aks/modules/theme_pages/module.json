@@ -1,0 +1,16 @@
+{
+  "name": "theme_pages",
+  "title": "Sayfalar (Çizgi Aks)",
+  "version": "1.0.0",
+  "description": "Tema sayfa gösterimi - sadece frontend",
+  "author": "CMS",
+  "requires_php": "7.4",
+  "main_file": "Controller.php",
+  "controller_class": "CizgiAksThemePagesController",
+  "is_system": true,
+  "is_theme_module": true,
+  "routes": [],
+  "admin_menu": null,
+  "permissions": [],
+  "settings": false
+}

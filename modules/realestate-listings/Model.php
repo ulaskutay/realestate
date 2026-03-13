@@ -19,9 +19,40 @@ class RealEstateListingsModel {
         $this->migrateAdaParsel();
         $this->migrateLatLngAndLocation();
         $this->migrateListingStatusToVarchar();
+        $this->migrateSahibindenAttributes();
         $this->ensureListingCategoriesTables();
         $this->syncListingCategoriesFromSettings();
         $this->migrateExistingListingsToCategories();
+        $this->migrateBadges();
+    }
+
+    /**
+     * Rozet (badge) seçimlerini ilan satırında dizi olarak döndürür
+     */
+    private function decodeListingBadges($row) {
+        if (isset($row['badges'])) {
+            if (is_string($row['badges'])) {
+                $decoded = @json_decode($row['badges'], true);
+                $row['badges'] = is_array($decoded) ? $decoded : [];
+            }
+        } else {
+            $row['badges'] = [];
+        }
+        return $row;
+    }
+
+    /**
+     * Mevcut tabloya rozet (badge) anahtarlarını saklayan sütunu ekler
+     */
+    private function migrateBadges() {
+        try {
+            $checkSql = "SHOW COLUMNS FROM `{$this->table}` LIKE 'badges'";
+            $stmt = $this->db->getConnection()->query($checkSql);
+            if ($stmt && $stmt->rowCount() > 0) return;
+            $this->db->query("ALTER TABLE `{$this->table}` ADD COLUMN `badges` TEXT NULL DEFAULT NULL AFTER `is_featured`");
+        } catch (Exception $e) {
+            error_log('migrateBadges: ' . $e->getMessage());
+        }
     }
     
     /**
@@ -155,6 +186,46 @@ class RealEstateListingsModel {
         } catch (Exception $e) {
             // Hata durumunda sessizce devam et
             error_log('Listing status migration error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Sahibinden.com uyumlu ilan özellik alanları (bina yaşı, kat, ısıtma, mutfak, balkon, asansör, otopark, eşyalı, kullanım durumu, site, aidat, krediye uygun, tapu, kimden, takas vb.)
+     */
+    private function migrateSahibindenAttributes() {
+        try {
+            $cols = [
+                'listing_no'     => ['type' => 'VARCHAR(50) NULL', 'after' => 'id'],
+                'area_net'       => ['type' => 'DECIMAL(10,2) NULL', 'after' => 'area'],
+                'building_age'   => ['type' => 'VARCHAR(20) NULL', 'after' => 'area_unit'],
+                'floor'          => ['type' => 'INT(11) NULL', 'after' => 'building_age'],
+                'total_floors'   => ['type' => 'INT(11) NULL', 'after' => 'floor'],
+                'heating'        => ['type' => 'VARCHAR(100) NULL', 'after' => 'total_floors'],
+                'kitchen'        => ['type' => 'VARCHAR(50) NULL', 'after' => 'heating'],
+                'balcony'        => ['type' => 'VARCHAR(20) NULL', 'after' => 'kitchen'],
+                'elevator'       => ['type' => 'VARCHAR(20) NULL', 'after' => 'balcony'],
+                'parking'        => ['type' => 'VARCHAR(100) NULL', 'after' => 'elevator'],
+                'furnished'      => ['type' => 'VARCHAR(20) NULL', 'after' => 'parking'],
+                'usage_status'   => ['type' => 'VARCHAR(50) NULL', 'after' => 'furnished'],
+                'in_complex'     => ['type' => 'VARCHAR(20) NULL', 'after' => 'usage_status'],
+                'complex_name'   => ['type' => 'VARCHAR(255) NULL', 'after' => 'in_complex'],
+                'monthly_dues'   => ['type' => 'DECIMAL(10,2) NULL', 'after' => 'complex_name'],
+                'loan_eligible'  => ['type' => 'VARCHAR(20) NULL', 'after' => 'monthly_dues'],
+                'deed_status'    => ['type' => 'VARCHAR(100) NULL', 'after' => 'loan_eligible'],
+                'listed_by'      => ['type' => 'VARCHAR(100) NULL', 'after' => 'deed_status'],
+                'takas'          => ['type' => 'VARCHAR(20) NULL', 'after' => 'listed_by'],
+            ];
+            foreach ($cols as $col => $def) {
+                $checkSql = "SHOW COLUMNS FROM `{$this->table}` LIKE '{$col}'";
+                $stmt = $this->db->getConnection()->query($checkSql);
+                if ($stmt && $stmt->rowCount() > 0) {
+                    continue;
+                }
+                $after = $def['after'];
+                $this->db->query("ALTER TABLE `{$this->table}` ADD COLUMN `{$col}` {$def['type']} AFTER `{$after}`");
+            }
+        } catch (Exception $e) {
+            error_log('migrateSahibindenAttributes: ' . $e->getMessage());
         }
     }
 
@@ -428,7 +499,7 @@ class RealEstateListingsModel {
                 LEFT JOIN `users` u ON l.author_id = u.id
                 LEFT JOIN `realestate_agents` r ON l.realtor_id = r.id
                 ORDER BY {$orderBy}";
-        return $this->db->fetchAll($sql);
+        return array_map([$this, 'decodeListingBadges'], $this->db->fetchAll($sql));
     }
 
     /**
@@ -510,9 +581,9 @@ class RealEstateListingsModel {
         if (!empty($params)) {
             $stmt = $this->db->getConnection()->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return array_map([$this, 'decodeListingBadges'], $stmt->fetchAll(PDO::FETCH_ASSOC));
         }
-        return $this->db->fetchAll($sql);
+        return array_map([$this, 'decodeListingBadges'], $this->db->fetchAll($sql));
     }
     
     /**
@@ -653,10 +724,10 @@ class RealEstateListingsModel {
         if (!empty($params)) {
             $stmt = $this->db->getConnection()->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return array_map([$this, 'decodeListingBadges'], $stmt->fetchAll(PDO::FETCH_ASSOC));
         }
         
-        return $this->db->fetchAll($sql);
+        return array_map([$this, 'decodeListingBadges'], $this->db->fetchAll($sql));
     }
     
     /**
@@ -672,7 +743,7 @@ class RealEstateListingsModel {
                 WHERE l.`status` = 'published' AND l.`is_featured` = 1 
                 ORDER BY l.`created_at` DESC 
                 LIMIT {$limit}";
-        return $this->db->fetchAll($sql);
+        return array_map([$this, 'decodeListingBadges'], $this->db->fetchAll($sql));
     }
     
     /**
@@ -735,7 +806,8 @@ class RealEstateListingsModel {
                 WHERE l.id = ?";
         $stmt = $this->db->getConnection()->prepare($sql);
         $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? $this->decodeListingBadges($row) : null;
     }
     
     /**
@@ -751,16 +823,18 @@ class RealEstateListingsModel {
                 WHERE l.`slug` = ? AND l.`status` = 'published'";
         $stmt = $this->db->getConnection()->prepare($sql);
         $stmt->execute([$slug]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? $this->decodeListingBadges($row) : null;
     }
     
     /**
      * Yeni ilan oluştur
      */
     public function create($data) {
+        $badgesJson = isset($data['badges']) ? (is_string($data['badges']) ? $data['badges'] : json_encode((array) $data['badges'])) : '[]';
         $sql = "INSERT INTO `{$this->table}` 
-                (`title`, `slug`, `description`, `location`, `latitude`, `longitude`, `city`, `district`, `neighborhood`, `ada`, `parsel`, `price`, `property_type`, `listing_status`, `bedrooms`, `bathrooms`, `living_rooms`, `rooms`, `area`, `area_unit`, `featured_image`, `gallery`, `status`, `is_featured`, `author_id`, `realtor_id`) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                (`title`, `slug`, `description`, `location`, `latitude`, `longitude`, `city`, `district`, `neighborhood`, `ada`, `parsel`, `price`, `property_type`, `listing_status`, `bedrooms`, `bathrooms`, `living_rooms`, `rooms`, `area`, `area_unit`, `listing_no`, `area_net`, `building_age`, `floor`, `total_floors`, `heating`, `kitchen`, `balcony`, `elevator`, `parking`, `furnished`, `usage_status`, `in_complex`, `complex_name`, `monthly_dues`, `loan_eligible`, `deed_status`, `listed_by`, `takas`, `featured_image`, `gallery`, `status`, `is_featured`, `badges`, `author_id`, `realtor_id`) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = $this->db->getConnection()->prepare($sql);
         $result = $stmt->execute([
@@ -784,10 +858,30 @@ class RealEstateListingsModel {
             $data['rooms'] ?? 0,
             $data['area'] ?? 0,
             $data['area_unit'] ?? 'sqft',
+            $data['listing_no'] ?? null,
+            isset($data['area_net']) && $data['area_net'] !== '' ? (float) $data['area_net'] : null,
+            $data['building_age'] ?? null,
+            isset($data['floor']) && $data['floor'] !== '' ? (int) $data['floor'] : null,
+            isset($data['total_floors']) && $data['total_floors'] !== '' ? (int) $data['total_floors'] : null,
+            $data['heating'] ?? null,
+            $data['kitchen'] ?? null,
+            $data['balcony'] ?? null,
+            $data['elevator'] ?? null,
+            $data['parking'] ?? null,
+            $data['furnished'] ?? null,
+            $data['usage_status'] ?? null,
+            $data['in_complex'] ?? null,
+            $data['complex_name'] ?? null,
+            isset($data['monthly_dues']) && $data['monthly_dues'] !== '' ? (float) $data['monthly_dues'] : null,
+            $data['loan_eligible'] ?? null,
+            $data['deed_status'] ?? null,
+            $data['listed_by'] ?? null,
+            $data['takas'] ?? null,
             $data['featured_image'] ?? null,
             $data['gallery'] ?? '[]',
             $data['status'] ?? 'draft',
             $data['is_featured'] ?? 0,
+            $badgesJson,
             $data['author_id'] ?? null,
             $data['realtor_id'] ?? null
         ]);
@@ -799,10 +893,12 @@ class RealEstateListingsModel {
      * İlan güncelle
      */
     public function update($id, $data) {
+        $badgesJson = isset($data['badges']) ? (is_string($data['badges']) ? $data['badges'] : json_encode((array) $data['badges'])) : '[]';
         $sql = "UPDATE `{$this->table}` SET 
                 `title` = ?, `slug` = ?, `description` = ?, `location` = ?, `latitude` = ?, `longitude` = ?, `city` = ?, `district` = ?, `neighborhood` = ?, `ada` = ?, `parsel` = ?, `price` = ?, 
                 `property_type` = ?, `listing_status` = ?, `bedrooms` = ?, `bathrooms` = ?, `living_rooms` = ?, `rooms` = ?, `area` = ?, `area_unit` = ?, 
-                `featured_image` = ?, `gallery` = ?, `status` = ?, `is_featured` = ?, `realtor_id` = ?
+                `listing_no` = ?, `area_net` = ?, `building_age` = ?, `floor` = ?, `total_floors` = ?, `heating` = ?, `kitchen` = ?, `balcony` = ?, `elevator` = ?, `parking` = ?, `furnished` = ?, `usage_status` = ?, `in_complex` = ?, `complex_name` = ?, `monthly_dues` = ?, `loan_eligible` = ?, `deed_status` = ?, `listed_by` = ?, `takas` = ?,
+                `featured_image` = ?, `gallery` = ?, `status` = ?, `is_featured` = ?, `badges` = ?, `realtor_id` = ?
                 WHERE `id` = ?";
         
         $stmt = $this->db->getConnection()->prepare($sql);
@@ -827,10 +923,30 @@ class RealEstateListingsModel {
             $data['rooms'] ?? 0,
             $data['area'] ?? 0,
             $data['area_unit'] ?? 'sqft',
+            $data['listing_no'] ?? null,
+            isset($data['area_net']) && $data['area_net'] !== '' ? (float) $data['area_net'] : null,
+            $data['building_age'] ?? null,
+            isset($data['floor']) && $data['floor'] !== '' ? (int) $data['floor'] : null,
+            isset($data['total_floors']) && $data['total_floors'] !== '' ? (int) $data['total_floors'] : null,
+            $data['heating'] ?? null,
+            $data['kitchen'] ?? null,
+            $data['balcony'] ?? null,
+            $data['elevator'] ?? null,
+            $data['parking'] ?? null,
+            $data['furnished'] ?? null,
+            $data['usage_status'] ?? null,
+            $data['in_complex'] ?? null,
+            $data['complex_name'] ?? null,
+            isset($data['monthly_dues']) && $data['monthly_dues'] !== '' ? (float) $data['monthly_dues'] : null,
+            $data['loan_eligible'] ?? null,
+            $data['deed_status'] ?? null,
+            $data['listed_by'] ?? null,
+            $data['takas'] ?? null,
             $data['featured_image'] ?? null,
             $data['gallery'] ?? '[]',
             $data['status'] ?? 'draft',
             $data['is_featured'] ?? 0,
+            $badgesJson,
             $data['realtor_id'] ?? null,
             $id
         ]);
@@ -873,7 +989,7 @@ class RealEstateListingsModel {
         
         $stmt = $this->db->getConnection()->prepare($sql);
         $stmt->execute([$realtorId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return array_map([$this, 'decodeListingBadges'], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
     
     /**

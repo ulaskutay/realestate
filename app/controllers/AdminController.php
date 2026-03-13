@@ -101,15 +101,38 @@ class AdminController extends Controller {
             $stats['total_submissions_count'] = 0;
         }
         
-        // Analytics verileri
+        // Analytics: Google Analytics ID varsa GA kullanılıyor; yoksa yerel page_views
+        $gaId = trim((string) get_option('google_analytics', ''));
+        $useGoogleAnalytics = $gaId !== '';
         $analyticsStats = null;
-        try {
-            require_once __DIR__ . '/../models/Analytics.php';
-            $analytics = new Analytics();
-            $analyticsStats = $analytics->getDashboardStats();
-        } catch (Exception $e) {
-            // Analytics tablosu yoksa veya hata varsa
-            $analyticsStats = null;
+        $gaApiError = null;
+        if ($useGoogleAnalytics) {
+            $ga4PropertyId = trim((string) get_option('ga4_property_id', ''));
+            $ga4Json = trim((string) get_option('ga4_service_account_json', ''));
+            if ($ga4PropertyId !== '' && $ga4Json !== '') {
+                try {
+                    // GA4 API requires google/analytics-data (PHP 8.2+). Skip if not installed.
+                    if (!class_exists('Google\Analytics\Data\V1beta\Client\BetaAnalyticsDataClient', false)) {
+                        $analyticsStats = null;
+                        $gaApiError = 'GA4 API paketi yüklü değil (PHP 8.2+ ve composer require google/analytics-data gerekir).';
+                    } else {
+                        require_once __DIR__ . '/../services/GoogleAnalyticsService.php';
+                        $gaService = new GoogleAnalyticsService($ga4PropertyId, $ga4Json);
+                        $analyticsStats = $gaService->getDashboardStats();
+                    }
+                } catch (Exception $e) {
+                    $analyticsStats = null;
+                    $gaApiError = $e->getMessage();
+                }
+            }
+        } else {
+            try {
+                require_once __DIR__ . '/../models/Analytics.php';
+                $analytics = new Analytics();
+                $analyticsStats = $analytics->getDashboardStats();
+            } catch (Exception $e) {
+                $analyticsStats = null;
+            }
         }
         
         // Son içerikler
@@ -166,7 +189,9 @@ class AdminController extends Controller {
             'title' => 'Dashboard',
             'user' => get_logged_in_user(),
             'stats' => $stats,
+            'useGoogleAnalytics' => $useGoogleAnalytics,
             'analyticsStats' => $analyticsStats,
+            'gaApiError' => $gaApiError,
             'recentPosts' => $recentPosts,
             'recentMedia' => $recentMedia,
             'recentSubmissions' => $recentSubmissions,
@@ -197,13 +222,13 @@ class AdminController extends Controller {
         }
         
         $file = $_FILES['logo'];
-        $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp'];
+        $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/avif'];
         $maxSize = 5 * 1024 * 1024; // 5MB
         
         // Dosya tipi kontrolü
         if (!in_array($file['type'], $allowedTypes)) {
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Geçersiz dosya tipi. Sadece JPG, PNG, GIF, SVG veya WebP yükleyebilirsiniz.']);
+            echo json_encode(['success' => false, 'message' => 'Geçersiz dosya tipi. Sadece JPG, PNG, GIF, SVG, WebP veya AVIF yükleyebilirsiniz.']);
             exit;
         }
         
@@ -263,13 +288,13 @@ class AdminController extends Controller {
         }
         
         $file = $_FILES['favicon'];
-        $allowedTypes = ['image/x-icon', 'image/vnd.microsoft.icon', 'image/png', 'image/svg+xml', 'image/gif'];
+        $allowedTypes = ['image/x-icon', 'image/vnd.microsoft.icon', 'image/png', 'image/svg+xml', 'image/gif', 'image/avif'];
         $maxSize = 1 * 1024 * 1024; // 1MB (favicon için daha küçük)
         
         // Dosya tipi kontrolü
         if (!in_array($file['type'], $allowedTypes)) {
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Geçersiz dosya tipi. Sadece ICO, PNG, SVG veya GIF yükleyebilirsiniz.']);
+            echo json_encode(['success' => false, 'message' => 'Geçersiz dosya tipi. Sadece ICO, PNG, SVG, GIF veya AVIF yükleyebilirsiniz.']);
             exit;
         }
         
@@ -339,17 +364,21 @@ class AdminController extends Controller {
                 update_option('google_analytics', $_POST['google_analytics'] ?? '');
                 update_option('google_tag_manager', $_POST['google_tag_manager'] ?? '');
                 update_option('google_ads', $_POST['google_ads'] ?? '');
-                $message = 'Genel ayarlar başarıyla kaydedildi.';
-                $messageType = 'success';
-            }
-            
-            // SEO Ayarları
-            if (isset($_POST['save_seo'])) {
-                update_option('seo_title', $_POST['seo_title'] ?? '');
-                update_option('seo_description', $_POST['seo_description'] ?? '');
-                update_option('seo_author', $_POST['seo_author'] ?? '');
-                $message = 'SEO ayarları başarıyla kaydedildi.';
-                $messageType = 'success';
+                update_option('ga4_property_id', trim((string)($_POST['ga4_property_id'] ?? '')));
+                $ga4Json = trim((string)($_POST['ga4_service_account_json'] ?? ''));
+                if ($ga4Json !== '') {
+                    $decoded = json_decode($ga4Json, true);
+                    if (json_last_error() === JSON_ERROR_NONE && !empty($decoded['type'])) {
+                        update_option('ga4_service_account_json', $ga4Json);
+                    } else {
+                        $message = 'GA4 servis hesabı JSON geçersiz. Genel ayarlar kaydedildi.';
+                        $messageType = 'error';
+                    }
+                }
+                if (!isset($messageType) || $messageType !== 'error') {
+                    $message = 'Genel ayarlar başarıyla kaydedildi.';
+                    $messageType = 'success';
+                }
             }
             
             // Sosyal Medya Ayarları
@@ -405,9 +434,8 @@ class AdminController extends Controller {
                 'google_analytics' => get_option('google_analytics', ''),
                 'google_tag_manager' => get_option('google_tag_manager', ''),
                 'google_ads' => get_option('google_ads', ''),
-                'seo_title' => get_option('seo_title', ''),
-                'seo_description' => get_option('seo_description', ''),
-                'seo_author' => get_option('seo_author', ''),
+                'ga4_property_id' => get_option('ga4_property_id', ''),
+                'ga4_credentials_configured' => !empty(trim((string) get_option('ga4_service_account_json', ''))),
                 'social_facebook' => get_option('social_facebook', ''),
                 'social_instagram' => get_option('social_instagram', ''),
                 'social_twitter' => get_option('social_twitter', ''),

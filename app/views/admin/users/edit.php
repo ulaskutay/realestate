@@ -113,37 +113,21 @@
                             <div class="flex flex-col gap-2">
                                 <label for="role" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">Rol</label>
                                 <?php
-                                require_once __DIR__ . '/../../../../core/Role.php';
-                                $currentUser = get_logged_in_user();
-                                $allRoles = Role::getAll();
-                                $availableRoles = [];
-                                
-                                // Kullanıcının yetkisine göre rolleri filtrele
-                                foreach ($allRoles as $roleKey => $roleData) {
-                                    // Süper admin tüm rolleri görebilir
-                                    if ($currentUser['role'] === 'super_admin') {
-                                        $availableRoles[$roleKey] = $roleData;
-                                    } else {
-                                        // Diğer kullanıcılar sadece kendi seviyelerinden düşük rolleri görebilir
-                                        // Mevcut kullanıcının rolü de seçilebilir olmalı (kendi seviyesini koruyabilmek için)
-                                        if (Role::isLowerThan($roleKey, $currentUser['role']) || $roleKey === $user_data['role']) {
-                                            $availableRoles[$roleKey] = $roleData;
-                                        }
-                                    }
-                                }
+                                $rolesForSelect = $rolesForSelect ?? [];
+                                $currentRoleSlug = $user_data['role'] ?? '';
                                 ?>
                                 <select 
                                     id="role" 
                                     name="role"
                                     class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base"
                                 >
-                                    <?php foreach ($availableRoles as $roleKey => $roleData): ?>
-                                        <option value="<?php echo esc_attr($roleKey); ?>" <?php echo (isset($user_data['role']) && $user_data['role'] === $roleKey) ? 'selected' : ''; ?>>
-                                            <?php echo esc_html($roleData['name']); ?> - <?php echo esc_html($roleData['description']); ?>
+                                    <?php foreach ($rolesForSelect as $r): ?>
+                                        <option value="<?php echo esc_attr($r['slug'] ?? ''); ?>" <?php echo ($currentRoleSlug === ($r['slug'] ?? '')) ? 'selected' : ''; ?>>
+                                            <?php echo esc_html($r['name'] ?? $r['slug'] ?? ''); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <p class="text-gray-500 dark:text-gray-400 text-xs">Kullanıcının yetki seviyesini belirleyin. Sadece kendi seviyenizden düşük rolleri seçebilirsiniz.</p>
+                                <p class="text-gray-500 dark:text-gray-400 text-xs">Kullanıcının rolünü seçin. Yetki sistemi yeniden kurulacak.</p>
                             </div>
 
                             <!-- Durum -->

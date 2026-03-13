@@ -134,6 +134,11 @@ class Router {
         // Ama eğer path boş değilse, path'i döndür
         $finalPath = $path ?: '/';
         
+        // URL'de .php uzantısı varsa kaldır (örn: about.php -> about) - route eşleşmesi için
+        if (strlen($finalPath) > 4 && substr($finalPath, -4) === '.php') {
+            $finalPath = substr($finalPath, 0, -4) ?: '/';
+        }
+        
         // Debug: Final path
         $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
         if ($debugMode && (strpos($finalPath, 'ilanlar') !== false || strpos($finalPath, 'danismanlar') !== false || $finalPath === '/')) {

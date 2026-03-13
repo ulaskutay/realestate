@@ -32,9 +32,13 @@ class AIService {
         
         // Prompt oluştur
         $prompt = $this->buildPrompt($listingData);
-        
-        // API çağrısı yap
-        $response = $this->callGroqAPI($prompt);
+
+        // API çağrısı yap (düşük temperature = daha tutarlı, saçmalamayan çıktı)
+        $response = $this->callGroqAPI($prompt, [
+            'system' => $this->getListingSystemMessage(),
+            'temperature' => 0.45,
+            'max_tokens' => 1000
+        ]);
         
         if (!$response['success']) {
             return $response;
@@ -47,6 +51,27 @@ class AIService {
         ];
     }
     
+    /**
+     * Varsayılan system mesajı (test vb.)
+     */
+    private function getDefaultSystemMessage() {
+        return 'Sen profesyonel bir emlak danışmanısın. Türkçe, profesyonel ve ikna edici metinler yazarsın. Sadece verilen bilgilere dayan, uydurma yapma.';
+    }
+
+    /**
+     * İlan açıklaması için system mesajı – net kurallar, saçmalamayı önler
+     */
+    private function getListingSystemMessage() {
+        return "Sen Türkçe yazan, yalnızca verilen ilan bilgilerini kullanan profesyonel bir emlak metin yazarısın.\n\nKURALLAR (kesin uyulacak):\n- Sadece kullanıcının verdiği başlık, konum, fiyat, emlak tipi, oda detayları ve alan bilgilerini kullan; bu bilgilerin dışına çıkma.\n- Hiçbir özellik, sayı veya konum uydurma (örn. verilmeyen manzara, ulaşım, okul adı ekleme).\n- Türkçe yaz; İngilizce veya başka dil kullanma.\n- Emoji, asterisk, gereksiz başlık veya 'İlan açıklaması:' gibi etiket ekleme.\n- Çıktında yalnızca açıklama paragrafları olsun; ek açıklama veya not yazma.";
+    }
+
+    /**
+     * Parsel seslendirme metni için system mesajı
+     */
+    private function getParselSystemMessage() {
+        return "Sen Türkçe yazan, yalnızca verilen parsel bilgilerini kullanan profesyonel bir emlak seslendirme metni yazarısın.\n\nKURALLAR (kesin uyulacak):\n- Sadece kullanıcının verdiği konum, ada, parsel, alan, nitelik ve yakın lokasyonlar listesini kullan; bu bilgilerin dışına çıkma.\n- Hiçbir yer, tesis veya özellik uydurma; listede olmayan bir lokasyonu metne ekleme.\n- Türkçe yaz; İngilizce veya başka dil kullanma.\n- Emoji veya gereksiz başlık ekleme.\n- Çıktında yalnızca seslendirme metni olsun.";
+    }
+
     /**
      * İlan bilgilerinden prompt oluştur
      */
@@ -99,9 +124,9 @@ class AIService {
             ? number_format($data['area'], 0, ',', '.') . ' ' . $areaUnit
             : 'Alan belirtilmemiş';
         
-        $prompt = "Sen profesyonel bir emlak danışmanısın. Aşağıdaki bilgilere göre dikkat çekici, SEO uyumlu ve ikna edici bir ilan açıklaması yaz.
+        $prompt = "Aşağıdaki ilan bilgilerine **sadece ve sadece** bu maddelere dayanarak bir ilan açıklaması yaz. Verilmeyen hiçbir bilgi ekleme (okul, hastane, ulaşım, manzara vb. yazma; sadece aşağıdakileri kullan).
 
-İlan Bilgileri:
+İlan Bilgileri (sadece bunları kullan):
 - Başlık: " . ($data['title'] ?? 'İlan başlığı belirtilmemiş') . "
 - Konum: " . ($data['location'] ?? 'Konum belirtilmemiş') . "
 - Fiyat: {$price} ({$listingStatus})
@@ -109,40 +134,47 @@ class AIService {
 - Oda Detayları: {$roomDetails}
 - Alan: {$area}
 
-Açıklama gereksinimleri:
-- Türkçe yazılmalı
-- Profesyonel ve satış odaklı olmalı
-- Özellikleri vurgulamalı
-- SEO uyumlu olmalı (anahtar kelimeler doğal şekilde kullanılmalı)
-- 200-400 kelime arasında olmalı
-- Paragraflar halinde düzenlenmeli
-- Müşteriyi harekete geçirecek çağrılar içermeli
+Yapılacaklar:
+- Türkçe, profesyonel ve satış odaklı bir metin yaz.
+- Yukarıdaki bilgileri doğal cümlelerle vurgula; anahtar kelimeleri akıcı kullan (SEO).
+- 200–400 kelime arasında, paragraflar halinde yaz.
+- Sonunda kısa bir iletişime geçin çağrısı ekleyebilirsin.
 
-Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
+Yasak:
+- Başlık, 'Açıklama:', 'İlan metni:' gibi etiket yazma.
+- Yukarıda olmayan özellik, sayı veya konum uydurma.
+- Emoji veya yıldız kullanma.
+Çıktı: Sadece açıklama paragraflarını yaz.";
 
         return $prompt;
     }
     
     /**
      * Groq API'ye çağrı yap
+     * @param string $prompt Kullanıcı prompt'u
+     * @param array $options ['system' => string, 'temperature' => float, 'max_tokens' => int]
      */
-    private function callGroqAPI($prompt) {
+    private function callGroqAPI($prompt, array $options = []) {
         $ch = curl_init($this->apiUrl);
-        
+
+        $systemContent = $options['system'] ?? $this->getDefaultSystemMessage();
+        $temperature = isset($options['temperature']) ? (float) $options['temperature'] : 0.45;
+        $maxTokens = isset($options['max_tokens']) ? (int) $options['max_tokens'] : 1000;
+
         $payload = [
             'model' => $this->model,
             'messages' => [
                 [
                     'role' => 'system',
-                    'content' => 'Sen profesyonel bir emlak danışmanısın. Türkçe, profesyonel ve ikna edici ilan açıklamaları yazarsın.'
+                    'content' => $systemContent
                 ],
                 [
                     'role' => 'user',
                     'content' => $prompt
                 ]
             ],
-            'temperature' => 0.7,
-            'max_tokens' => 1000
+            'temperature' => $temperature,
+            'max_tokens' => $maxTokens
         ];
         
         curl_setopt_array($ch, [
@@ -208,7 +240,11 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
             ];
         }
         $prompt = $this->buildParselPrompt($parselData);
-        $response = $this->callGroqAPI($prompt);
+        $response = $this->callGroqAPI($prompt, [
+            'system' => $this->getParselSystemMessage(),
+            'temperature' => 0.4,
+            'max_tokens' => 1024
+        ]);
         if (!$response['success']) return $response;
         $desc = trim($response['description']);
         if (mb_strlen($desc) > 800) {
@@ -239,7 +275,25 @@ Sadece açıklama metnini yaz, başlık veya başka ek bilgi ekleme.";
         $gereksinimYakin = !empty($yakınLok) && is_array($yakınLok)
             ? " Yakın lokasyonlar bölümünde kullanıcının belirttiği HER BİR bilgiyi metne mutlaka ekle; konum avantajı olarak doğal ve akıcı cümlelerle (mesafe/özellik vurgulayarak) seslendirme metnine dahil et. Bu maddeler atlanmamalıdır."
             : "";
-        return "Aşağıdaki parsel bilgilerine göre drone videoda kullanılacak seslendirme metni yaz. Emlak tanıtımı tarzında, profesyonel ve ikna edici bir metin.\n\nParsel Bilgileri:\n- Konum: {$konumStr}\n- Ada: {$ada}\n- Parsel: {$parselNo}\n- Alan: {$alan}\n- Nitelik: {$nitelik}{$yakınLokStr}\n\nGereksinimler:\n- Türkçe, en az 700 karakter ve maksimum 800 karakter olmalı; metin mutlaka 700 karakteri geçsin.\n- Ada ve parsel numaralarını yazıyla yaz.\n- Alanı metrekare olarak yazıyla ifade et.\n- Nitelik kelimesini metne dahil et.\n- Yatırımcıyı cezbeden, bölge avantajlarını vurgulayan, sonunda iletişime geçin çağrısı olan akıcı bir seslendirme metni yaz.\n- Sadece metni yaz, başlık ekleme.{$gereksinimYakin}";
+        return "Aşağıdaki parsel bilgilerine **sadece ve sadece** bu maddelere dayanarak drone videoda kullanılacak bir seslendirme metni yaz. Verilmeyen lokasyon, tesis veya özellik ekleme; sadece aşağıdaki bilgileri kullan.
+
+Parsel Bilgileri (sadece bunları kullan):
+- Konum: {$konumStr}
+- Ada: {$ada}
+- Parsel: {$parselNo}
+- Alan: {$alan}
+- Nitelik: {$nitelik}{$yakınLokStr}
+
+Yapılacaklar:
+- Türkçe, en az 700 karakter, en fazla 800 karakter yaz; metin mutlaka 700 karakteri geçsin.
+- Ada ve parsel numaralarını yazıyla yaz; alanı metrekare olarak yazıyla ifade et; nitelik kelimesini metne dahil et.
+- Yatırımcıyı cezbeden, akıcı bir seslendirme metni yaz; sonunda kısa iletişime geçin çağrısı olabilir.
+- Sadece seslendirme metnini yaz; başlık veya etiket ekleme.{$gereksinimYakin}
+
+Yasak:
+- Yukarıda listelenmeyen hiçbir yer, tesis veya özellik uydurma.
+- Emoji veya gereksiz başlık ekleme.
+Çıktı: Sadece seslendirme metnini yaz.";
     }
 
     /**

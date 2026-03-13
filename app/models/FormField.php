@@ -69,13 +69,27 @@ class FormField extends Model {
      * Alan oluşturur
      */
     public function createField($data) {
+        // Veritabanı kolon adlarıyla gelen veriyi frontend key'lerine çevir (şablon/API uyumluluğu)
+        if (isset($data['field_name']) && (string)$data['field_name'] !== '' && empty($data['name'])) {
+            $data['name'] = $data['field_name'];
+        }
+        if (isset($data['field_type']) && (string)$data['field_type'] !== '' && empty($data['type'])) {
+            $data['type'] = $data['field_type'];
+        }
+        if (isset($data['field_label']) && (string)$data['field_label'] !== '' && empty($data['label'])) {
+            $data['label'] = $data['field_label'];
+        }
+        if (isset($data['is_required']) && !isset($data['required'])) {
+            $data['required'] = $data['is_required'];
+        }
+        
         // Varsayılan sıralama
         if (!isset($data['order'])) {
             $data['order'] = $this->getNextOrder($data['form_id']);
         }
         
-        // Alan adını oluştur
-        if (empty($data['name'])) {
+        // Alan adını oluştur (yoksa label'dan üret)
+        if (empty($data['name']) || (string)trim($data['name']) === '') {
             $data['name'] = $this->generateFieldName($data['label'] ?? '');
         }
         

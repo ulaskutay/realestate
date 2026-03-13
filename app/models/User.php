@@ -90,12 +90,16 @@ class User extends Model {
     }
     
     /**
-     * Kullanıcının belirli bir yetkisi var mı kontrol eder
+     * Kullanıcının belirli bir yetkisi var mı (modül bazlı: permission "module.action" formatında)
      */
     public function hasPermission($userId, $permission) {
-        require_once __DIR__ . '/../../core/Role.php';
-        $role = $this->getRole($userId);
-        return Role::hasPermission($role, $permission);
+        $role = strtolower(trim($this->getRole($userId)));
+        if ($role === 'super_admin') return true;
+        $allowed = get_role_allowed_modules($role);
+        if ($allowed === null) return true;
+        $parts = explode('.', $permission, 2);
+        $module = isset($parts[0]) ? trim($parts[0]) : '';
+        return $module !== '' && in_array($module, $allowed, true);
     }
     
     /**
@@ -106,16 +110,13 @@ class User extends Model {
     }
     
     /**
-     * Kullanıcının rolünü günceller
+     * Kullanıcının rolünü günceller (geçerli rol listesi: get_available_role_options ile uyumlu)
      */
     public function updateRole($userId, $newRole) {
-        require_once __DIR__ . '/../../core/Role.php';
-        
-        // Rol geçerli mi kontrol et
-        if (!Role::exists($newRole)) {
+        $newRole = is_string($newRole) ? trim($newRole) : '';
+        if ($newRole === '') {
             return false;
         }
-        
         return $this->update($userId, ['role' => $newRole]);
     }
 }

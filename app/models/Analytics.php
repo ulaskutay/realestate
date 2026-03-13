@@ -110,29 +110,29 @@ class Analytics extends Model {
     
     /**
      * En çok ziyaret edilen sayfalar
+     * Aynı sayfa farklı query string (?ref=...) ile kaydedilmişse tek satırda birleştirilir
      */
     public function getTopPages($limit = 10, $days = 30) {
-        // URL bazında group by yap, en son kullanılan title'ı al
+        // Query string olmadan grupla (MIN ile temsili URL alıyoruz)
         $sql = "SELECT 
-                    page_url, 
+                    MIN(SUBSTRING_INDEX(page_url, '?', 1)) as page_url,
                     MAX(page_title) as page_title,
                     COUNT(*) as views 
                 FROM {$this->table} 
                 WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) 
                 AND is_bot = 0 
+                AND page_url IS NOT NULL 
                 AND page_url != '' 
-                GROUP BY page_url 
+                GROUP BY SUBSTRING_INDEX(page_url, '?', 1) 
                 ORDER BY views DESC 
                 LIMIT ?";
         $results = $this->db->fetchAll($sql, [$days, (int)$limit]);
         
-        // Boş title'ları temizle
         foreach ($results as &$result) {
             if (empty($result['page_title']) || $result['page_title'] === 'null') {
-                // URL'den path al ve güzelleştir
                 $path = parse_url($result['page_url'], PHP_URL_PATH);
                 $path = trim($path, '/');
-                $result['page_title'] = !empty($path) ? ucfirst(str_replace(['-', '_'], ' ', $path)) : 'Ana Sayfa';
+                $result['page_title'] = !empty($path) ? ucfirst(str_replace(['-', '_', '/'], ' ', $path)) : 'Ana Sayfa';
             }
         }
         
@@ -225,7 +225,7 @@ class Analytics extends Model {
             'month_unique' => $this->getMonthUniqueVisitors(),
             'live_visitors' => $this->getLiveVisitors(),
             'avg_duration' => $this->getAverageVisitDuration(30),
-            'top_pages' => $this->getTopPages(5, 7),
+            'top_pages' => $this->getTopPages(10, 7),
             'device_distribution' => $this->getDeviceDistribution(30)
         ];
     }

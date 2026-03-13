@@ -35,18 +35,20 @@ $sourceLabels = ['meta' => 'Meta/Facebook', 'form' => 'Form', 'manual' => 'Manue
     <div class="flex gap-2">
         <?php if (!empty($lead['phone'])): ?>
             <?php 
-            $cleanPhone = preg_replace('/[^0-9]/', '', $lead['phone']);
+            $cleanPhone = function_exists('normalize_phone_for_whatsapp') ? normalize_phone_for_whatsapp($lead['phone']) : preg_replace('/[^0-9]/', '', $lead['phone']);
             $whatsappMessage = $whatsappMessage ?? 'Merhaba ' . esc_html($lead['name']) . ', size nasıl yardımcı olabilirim?';
-            $whatsappUrl = 'https://wa.me/' . $cleanPhone . '?text=' . urlencode($whatsappMessage);
+            $whatsappUrl = $cleanPhone ? ('https://wa.me/' . $cleanPhone . '?text=' . urlencode($whatsappMessage)) : '';
             ?>
             <a href="tel:<?php echo esc_attr($lead['phone']); ?>" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 <span class="material-symbols-outlined text-xl">call</span>
                 <span class="text-sm font-medium">Ara</span>
             </a>
-            <a href="<?php echo $whatsappUrl; ?>" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <?php if (!empty($whatsappUrl)): ?>
+            <a href="<?php echo esc_url($whatsappUrl); ?>" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                 <span class="material-symbols-outlined text-xl">chat</span>
                 <span class="text-sm font-medium">WhatsApp</span>
             </a>
+            <?php endif; ?>
         <?php endif; ?>
         <a href="<?php echo admin_url('module/crm/lead_edit/' . $lead['id']); ?>" class="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
             <span class="material-symbols-outlined text-xl">edit</span>

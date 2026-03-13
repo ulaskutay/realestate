@@ -7,10 +7,15 @@
 </FilesMatch>
 
 # Görsel ve video dosyalarına izin ver (embed için)
-<FilesMatch "\.(jpg|jpeg|png|gif|svg|webp|ico|mp4|webm|ogg)$">
+<FilesMatch "\.(jpg|jpeg|png|gif|svg|webp|avif|ico|mp4|webm|ogg)$">
     Order allow,deny
     Allow from all
 </FilesMatch>
+
+# AVIF MIME tipi (Apache'nin doğru Content-Type göndermesi için)
+<IfModule mod_mime.c>
+    AddType image/avif .avif
+</IfModule>
 
 # CORS: Video dosyalarının embed tarafından yüklenebilmesi
 <IfModule mod_headers.c>

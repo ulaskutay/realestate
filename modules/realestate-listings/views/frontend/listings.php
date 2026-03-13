@@ -218,6 +218,15 @@ $totalListings = count($listings ?? []);
                                         <?php echo esc_html(__('Öne Çıkan')); ?>
                                     </span>
                                     <?php endif; ?>
+                                    <?php
+                                    $listingBadges = isset($listing['badges']) && is_array($listing['badges']) ? $listing['badges'] : [];
+                                    $badgeLabels = $badge_labels ?? [];
+                                    $badgeDisplayFallback = ['firsat' => 'Fırsat', 'yatirimlik' => 'Yatırımlık', 'yeni' => 'Yeni', 'acil' => 'Acil'];
+                                    foreach ($listingBadges as $bKey):
+                                        $bLabel = $badgeDisplayFallback[$bKey] ?? (isset($badgeLabels[$bKey]) ? $badgeLabels[$bKey] : $bKey);
+                                    ?><span class="inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 bg-emerald-600 text-white text-[10px] sm:text-xs font-bold rounded-full shadow-lg"><?php echo esc_html($bLabel); ?></span><?php
+                                    endforeach;
+                                    ?>
                                 </div>
                                 <span class="inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 bg-white/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-xs font-semibold rounded-full shadow-md">
                                     <?php echo esc_html($propertyTypeLabel); ?>

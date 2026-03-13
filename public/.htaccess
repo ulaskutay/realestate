@@ -1,3 +1,21 @@
+# Document root public/ ise tüm istekleri üst dizindeki index.php'ye yönlendir
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # HTTP isteklerini HTTPS'e yönlendir (mobil dahil)
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Mevcut dosya veya klasör varsa dokunma
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    # Diğer her şeyi front controller'a gönder
+    RewriteRule ^(.*)$ ../index.php [L,QSA]
+</IfModule>
+
 # Cache Control Headers for Static Assets
 # Optimize site performance with proper caching
 
@@ -16,7 +34,7 @@
     </FilesMatch>
     
     # Görsel dosyalar için orta süreli cache (6 ay)
-    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico)$">
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|avif|svg|ico)$">
         Header set Cache-Control "public, max-age=15552000"
     </FilesMatch>
     
@@ -56,6 +74,7 @@
     ExpiresByType image/png "access plus 6 months"
     ExpiresByType image/gif "access plus 6 months"
     ExpiresByType image/webp "access plus 6 months"
+    ExpiresByType image/avif "access plus 6 months"
     ExpiresByType image/svg+xml "access plus 6 months"
     ExpiresByType image/x-icon "access plus 6 months"
     

@@ -315,6 +315,29 @@ class AgreementController extends Controller {
     }
     
     /**
+     * Sözleşme türüne göre varsayılan şablonu döndürür (AJAX, JSON).
+     * Create/Edit sayfalarında tür seçildiğinde otomatik şablon yüklemek için kullanılır.
+     */
+    public function template($type) {
+        $this->checkPermission('agreements.create');
+        
+        header('Content-Type: application/json; charset=utf-8');
+        
+        $validTypes = array_keys(Agreement::$types);
+        if (!in_array($type, $validTypes, true)) {
+            echo json_encode(['success' => false, 'message' => 'Geçersiz sözleşme türü.']);
+            return;
+        }
+        
+        $data = Agreement::getDefaultTemplate($type);
+        echo json_encode([
+            'success' => true,
+            'title' => $data['title'],
+            'content' => $data['content']
+        ]);
+    }
+    
+    /**
      * Versiyon detayı (AJAX)
      */
     public function viewVersion($versionId) {

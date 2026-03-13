@@ -66,9 +66,13 @@ class Form extends Model {
      * Form oluşturur
      */
     public function createForm($data) {
-        // Slug oluştur
+        // Slug oluştur (kısa kod için zorunlu)
         if (empty($data['slug'])) {
-            $data['slug'] = $this->generateSlug($data['name']);
+            $name = isset($data['name']) ? trim((string)$data['name']) : '';
+            $data['slug'] = $name !== '' ? $this->generateSlug($data['name']) : ('form-' . time());
+        }
+        if ($data['slug'] === '') {
+            $data['slug'] = 'form-' . time();
         }
         
         return $this->create($data);
@@ -78,9 +82,15 @@ class Form extends Model {
      * Form günceller
      */
     public function updateForm($id, $data) {
-        // Slug güncelleme
-        if (isset($data['name']) && empty($data['slug'])) {
-            $data['slug'] = $this->generateSlug($data['name'], $id);
+        // Mevcut kayıtta slug yoksa/boşsa isimden üret (kısa kod için)
+        $existing = $this->find($id);
+        $currentSlug = isset($existing['slug']) ? trim((string)$existing['slug']) : '';
+        if ($currentSlug === '') {
+            $name = isset($data['name']) ? trim((string)$data['name']) : (isset($existing['name']) ? trim((string)$existing['name']) : '');
+            if ($name === '') {
+                $name = 'form-' . $id;
+            }
+            $data['slug'] = $this->generateSlug($name, $id);
         }
         
         return $this->update($id, $data);
@@ -126,6 +136,26 @@ class Form extends Model {
      */
     public function setInactive($id) {
         return $this->update($id, ['status' => 'inactive']);
+    }
+    
+    /**
+     * Formun slug'ı yoksa isimden üretir ve kaydeder (düzenleme sayfasında kısa kodun görünmesi için).
+     */
+    public function ensureSlug($id) {
+        $form = $this->find($id);
+        if (!$form) {
+            return;
+        }
+        $slug = isset($form['slug']) ? trim((string)$form['slug']) : '';
+        if ($slug !== '') {
+            return;
+        }
+        $name = isset($form['name']) ? trim((string)$form['name']) : '';
+        if ($name === '') {
+            $name = 'form-' . $id;
+        }
+        $newSlug = $this->generateSlug($name, $id);
+        $this->update($id, ['slug' => $newSlug]);
     }
     
     /**

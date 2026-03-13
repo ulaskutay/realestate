@@ -60,7 +60,8 @@ $ajaxEndpoints = [
     'test_smtp_connection',
     'send_test_email',
     'module/video-timeline/save-timeline',
-    'module/video-timeline/delete-timeline'
+    'module/video-timeline/delete-timeline',
+    'module/video-timeline/duplicate-timeline',
 ];
 
 $isAjaxEndpoint = false;
@@ -92,7 +93,6 @@ require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Router.php';
 require_once __DIR__ . '/../core/Controller.php';
 require_once __DIR__ . '/../core/Model.php';
-require_once __DIR__ . '/../core/Role.php';
 require_once __DIR__ . '/../core/ViewRenderer.php';
 
 // Hook Sistemi ve Modül Yükleyiciyi yükle
@@ -120,7 +120,7 @@ if (($page ?? '') === 'module-asset') {
         $path = dirname(__DIR__) . '/modules/' . $module . '/assets/' . $file;
         if (is_file($path)) {
             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-            $mimes = ['css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'svg' => 'image/svg+xml', 'woff' => 'font/woff', 'woff2' => 'font/woff2'];
+            $mimes = ['css' => 'text/css', 'js' => 'application/javascript', 'json' => 'application/json', 'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'avif' => 'image/avif', 'svg' => 'image/svg+xml', 'woff' => 'font/woff', 'woff2' => 'font/woff2'];
             header('Content-Type: ' . ($mimes[$ext] ?? 'application/octet-stream'));
             header('Cache-Control: public, max-age=86400');
             readfile($path);
@@ -354,61 +354,42 @@ if (strpos($page, 'media') === 0) {
     exit;
 }
 
-// Roles route'larını kontrol et
+// Roller (basit rol ve modül yetki sistemi - sadece süper admin)
 if (strpos($page, 'roles') === 0) {
-    try {
-        // Role ve Module model'lerini yükle
-        require_once __DIR__ . '/../app/models/RoleModel.php';
-        require_once __DIR__ . '/../app/models/ModuleModel.php';
-        
-        $controllerFile = __DIR__ . '/../app/controllers/RoleController.php';
-        if (!file_exists($controllerFile)) {
-            die("RoleController bulunamadı: " . $controllerFile);
-        }
-        
-        require $controllerFile;
-        
-        if (!class_exists('RoleController')) {
-            die("RoleController sınıfı bulunamadı");
-        }
-        
-        $controller = new RoleController();
-        $method = $_SERVER['REQUEST_METHOD'];
-        
-        // Roles route'larını parse et
-        $parts = explode('/', $page);
-        
-        if (count($parts) === 1 && $parts[0] === 'roles') {
-            // Rol listesi
-            $controller->index();
-        } else if (count($parts) === 2 && $parts[0] === 'roles' && $parts[1] === 'create') {
-            // Yeni rol oluşturma formu
-            $controller->create();
-        } else if (count($parts) === 2 && $parts[0] === 'roles' && $parts[1] === 'store') {
-            // Rol kaydetme
-            $controller->store();
-        } else if (count($parts) === 3 && $parts[0] === 'roles' && $parts[1] === 'edit') {
-            // Rol düzenleme formu
-            $controller->edit($parts[2]);
-        } else if (count($parts) === 3 && $parts[0] === 'roles' && $parts[1] === 'update') {
-            // Rol güncelleme
-            $controller->update($parts[2]);
-        } else if (count($parts) === 3 && $parts[0] === 'roles' && $parts[1] === 'delete') {
-            // Rol silme
-            $controller->delete($parts[2]);
-        } else {
-            header("Location: " . admin_url('roles'));
-            exit;
-        }
-    } catch (Exception $e) {
-        die("Hata: " . $e->getMessage() . " - Dosya: " . $e->getFile() . " - Satır: " . $e->getLine());
-    } catch (Error $e) {
-        die("Fatal Hata: " . $e->getMessage() . " - Dosya: " . $e->getFile() . " - Satır: " . $e->getLine());
+    require_once __DIR__ . '/../app/models/RoleModel.php';
+    $controllerFile = __DIR__ . '/../app/controllers/RoleController.php';
+    if (!file_exists($controllerFile)) {
+        header("Location: " . admin_url('users'));
+        exit;
+    }
+    require $controllerFile;
+    if (!class_exists('RoleController')) {
+        header("Location: " . admin_url('users'));
+        exit;
+    }
+    $controller = new RoleController();
+    $parts = explode('/', $page);
+    if (count($parts) === 1 && $parts[0] === 'roles') {
+        header("Location: " . admin_url('users', ['tab' => 'roles']));
+        exit;
+    } elseif (count($parts) === 2 && $parts[0] === 'roles' && $parts[1] === 'create') {
+        $controller->create();
+    } elseif (count($parts) === 2 && $parts[0] === 'roles' && $parts[1] === 'store') {
+        $controller->store();
+    } elseif (count($parts) === 3 && $parts[0] === 'roles' && $parts[1] === 'edit') {
+        $controller->edit($parts[2]);
+    } elseif (count($parts) === 3 && $parts[0] === 'roles' && $parts[1] === 'update') {
+        $controller->update($parts[2]);
+    } elseif (count($parts) === 3 && $parts[0] === 'roles' && $parts[1] === 'delete') {
+        $controller->delete($parts[2]);
+    } else {
+        header("Location: " . admin_url('users', ['tab' => 'roles']));
+        exit;
     }
     exit;
 }
 
-// Menus route'larını kontrol et
+//Menus route'larını kontrol et
 if (strpos($page, 'menus') === 0) {
     try {
         // Menu model'lerini yükle
@@ -621,6 +602,9 @@ if (strpos($page, 'forms') === 0) {
         } else if (count($parts) === 3 && $parts[0] === 'forms' && $parts[1] === 'submissions') {
             // Form gönderimleri
             $controller->submissions($parts[2]);
+        } else if (count($parts) === 3 && $parts[0] === 'forms' && $parts[1] === 'submission') {
+            // Gönderim detayı (tek lead sayfası)
+            $controller->showSubmission($parts[2]);
         } else if (count($parts) === 3 && $parts[0] === 'forms' && $parts[1] === 'export') {
             // Gönderimleri dışa aktar
             $controller->exportSubmissions($parts[2]);
@@ -715,6 +699,9 @@ if (strpos($page, 'agreements') === 0) {
         } else if (count($parts) === 3 && $parts[0] === 'agreements' && $parts[1] === 'restore-version') {
             // Eski versiyona geri dön
             $controller->restoreVersion($parts[2]);
+        } else if (count($parts) === 3 && $parts[0] === 'agreements' && $parts[1] === 'template') {
+            // Sözleşme türüne göre şablon getir (AJAX)
+            $controller->template($parts[2]);
         } else {
             header("Location: " . admin_url('agreements'));
             exit;

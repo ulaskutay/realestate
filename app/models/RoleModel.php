@@ -1,207 +1,177 @@
 <?php
 /**
- * Role Model
- * Rol ve yetki yönetimi için model sınıfı
+ * Role Model - Basit rol ve modül yetki sistemi
+ * Roller veritabanında; her rolün erişebileceği modüller role_modules ile tutulur.
  */
 
 class RoleModel extends Model {
     protected $table = 'roles';
-    
+
     /**
      * Tüm rolleri getirir
      */
     public function getAll() {
         return $this->all('name ASC');
     }
-    
+
     /**
      * Slug'a göre rol getirir
      */
     public function findBySlug($slug) {
         return $this->findOne('slug', $slug);
     }
-    
+
     /**
-     * Rol ve yetkilerini birlikte getirir
+     * role_modules tablosu yoksa oluşturur ve Admin (role_id=2) için çekirdek modülleri ekler
      */
-    public function findWithPermissions($id) {
-        $role = $this->find($id);
-        if (!$role) {
-            return null;
+    private function ensureRoleModulesTable() {
+        try {
+            $exists = $this->db->fetch("SHOW TABLES LIKE 'role_modules'");
+            if ($exists) return;
+        } catch (Exception $e) {
+            return;
         }
-        
-        $permissions = $this->db->fetchAll(
-            "SELECT permission, module FROM role_permissions WHERE role_id = ?",
-            [$id]
-        );
-        
-        $role['permissions'] = [];
-        foreach ($permissions as $perm) {
-            $role['permissions'][] = $perm['permission'];
+        try {
+            $this->db->query("
+                CREATE TABLE IF NOT EXISTS `role_modules` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `role_id` int(11) NOT NULL,
+                  `module_slug` varchar(100) NOT NULL,
+                  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`id`),
+                  UNIQUE KEY `role_module_slug` (`role_id`, `module_slug`),
+                  KEY `role_id` (`role_id`),
+                  CONSTRAINT `role_modules_role_id` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            $core = ['posts', 'pages', 'agreements', 'forms', 'media', 'sliders', 'menus', 'users', 'themes', 'settings', 'modules', 'smtp', 'roles'];
+            foreach ($core as $slug) {
+                try {
+                    $this->db->query("INSERT IGNORE INTO role_modules (role_id, module_slug) VALUES (2, ?)", [$slug]);
+                } catch (Exception $e) { /* ignore */ }
+            }
+        } catch (Exception $e) {
+            error_log('RoleModel::ensureRoleModulesTable: ' . $e->getMessage());
         }
-        
-        return $role;
     }
-    
+
+    /**
+     * Rolün erişebileceği modül slug listesini getirir
+     * @param int $roleId
+     * @return string[]
+     */
+    public function getAllowedModules($roleId) {
+        try {
+            $this->ensureRoleModulesTable();
+            $rows = $this->db->fetchAll(
+                "SELECT module_slug FROM role_modules WHERE role_id = ? ORDER BY module_slug",
+                [$roleId]
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+        $slugs = [];
+        foreach ($rows as $row) {
+            $slugs[] = $row['module_slug'];
+        }
+        return $slugs;
+    }
+
+    /**
+     * Rolün erişebileceği modülleri ayarlar (önce siler, sonra verilen listeyi ekler)
+     * @param int $roleId
+     * @param string[] $slugs
+     */
+    public function setAllowedModules($roleId, array $slugs) {
+        try {
+            $this->ensureRoleModulesTable();
+            $this->db->query("DELETE FROM role_modules WHERE role_id = ?", [$roleId]);
+            foreach ($slugs as $slug) {
+                $slug = trim((string) $slug);
+                if ($slug === '') continue;
+                $this->db->query(
+                    "INSERT INTO role_modules (role_id, module_slug) VALUES (?, ?)",
+                    [$roleId, $slug]
+                );
+            }
+        } catch (Exception $e) {
+            error_log('RoleModel::setAllowedModules: ' . $e->getMessage());
+        }
+    }
+
     /**
      * Rol oluşturur
+     * @param array $data name, slug, description (optional)
+     * @return int|false Yeni rol id veya false
      */
     public function createRole($data) {
-        // Slug oluştur
-        if (empty($data['slug'])) {
-            $data['slug'] = $this->generateSlug($data['name']);
+        if (empty($data['name'])) {
+            return false;
         }
-        
-        $roleId = $this->create($data);
-        
-        // Yetkileri ekle
-        if (isset($data['permissions']) && is_array($data['permissions'])) {
-            $this->setPermissions($roleId, $data['permissions']);
+        $slugRaw = isset($data['slug']) ? trim((string) $data['slug']) : '';
+        $slug = $slugRaw !== '' ? $this->normalizeSlug($slugRaw) : $this->slugFromName($data['name']);
+        if ($slug === '') return false;
+        $existing = $this->findBySlug($slug);
+        if ($existing) {
+            return false;
         }
-        
-        return $roleId;
+        $insert = [
+            'name' => trim($data['name']),
+            'slug' => $slug,
+            'description' => isset($data['description']) ? trim($data['description']) : null,
+            'is_system' => isset($data['is_system']) ? (int) $data['is_system'] : 0,
+        ];
+        return $this->create($insert);
     }
-    
+
     /**
      * Rol günceller
      */
     public function updateRole($id, $data) {
-        // Mevcut rolü al
-        $currentRole = $this->find($id);
-        
-        // Slug sadece name değiştiğinde ve yeni slug verilmediyse oluştur
-        if (isset($data['name']) && empty($data['slug'])) {
-            // Eğer isim değiştiyse yeni slug oluştur
-            if ($currentRole && $currentRole['name'] !== $data['name']) {
-                $data['slug'] = $this->generateSlug($data['name'], $id);
-            } else {
-                // İsim değişmediyse slug'ı data'dan çıkar
-                unset($data['slug']);
-            }
+        $role = $this->find($id);
+        if (!$role) return false;
+        $update = [];
+        if (isset($data['name'])) $update['name'] = trim($data['name']);
+        if (isset($data['slug']) && empty($role['is_system'])) {
+            $update['slug'] = $this->normalizeSlug($data['slug']);
         }
-        
-        // Yetkileri güncelle
-        if (isset($data['permissions']) && is_array($data['permissions'])) {
-            $this->setPermissions($id, $data['permissions']);
-            unset($data['permissions']);
-        }
-        
-        if (!empty($data)) {
-            return $this->update($id, $data);
-        }
-        
-        return true;
+        if (array_key_exists('description', $data)) $update['description'] = trim($data['description']);
+        if (empty($update)) return true;
+        return $this->update($id, $update);
     }
-    
-    /**
-     * Rol yetkilerini ayarlar
-     */
-    public function setPermissions($roleId, $permissions) {
-        // Mevcut yetkileri sil
-        $this->db->query(
-            "DELETE FROM role_permissions WHERE role_id = ?",
-            [$roleId]
-        );
-        
-        // Yeni yetkileri ekle
-        if (!empty($permissions) && is_array($permissions)) {
-            foreach ($permissions as $permission) {
-                // Permission boş değilse ekle
-                if (!empty($permission)) {
-                    // Permission'dan modül adını çıkar (örn: users.view -> users)
-                    $parts = explode('.', $permission);
-                    $module = $parts[0] ?? 'system';
-                    
-                    try {
-                        $this->db->query(
-                            "INSERT INTO role_permissions (role_id, permission, module) VALUES (?, ?, ?)",
-                            [$roleId, $permission, $module]
-                        );
-                    } catch (Exception $e) {
-                        // Duplicate key hatası olabilir, sessizce devam et
-                        error_log('Role permission insert error: ' . $e->getMessage());
-                    }
-                }
-            }
-        }
-    }
-    
-    /**
-     * Rol yetkilerini getirir
-     */
-    public function getPermissions($roleId) {
-        return $this->db->fetchAll(
-            "SELECT permission FROM role_permissions WHERE role_id = ?",
-            [$roleId]
-        );
-    }
-    
+
     /**
      * Rol siler (sistem rolleri silinemez)
      */
     public function deleteRole($id) {
         $role = $this->find($id);
-        if (!$role) {
+        if (!$role) return false;
+        if (!empty($role['is_system'])) {
             return false;
         }
-        
-        // Sistem rolleri silinemez
-        if (!empty($role['is_system']) && $role['is_system'] == 1) {
-            return false;
-        }
-        
-        // Varsayılan rol silinemez
-        if (!empty($role['is_default']) && $role['is_default'] == 1) {
-            return false;
-        }
-        
-        // Rolü sil (CASCADE ile yetkiler de silinir)
         return $this->delete($id);
     }
-    
+
     /**
-     * Slug oluşturur - Türkçe karakterleri düzgün çevirir
-     * @param string $name Rol adı
-     * @param int|null $excludeId Benzersizlik kontrolünde hariç tutulacak ID (güncelleme için)
-     */
-    private function generateSlug($name, $excludeId = null) {
-        $slug = trim($name);
-        
-        // Türkçe karakterleri İngilizce karşılıklarına çevir
-        $turkishChars = ['ı', 'ğ', 'ü', 'ş', 'ö', 'ç', 'İ', 'Ğ', 'Ü', 'Ş', 'Ö', 'Ç'];
-        $englishChars = ['i', 'g', 'u', 's', 'o', 'c', 'i', 'g', 'u', 's', 'o', 'c'];
-        $slug = str_replace($turkishChars, $englishChars, $slug);
-        
-        $slug = strtolower($slug);
-        $slug = preg_replace('/[^a-z0-9_-]/', '_', $slug);
-        $slug = preg_replace('/_+/', '_', $slug);
-        $slug = trim($slug, '_');
-        
-        // Benzersizlik kontrolü (kendi ID'sini hariç tut)
-        $originalSlug = $slug;
-        $counter = 1;
-        while (true) {
-            $existing = $this->findBySlug($slug);
-            // Eğer slug yoksa veya bulunan kayıt kendisiyse OK
-            if (!$existing || ($excludeId && $existing['id'] == $excludeId)) {
-                break;
-            }
-            $slug = $originalSlug . '_' . $counter;
-            $counter++;
-        }
-        
-        return $slug;
-    }
-    
-    /**
-     * Kullanıcı sayısını getirir
+     * Bu role sahip kullanıcı sayısı
      */
     public function getUserCount($roleId) {
-        $result = $this->db->fetch(
-            "SELECT COUNT(*) as count FROM users WHERE role = (SELECT slug FROM roles WHERE id = ?)",
-            [$roleId]
-        );
-        return $result['count'] ?? 0;
+        $role = $this->find($roleId);
+        if (!$role) return 0;
+        $slug = $role['slug'];
+        $r = $this->db->fetch("SELECT COUNT(*) AS cnt FROM users WHERE role = ?", [$slug]);
+        return (int) ($r['cnt'] ?? 0);
+    }
+
+    private function normalizeSlug($slug) {
+        $slug = trim(strtolower((string) $slug));
+        $slug = preg_replace('/[^a-z0-9_-]/', '_', $slug);
+        return preg_replace('/_+/', '_', trim($slug, '_'));
+    }
+
+    private function slugFromName($name) {
+        $t = ['ı' => 'i', 'ğ' => 'g', 'ü' => 'u', 'ş' => 's', 'ö' => 'o', 'ç' => 'c', 'İ' => 'i'];
+        $s = strtr($name, $t);
+        return $this->normalizeSlug($s);
     }
 }
-

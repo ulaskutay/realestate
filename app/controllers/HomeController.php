@@ -6,6 +6,34 @@
 
 class HomeController extends Controller
 {
+    /**
+     * Aktif tema slug'ını her zaman string döndürür (get_option array/object dönebilir)
+     */
+    private function getActiveThemeSlug($default = 'realestate')
+    {
+        $raw = get_option('active_theme', $default);
+        if (is_string($raw) && $raw !== '') {
+            return $raw;
+        }
+        if (is_array($raw)) {
+            $slug = $raw['slug'] ?? $raw['name'] ?? $raw['theme_slug'] ?? null;
+            if (is_string($slug) && $slug !== '') {
+                return $slug;
+            }
+            foreach ($raw as $v) {
+                if (is_string($v) && $v !== '') {
+                    return $v;
+                }
+            }
+        }
+        if (is_object($raw)) {
+            $slug = $raw->slug ?? $raw->name ?? $raw->theme_slug ?? null;
+            if (is_string($slug) && $slug !== '') {
+                return $slug;
+            }
+        }
+        return $default;
+    }
 
     public function index()
     {
@@ -27,7 +55,7 @@ class HomeController extends Controller
         $renderer->setLayout('default');
 
         $data = [
-            'title' => 'Ana Sayfa',
+            'title' => '', // Boş bırakılır; layout SEO modülü / site adı ile meta title üretir
             'message' => 'WordPress Tarzı CMS\'ye Hoş Geldiniz!',
             'slider' => $slider,
             'current_page' => 'home'
@@ -261,124 +289,18 @@ class HomeController extends Controller
     }
 
     /**
-     * İletişim sayfası
-     * Not: Modül route'ları öncelikli olduğu için bu metod sadece fallback olarak kullanılır
-     */
-    public function contact()
-    {
-        try {
-            // Aktif temayı al
-            $activeTheme = get_option('active_theme', 'realestate');
-            
-            // Önce aktif temanın contact modülü var mı kontrol et (dizin kontrolü)
-            $themePath = __DIR__ . '/../../themes/' . $activeTheme;
-            $contactModulePath = $themePath . '/modules/contact';
-            $contactModuleExists = is_dir($contactModulePath) && file_exists($contactModulePath . '/module.json');
-            
-            // Eğer aktif temada contact modülü varsa, modülü kullan
-            if ($contactModuleExists) {
-                require_once __DIR__ . '/../../core/ModuleLoader.php';
-                $moduleLoader = ModuleLoader::getInstance();
-                
-                // Aktif temanın modüllerini yükle
-                $moduleLoader->loadThemeModules($themePath);
-                $contactModule = $moduleLoader->getModule('contact');
-                
-                // Eğer modül bulunduysa ve aktif temaya aitse kullan
-                if ($contactModule) {
-                    $isThemeModule = isset($contactModule['is_theme_module']) && $contactModule['is_theme_module'];
-                    
-                    // Modülün tema path'inden tema adını çıkar
-                    $moduleThemePath = $contactModule['theme_path'] ?? '';
-                    $moduleThemeName = '';
-                    if ($moduleThemePath) {
-                        // theme_path'den tema adını çıkar: /path/to/themes/theme-name
-                        $pathParts = explode('/', trim($moduleThemePath, '/'));
-                        $moduleThemeName = end($pathParts);
-                    }
-                    
-                    // Modül aktif temaya aitse kullan
-                    if ($isThemeModule && $moduleThemeName === $activeTheme) {
-                        $controller = $moduleLoader->getModuleController('contact');
-                        if (!$controller) {
-                            // Controller yüklenmemişse, modülü yükle
-                            try {
-                                $moduleLoader->loadModule($contactModule);
-                                $controller = $moduleLoader->getModuleController('contact');
-                            } catch (Exception $e) {
-                                error_log("Contact module load error: " . $e->getMessage());
-                                error_log("Stack trace: " . $e->getTraceAsString());
-                                // Hata oluşursa fallback'e geç
-                                $contactModule = null;
-                            }
-                        }
-                        if ($controller && method_exists($controller, 'frontend_index')) {
-                            $controller->frontend_index();
-                            exit;
-                        } else {
-                            error_log("Contact controller not found or frontend_index method missing");
-                            // Fallback'e geç
-                        }
-                    }
-                }
-            }
-            
-            // Modül yoksa veya yüklenemediyse: Tema contact template'i varsa onu kullan
-            $templatePath = __DIR__ . '/../../themes/' . $activeTheme . '/contact.php';
-            
-            if (file_exists($templatePath)) {
-                // ThemeLoader'ı yükle
-                require_once __DIR__ . '/../../core/ThemeLoader.php';
-                $themeLoader = ThemeLoader::getInstance();
-                
-                // Sayfa verileri
-                $page = [
-                    'title' => 'İletişim',
-                    'excerpt' => 'Bizimle iletişime geçin'
-                ];
-                $customFields = [];
-                $title = 'İletişim';
-                $meta_description = 'İletişim sayfası';
-                $current_page = 'contact';
-                
-                // Template'i include et
-                include $templatePath;
-                exit;
-            }
-            
-            // Son fallback: Eski view sistemini kullan
-            require_once __DIR__ . '/../../core/ViewRenderer.php';
-            $renderer = ViewRenderer::getInstance();
-            $renderer->setLayout('default');
-
-            // Form mesajlarını al
-            $message = $_SESSION['contact_message'] ?? null;
-            $messageType = $_SESSION['contact_message_type'] ?? null;
-            unset($_SESSION['contact_message'], $_SESSION['contact_message_type']);
-
-            $data = [
-                'title' => 'İletişim',
-                'current_page' => 'contact',
-                'message' => $message,
-                'messageType' => $messageType
-            ];
-
-            $this->view('frontend/contact', $data);
-        } catch (Exception $e) {
-            echo "<h1>İletişim Sayfası Hatası</h1>";
-            echo "<p>Hata: " . $e->getMessage() . "</p>";
-            echo "<p>Dosya: " . $e->getFile() . " - Satır: " . $e->getLine() . "</p>";
-            echo "<pre>" . $e->getTraceAsString() . "</pre>";
-            exit;
-        }
-    }
-
-    /**
      * İletişim formu gönderimi
      */
     public function contactSubmit()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /contact');
+            exit;
+        }
+
+        if (!function_exists('csrf_verify') || !csrf_verify()) {
+            $_SESSION['contact_message'] = 'Güvenlik doğrulaması başarısız. Lütfen sayfayı yenileyip tekrar deneyin.';
+            $_SESSION['contact_message_type'] = 'error';
             header('Location: /contact');
             exit;
         }
@@ -453,174 +375,191 @@ class HomeController extends Controller
     }
 
     /**
-     * Statik sayfa görüntüleme
+     * Çizgi Aks teması için sayfa yapıcı/modülden bağımsız statik sayfa render eder.
+     * About/contact/iletisim/hakkimizda için her zaman cizgi-aks temasından çeker (aktif tema kontrolü yok).
+     * Veriler sadece tema ayarları ve site seçeneklerinden (get_option) alınır.
      */
-    public function page($slug)
+    private function renderCizgiAksStaticPage($slug)
     {
-        // Page model'ini yükle
-        require_once __DIR__ . '/../models/Page.php';
+        // Tema path'ini proje kökünden sabit al (aktif tema/veritabanı bağımsız)
+        $basePath = realpath(__DIR__ . '/../..') ?: (__DIR__ . '/../..');
+        $themePath = $basePath . DIRECTORY_SEPARATOR . 'themes' . DIRECTORY_SEPARATOR . 'cizgi-aks';
+        $themePath = rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $themePath), DIRECTORY_SEPARATOR);
 
-        $pageModel = new Page();
-
-        // Sayfayı getir
-        $page = $pageModel->findBySlug($slug);
-
-        // Debug modu kontrolü
-        $debugMode = (defined('DEBUG_MODE') && DEBUG_MODE) || (ini_get('display_errors') == 1);
-
-        if ($debugMode) {
-            error_log("Page lookup - Slug: $slug");
-            error_log("Page found: " . ($page ? 'YES' : 'NO'));
-            if ($page) {
-                error_log("Page status: " . ($page['status'] ?? 'NULL'));
-                error_log("Page type: " . ($page['type'] ?? 'NULL'));
-            }
-        }
-
-        // Sayfa yoksa veya yayınlanmamışsa 404
-        if (!$page) {
-            if ($debugMode) {
-                error_log("404 - Page not found for slug: $slug");
-            }
-            http_response_code(404);
-            require_once __DIR__ . '/../../core/ViewRenderer.php';
-            $renderer = ViewRenderer::getInstance();
-            $renderer->setLayout('default');
-            $this->view('frontend/404', ['title' => 'Sayfa Bulunamadı', 'current_page' => '404']);
+        if (!is_dir($themePath)) {
+            $this->pageProxy($slug);
             return;
         }
 
-        if ($page['status'] !== 'published') {
-            if ($debugMode) {
-                error_log("404 - Page status is not published. Status: " . ($page['status'] ?? 'NULL'));
-            }
-            http_response_code(404);
-            require_once __DIR__ . '/../../core/ViewRenderer.php';
-            $renderer = ViewRenderer::getInstance();
-            $renderer->setLayout('default');
-            $this->view('frontend/404', ['title' => 'Sayfa Bulunamadı', 'current_page' => '404']);
-            return;
+        require_once __DIR__ . '/../../core/ThemeLoader.php';
+        $themeLoader = ThemeLoader::getInstance();
+        $themeLoader->loadTheme('cizgi-aks');
+        $themeLoader->refreshSettings();
+
+        // Path'i ThemeLoader'dan alınamadıysa yukarıdaki sabit path kullan
+        $resolvedPath = $themeLoader->getThemePath();
+        if ($resolvedPath && is_dir($resolvedPath)) {
+            $themePath = $resolvedPath;
         }
 
-        if (isset($page['type']) && $page['type'] !== 'page') {
-            if ($debugMode) {
-                error_log("404 - Page type is not 'page'. Type: " . ($page['type'] ?? 'NULL'));
-            }
-            http_response_code(404);
-            require_once __DIR__ . '/../../core/ViewRenderer.php';
-            $renderer = ViewRenderer::getInstance();
-            $renderer->setLayout('default');
-            $this->view('frontend/404', ['title' => 'Sayfa Bulunamadı', 'current_page' => '404']);
-            return;
-        }
+        $page = [
+            'id' => 0,
+            'title' => __('İletişim'),
+            'slug' => $slug,
+            'excerpt' => '',
+            'content' => '',
+            'meta_title' => '',
+            'meta_description' => '',
+            'status' => 'published',
+            'type' => 'page',
+        ];
 
-        // Görüntülenme sayısını artır
-        $pageModel->incrementViews($page['id']);
+        $customFields = [];
 
-        // Çeviri filter'larını uygula
-        if (function_exists('apply_filters')) {
-            $page['title'] = apply_filters('page_title', $page['title']);
-            $page['content'] = apply_filters('page_content', $page['content']);
-            if (!empty($page['excerpt'])) {
-                $page['excerpt'] = apply_filters('page_excerpt', $page['excerpt']);
-            }
-        }
-
-        // Özel alanları getir
-        $customFields = $pageModel->getCustomFields($page['id']);
-
-        // Template seçimi
-        $pageTemplate = $customFields['page_template'] ?? 'default';
-
-        if ($debugMode) {
-            error_log("Page Template: $pageTemplate");
-            error_log("Page ID: {$page['id']}, Slug: {$page['slug']}");
-        }
-
-        // Eğer özel template seçilmişse (service-detail, about, contact, teklif-al vb.), tema template'ini kullan
-        if (in_array($pageTemplate, ['service-detail', 'about', 'contact', 'teklif-al', 'quote-request'])) {
-            // Aktif temayı al - MUTLAKA codetic olmalı
-            $activeTheme = get_option('active_theme', 'codetic');
-            
-            // DOCUMENT_ROOT kontrolü
-            $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? dirname(dirname(__DIR__));
-            
-            // Template path - codetic temasında olmalı
-            $templatePath = $docRoot . '/themes/codetic/' . $pageTemplate . '.php';
-            
-            // Alternatif path'ler (eğer DOCUMENT_ROOT yanlışsa)
-            $altPaths = [
-                __DIR__ . '/../../themes/codetic/' . $pageTemplate . '.php',
-                dirname(dirname(__DIR__)) . '/themes/codetic/' . $pageTemplate . '.php',
+        if ($slug === 'contact' || $slug === 'iletisim') {
+            $page['title'] = __('İletişim');
+            $page['meta_title'] = get_option('contact_meta_title', '') ?: __('İletişim');
+            $page['meta_description'] = get_option('contact_meta_description', '') ?: '';
+            $page['excerpt'] = get_option('contact_excerpt', '') ?: '';
+            $customFields = [
+                'contact_email' => get_option('contact_email', get_option('admin_email', '')),
+                'contact_phone' => $themeLoader->getSetting('phone', '', 'header') ?: get_option('contact_phone', ''),
+                'contact_address' => get_option('contact_address', ''),
+                'contact_hours' => $themeLoader->getSetting('working_hours', '09:00 - 18:00', 'header') ?: get_option('contact_hours', '09:00 - 18:00'),
+                'map_embed' => get_option('google_maps_embed', ''),
+                'form_id' => get_option('contact_form_id', ''),
+                'form_title' => get_option('contact_form_title', __('Bize Mesaj Gönderin')),
+                'form_description' => get_option('contact_form_description', ''),
             ];
-            
-            // Önce ana path'i dene
-            if (!file_exists($templatePath)) {
-                // Alternatif path'leri dene
-                foreach ($altPaths as $altPath) {
-                    if (file_exists($altPath)) {
-                        $templatePath = $altPath;
-                        break;
-                    }
-                }
-            }
-            
-            if (file_exists($templatePath)) {
-                // ThemeLoader'ı yükle
-                require_once $docRoot . '/core/ThemeLoader.php';
-                $themeLoader = ThemeLoader::getInstance();
+        } elseif ($slug === 'hakkimizda' || $slug === 'about') {
+            $page['title'] = __('Hakkımızda');
+            $page['meta_title'] = get_option('about_meta_title', '') ?: __('Hakkımızda');
+            $page['meta_description'] = get_option('about_meta_description', '') ?: '';
+            $page['excerpt'] = get_option('about_excerpt', '') ?: '';
+            $page['content'] = get_option('about_content', '') ?: '';
+            $customFields = [
+                'hero_subtitle' => get_option('about_hero_subtitle', ''),
+                'hero_image' => get_option('about_hero_image', ''),
+                'about_sections' => get_option('about_sections', '') ?: '[]',
+                'team_members' => get_option('about_team_members', '') ?: '[]',
+                'stats' => get_option('about_stats', '') ?: '[]',
+                'cta_title' => get_option('about_cta_title', __('Bizimle İletişime Geçin')),
+                'cta_description' => get_option('about_cta_description', ''),
+                'cta_button_text' => get_option('about_cta_button_text', __('İletişime Geç')),
+                'cta_button_link' => get_option('about_cta_button_link', '/iletisim'),
+            ];
+        }
 
-                // Template'e değişkenleri geçir
-                $title = $page['meta_title'] ?: $page['title'];
-                $meta_description = $page['meta_description'] ?: $page['excerpt'];
-                $meta_keywords = $page['meta_keywords'];
-                $current_page = 'page';
-                $customFields = $customFields ?? [];
-                
-                // Template'i include et
-                include $templatePath;
-                exit;
-            } else {
-                // Template bulunamadı - detaylı hata mesajı göster
-                $searchedPaths = [
-                    $docRoot . '/themes/codetic/' . $pageTemplate . '.php',
-                    __DIR__ . '/../../themes/codetic/' . $pageTemplate . '.php',
-                    dirname(dirname(__DIR__)) . '/themes/codetic/' . $pageTemplate . '.php',
-                ];
-                $pathsList = implode('<br>', array_map(function($p) { return '<code>' . htmlspecialchars($p) . '</code>'; }, $searchedPaths));
-                
-                die("
-                    <h1>Template Bulunamadı</h1>
-                    <p>Sayfa template'i bulunamadı: <strong>$pageTemplate</strong></p>
-                    <p><strong>Aktif Tema:</strong> codetic (zorunlu)</p>
-                    <p><strong>Sayfa ID:</strong> {$page['id']}, <strong>Slug:</strong> {$page['slug']}</p>
-                    <p><strong>Custom Fields:</strong> " . htmlspecialchars(print_r($customFields, true)) . "</p>
-                    <p><strong>Aranan yollar:</strong><br>$pathsList</p>
-                    <p>Lütfen admin panelden sayfa template'ini kontrol edin ve <strong>codetic</strong> temasında olduğundan emin olun.</p>
-                ");
+        $viewSlug = $slug === 'iletisim' ? 'contact' : (in_array($slug, ['about', 'hakkimizda'], true) ? 'about' : $slug);
+        $templatePaths = [
+            $themePath . '/views/pages/' . $viewSlug . '.php',
+            $themePath . '/views/pages/' . $slug . '.php',
+            $themePath . '/' . $viewSlug . '.php',
+            $themePath . '/' . $slug . '.php',
+        ];
+
+        $foundTemplatePath = null;
+        foreach ($templatePaths as $path) {
+            if (file_exists($path)) {
+                $foundTemplatePath = $path;
+                break;
             }
         }
 
-        // Varsayılan template (frontend/pages/single.php)
+        if (!$foundTemplatePath) {
+            $this->pageProxy($slug);
+            return;
+        }
+
+        $title = $page['meta_title'] ?: $page['title'];
+        $meta_description = $page['meta_description'] ?: ($page['excerpt'] ?? '');
+        $meta_keywords = '';
+        $current_page = $slug === 'iletisim' ? 'contact' : $slug;
+        $sections = [];
+
+        ob_start();
+        $themeLoader = $themeLoader;
+        include $foundTemplatePath;
+        $content = ob_get_clean();
+        if (!is_string($content)) {
+            $content = '';
+        }
+
+        $layoutPath = $themePath . '/layouts/default.php';
+        if (!file_exists($layoutPath)) {
+            echo $content;
+            return;
+        }
+
+        $layoutVars = [
+            'content' => $content,
+            'sections' => $sections,
+            'title' => $title,
+            'meta_description' => $meta_description,
+            'meta_keywords' => $meta_keywords,
+            'current_page' => $current_page,
+            'themeLoader' => $themeLoader,
+        ];
+        extract($layoutVars, EXTR_SKIP);
+        include $layoutPath;
+    }
+
+    /**
+     * GET /contact - Firmaya özel iletişim sayfası (sayfa modülünden bağımsız).
+     */
+    public function contact()
+    {
+        $this->renderCizgiAksStaticPage('contact');
+    }
+
+    /**
+     * GET /iletisim - Firmaya özel iletişim sayfası (Türkçe URL).
+     */
+    public function iletisim()
+    {
+        $this->renderCizgiAksStaticPage('iletisim');
+    }
+
+    /**
+     * GET /hakkimizda - Firmaya özel hakkımızda sayfası (sayfa modülünden bağımsız).
+     */
+    public function hakkimizda()
+    {
+        $this->renderCizgiAksStaticPage('hakkimizda');
+    }
+
+    /**
+     * GET /about - Firmaya özel hakkımızda sayfası (İngilizce URL).
+     */
+    public function about()
+    {
+        $this->renderCizgiAksStaticPage('about');
+    }
+
+    /**
+     * Slug ile gelen isteği tema sayfa modülüne (theme_pages) yönlendirir.
+     * Tema modülü yoksa 404.
+     */
+    public function pageProxy($slug)
+    {
+        $slug = trim($slug, '/');
+        if (class_exists('ModuleLoader')) {
+            $moduleLoader = ModuleLoader::getInstance();
+            $controller = $moduleLoader->getModuleController('theme_pages');
+            if ($controller && method_exists($controller, 'showPage')) {
+                $controller->showPage($slug);
+                return;
+            }
+        }
+        http_response_code(404);
         require_once __DIR__ . '/../../core/ViewRenderer.php';
         $renderer = ViewRenderer::getInstance();
         $renderer->setLayout('default');
-
-        $data = [
-            'title' => $page['meta_title'] ?: $page['title'],
-            'meta_description' => $page['meta_description'] ?: $page['excerpt'],
-            'meta_keywords' => $page['meta_keywords'],
-            'page' => $page,
-            'customFields' => $customFields,
-            'current_page' => 'page'
-        ];
-
-        $this->view('frontend/pages/single', $data);
+        $this->view('frontend/404', ['title' => 'Sayfa Bulunamadı', 'current_page' => '404']);
     }
 
     /**
      * Teklif alma sayfası (Fallback - özel route'lar için)
-     * Panelden oluşturulan sayfa page() metodu ile handle edilir
      */
     public function quoteRequest()
     {
@@ -628,8 +567,8 @@ class HomeController extends Controller
         require_once __DIR__ . '/../models/Page.php';
         $pageModel = new Page();
 
-        // Aktif temayı al
-        $activeTheme = get_option('active_theme', 'codetic');
+        // Aktif temayı al (her zaman string)
+        $activeTheme = $this->getActiveThemeSlug('codetic');
         $templatePath = __DIR__ . '/../../themes/' . $activeTheme . '/teklif-al.php';
 
         // Slug'dan sayfayı bul (teklif-al veya quote-request)
@@ -690,8 +629,8 @@ class HomeController extends Controller
         // Debug: Metod çağrıldı
         error_log("HomeController::reservation() çağrıldı");
         
-        // Aktif temayı al
-        $activeTheme = get_option('active_theme', 'codetic');
+        // Aktif temayı al (her zaman string)
+        $activeTheme = $this->getActiveThemeSlug('codetic');
         
         // DOCUMENT_ROOT kontrolü
         $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? dirname(dirname(__DIR__));

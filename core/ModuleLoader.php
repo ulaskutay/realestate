@@ -1464,6 +1464,19 @@ class ModuleLoader {
         if (empty($this->routes['frontend'])) {
             return false;
         }
+
+        // Parametreli catch-all route'lar (örn. theme_pages {slug}) en sonda eşlensin ki
+        // /blog, /ilanlar gibi sabit path'ler önce kendi modülleriyle yakalansın
+        $routes = $this->routes['frontend'];
+        usort($routes, function ($a, $b) {
+            $pathA = $a['path'] ?? '';
+            $pathB = $b['path'] ?? '';
+            $catchAllA = (preg_match('#^\{[^}]+\}$#', trim($pathA)) === 1);
+            $catchAllB = (preg_match('#^\{[^}]+\}$#', trim($pathB)) === 1);
+            if ($catchAllA === $catchAllB) return 0;
+            return $catchAllA ? 1 : -1;
+        });
+        $this->routes['frontend'] = $routes;
         
         foreach ($this->routes['frontend'] as $index => $route) {
             // Modülün aktif temaya ait olup olmadığını kontrol et

@@ -50,67 +50,57 @@ class UserController extends Controller {
     }
     
     /**
-     * Kullanıcı listesi - Tab sistemi (Kullanıcılar ve Roller)
+     * Kullanıcı ve rol listesi (tek sayfa, süper admin için Roller sekmesi)
      */
     public function index() {
         $this->checkPermission('users.view');
         
         $user = get_logged_in_user();
-        $role = strtolower(trim($user['role'] ?? 'user'));
-        $isAdmin = ($role === 'admin' || $role === 'super_admin');
-        
-        $activeTab = $_GET['tab'] ?? 'users';
-        
-        // Roller sekmesi sadece admin için
-        if ($activeTab === 'roles' && !$isAdmin) {
-            $activeTab = 'users';
-        }
-        
         $users = $this->userModel->getAll();
-        
-        // Roller verisi - HER ZAMAN yükle (admin için)
         $roles = [];
-        if ($isAdmin) {
+        $canViewRoles = function_exists('is_super_admin') && is_super_admin();
+        $activeTab = $_GET['tab'] ?? 'users';
+        if ($activeTab === 'roles' && !$canViewRoles) $activeTab = 'users';
+
+        if ($canViewRoles) {
             try {
                 require_once __DIR__ . '/../models/RoleModel.php';
                 $roleModel = new RoleModel();
                 $roles = $roleModel->getAll();
-                if (!empty($roles)) {
-                    foreach ($roles as &$r) {
-                        $r['user_count'] = $roleModel->getUserCount($r['id']);
-                    }
+                foreach ($roles as &$r) {
+                    $r['user_count'] = $roleModel->getUserCount($r['id']);
                 }
             } catch (Exception $e) {
-                // Roller tablosu yoksa boş array kullan
                 $roles = [];
             }
         }
-        
+
         $data = [
-            'title' => 'Kullanıcı ve Rol Yönetimi',
+            'title' => 'Kullanıcılar ve Roller',
             'user' => $user,
             'users' => $users,
             'roles' => $roles,
             'activeTab' => $activeTab,
-            'isAdmin' => $isAdmin,
-            'message' => $_SESSION['user_message'] ?? $_SESSION['error_message'] ?? null,
-            'messageType' => isset($_SESSION['user_message']) ? 'success' : (isset($_SESSION['error_message']) ? 'error' : null)
+            'canViewRoles' => $canViewRoles,
+            'message' => $_SESSION['user_message'] ?? $_SESSION['role_message'] ?? $_SESSION['error_message'] ?? null,
+            'messageType' => isset($_SESSION['user_message']) ? 'success' : (isset($_SESSION['role_message']) ? 'success' : (isset($_SESSION['error_message']) ? 'error' : null))
         ];
         
-        unset($_SESSION['user_message'], $_SESSION['error_message']);
+        unset($_SESSION['user_message'], $_SESSION['role_message'], $_SESSION['error_message']);
         
         $this->view('admin/users/index', $data);
     }
     
     /**
-     * Yeni kullanıcı formu
+     * Yeni kullanıcı formu (rol listesi sabit; yeni rol sistemi kurulacak)
      */
     public function create() {
         $this->checkPermission('users.create');
         
         $data = [
             'title' => 'Yeni Kullanıcı',
-            'user' => get_logged_in_user()
+            'user' => get_logged_in_user(),
+            'rolesForSelect' => get_available_role_options()
         ];
         
         $this->view('admin/users/create', $data);
@@ -192,6 +182,7 @@ class UserController extends Controller {
             'title' => 'Kullanıcı Düzenle',
             'user' => get_logged_in_user(),
             'user_data' => $userData,
+            'rolesForSelect' => get_available_role_options(),
             'message' => $_SESSION['user_message'] ?? $_SESSION['error_message'] ?? null,
             'messageType' => isset($_SESSION['user_message']) ? 'success' : (isset($_SESSION['error_message']) ? 'error' : null)
         ];

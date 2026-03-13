@@ -121,7 +121,14 @@ $icon = $module['admin_menu']['icon'] ?? 'extension';
             </a>
             
             <?php elseif ($isActive): ?>
-            <!-- Aktif modül: Özel modülün kendi ayar sayfası varsa oraya, yoksa merkezi ayarlara -->
+            <!-- Aktif modül: admin menüsü varsa "Aç" linki (modül sayfasına git), ayarlar ve devre dışı bırak -->
+            <?php if (!empty($module['admin_menu']) && empty($module['is_theme_module'])): ?>
+            <a href="<?php echo admin_url('module/' . $module['name']); ?>" 
+               class="px-3 py-1.5 text-xs sm:text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[36px] flex items-center justify-center whitespace-nowrap">
+                <span class="material-symbols-outlined text-base mr-1">open_in_new</span>
+                <span>Aç</span>
+            </a>
+            <?php endif; ?>
             <?php if ($module['settings'] ?? false): ?>
             <?php
             $settingsUrl = admin_url('modules/settings/' . $module['name']);

@@ -36,8 +36,8 @@ foreach ($listings as $row) {
     if (isset($used_positions[$key])) {
         $used_positions[$key]++;
         $offset = $used_positions[$key];
-        $lat += ($offset * 0.00015 * cos($offset * 0.7));
-        $lng += ($offset * 0.0002 * sin($offset * 0.5));
+        $lat += ($offset * 0.00035 * cos($offset * 0.7));
+        $lng += ($offset * 0.00045 * sin($offset * 0.5));
     } else {
         $used_positions[$key] = 0;
     }
@@ -150,7 +150,8 @@ window.listingsMapConfig = {
     defaultLng: <?php echo json_encode($default_lng); ?>,
     defaultZoom: <?php echo json_encode($default_zoom); ?>,
     listings: <?php echo $map_listings_json; ?>,
-    colors: <?php echo json_encode($theme_colors); ?>
+    colors: <?php echo json_encode($theme_colors); ?>,
+    mapId: <?php echo json_encode($map_id ?? 'DEMO_MAP_ID'); ?>
 };
 </script>
 <?php if (!empty($google_maps_api_key)): ?>

@@ -76,7 +76,7 @@ class FormSubmission extends Model {
      */
     public function createSubmission($formId, $data, $meta = []) {
         $submissionData = [
-            'form_id' => $formId,
+            'form_id' => (int) $formId,
             'data' => json_encode($data, JSON_UNESCAPED_UNICODE),
             'ip_address' => $meta['ip_address'] ?? $_SERVER['REMOTE_ADDR'] ?? null,
             'user_agent' => $meta['user_agent'] ?? $_SERVER['HTTP_USER_AGENT'] ?? null,
@@ -93,7 +93,16 @@ class FormSubmission extends Model {
             // Sütun kontrolü başarısız olursa sessizce devam et
         }
         
-        return $this->create($submissionData);
+        // Eski kurulumlarda status sütunu yoksa INSERT'i status olmadan dene
+        try {
+            return $this->create($submissionData);
+        } catch (Exception $e) {
+            if (strpos($e->getMessage(), 'status') !== false || strpos($e->getMessage(), 'Unknown column') !== false) {
+                unset($submissionData['status']);
+                return $this->create($submissionData);
+            }
+            throw $e;
+        }
     }
     
     /**

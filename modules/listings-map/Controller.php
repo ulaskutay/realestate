@@ -107,9 +107,10 @@ class ListingsMapModuleController {
     }
 
     /**
-     * Get published listings with coordinates, optionally filtered by city, district, neighborhood or location (text).
+     * Get published listings with coordinates, optionally filtered by city, district, neighborhood, location and extra filters (embed ile ilanlar sayfası filtreleri uyumlu).
+     * @param array $extraFilters ['status'=>'', 'type'=>'', 'price_range'=>'', 'area_min'=>'', 'area_max'=>'', 'min_rooms'=>0, 'min_bathrooms'=>0, 'search'=>'']
      */
-    public function getListingsForMap($city = '', $district = '', $neighborhood = '', $location = '') {
+    public function getListingsForMap($city = '', $district = '', $neighborhood = '', $location = '', array $extraFilters = []) {
         $sql = "SELECT id, title, slug, location, latitude, longitude, price, property_type, listing_status, status
                 FROM `{$this->table}`
                 WHERE status = 'published'
@@ -132,6 +133,63 @@ class ListingsMapModuleController {
             $sql .= " AND location LIKE ?";
             $params[] = '%' . $location . '%';
         }
+        $status = isset($extraFilters['status']) ? trim((string) $extraFilters['status']) : '';
+        if ($status !== '' && in_array($status, ['sale', 'rent'], true)) {
+            $sql .= " AND listing_status = ?";
+            $params[] = $status;
+        }
+        $type = isset($extraFilters['type']) ? trim((string) $extraFilters['type']) : '';
+        if ($type !== '') {
+            $sql .= " AND property_type = ?";
+            $params[] = $type;
+        }
+        $priceRange = isset($extraFilters['price_range']) ? trim((string) $extraFilters['price_range']) : '';
+        if ($priceRange !== '') {
+            if (strpos($priceRange, '-') !== false) {
+                $parts = explode('-', $priceRange);
+                $min = isset($parts[0]) ? (float) $parts[0] : 0;
+                $max = isset($parts[1]) ? (float) str_replace('+', '', $parts[1]) : 0;
+                if ($max > 0) {
+                    $sql .= " AND price >= ? AND price <= ?";
+                    $params[] = $min;
+                    $params[] = $max;
+                } else {
+                    $sql .= " AND price >= ?";
+                    $params[] = $min;
+                }
+            } else {
+                $sql .= " AND price >= ?";
+                $params[] = (float) str_replace('+', '', $priceRange);
+            }
+        }
+        $search = isset($extraFilters['search']) ? trim((string) $extraFilters['search']) : '';
+        if ($search !== '') {
+            $sql .= " AND (title LIKE ? OR description LIKE ?)";
+            $p = '%' . $search . '%';
+            $params[] = $p;
+            $params[] = $p;
+        }
+        $areaMin = isset($extraFilters['area_min']) ? (float) $extraFilters['area_min'] : 0;
+        if ($areaMin > 0) {
+            $sql .= " AND area >= ?";
+            $params[] = $areaMin;
+        }
+        $areaMax = isset($extraFilters['area_max']) ? (float) $extraFilters['area_max'] : 0;
+        if ($areaMax > 0) {
+            $sql .= " AND area <= ?";
+            $params[] = $areaMax;
+        }
+        $minRooms = isset($extraFilters['min_rooms']) ? (int) $extraFilters['min_rooms'] : 0;
+        if ($minRooms > 0) {
+            $sql .= " AND (rooms >= ? OR (rooms = 0 AND (COALESCE(bedrooms,0) + COALESCE(living_rooms,0)) >= ?))";
+            $params[] = $minRooms;
+            $params[] = $minRooms;
+        }
+        $minBathrooms = isset($extraFilters['min_bathrooms']) ? (int) $extraFilters['min_bathrooms'] : 0;
+        if ($minBathrooms > 0) {
+            $sql .= " AND bathrooms >= ?";
+            $params[] = $minBathrooms;
+        }
         $sql .= " ORDER BY created_at DESC";
         try {
             if (empty($params)) {
@@ -143,6 +201,28 @@ class ListingsMapModuleController {
         } catch (Exception $e) {
             error_log('ListingsMap getListingsForMap: ' . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Tek ilanı harita için getirir (embed?listing=ID ile kullanılır).
+     */
+    public function getListingByIdForMap($id) {
+        $id = (int) $id;
+        if ($id <= 0) return null;
+        $sql = "SELECT id, title, slug, location, latitude, longitude, price, property_type, listing_status, status
+                FROM `{$this->table}`
+                WHERE id = ? AND status = 'published'
+                  AND latitude IS NOT NULL AND longitude IS NOT NULL
+                  AND CAST(latitude AS DECIMAL(10,8)) != 0 AND CAST(longitude AS DECIMAL(11,8)) != 0";
+        try {
+            $stmt = $this->db->getConnection()->prepare($sql);
+            $stmt->execute([$id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+        } catch (Exception $e) {
+            error_log('ListingsMap getListingByIdForMap: ' . $e->getMessage());
+            return null;
         }
     }
 
@@ -347,11 +427,38 @@ class ListingsMapModuleController {
 
     /**
      * Frontend: Sadece harita (iframe için – başlık/filtre yok)
-     * URL: /harita-ilanlar/embed
+     * URL: /harita-ilanlar/embed  veya  /harita-ilanlar/embed?listing=123 (tek ilan)
+     * İlanlar sayfası filtreleri: city, district, location, status, type, price_range, area_min, area_max, min_rooms, min_bathrooms, search
      */
     public function frontend_map_embed() {
         $this->loadSettings();
-        $listings = $this->getListingsForMap('', '', '', '');
+        $listingId = isset($_GET['listing']) ? (int) $_GET['listing'] : 0;
+        $mapType = isset($_GET['maptype']) && $_GET['maptype'] === 'satellite' ? 'satellite' : 'roadmap';
+        if ($listingId > 0) {
+            $single = $this->getListingByIdForMap($listingId);
+            $listings = $single ? [$single] : [];
+            $defaultLat = $listings ? (float) $listings[0]['latitude'] : (float)($this->settings['default_lat'] ?? 39.0);
+            $defaultLng = $listings ? (float) $listings[0]['longitude'] : (float)($this->settings['default_lng'] ?? 35.0);
+            $defaultZoom = $listings ? 16 : (int)($this->settings['default_zoom'] ?? 6);
+        } else {
+            $city = isset($_GET['city']) ? trim((string) $_GET['city']) : '';
+            $district = isset($_GET['district']) ? trim((string) $_GET['district']) : '';
+            $location = isset($_GET['location']) ? trim((string) $_GET['location']) : '';
+            $extraFilters = [
+                'status' => isset($_GET['status']) ? trim((string) $_GET['status']) : '',
+                'type' => isset($_GET['type']) ? trim((string) $_GET['type']) : '',
+                'price_range' => isset($_GET['price_range']) ? trim((string) $_GET['price_range']) : '',
+                'area_min' => isset($_GET['area_min']) ? (float) $_GET['area_min'] : 0,
+                'area_max' => isset($_GET['area_max']) ? (float) $_GET['area_max'] : 0,
+                'min_rooms' => isset($_GET['min_rooms']) ? (int) $_GET['min_rooms'] : 0,
+                'min_bathrooms' => isset($_GET['min_bathrooms']) ? (int) $_GET['min_bathrooms'] : 0,
+                'search' => isset($_GET['search']) ? trim((string) $_GET['search']) : '',
+            ];
+            $listings = $this->getListingsForMap($city, $district, '', $location, $extraFilters);
+            $defaultLat = (float)($this->settings['default_lat'] ?? 39.0);
+            $defaultLng = (float)($this->settings['default_lng'] ?? 35.0);
+            $defaultZoom = (int)($this->settings['default_zoom'] ?? 6);
+        }
         $apiKey = $this->getGoogleMapsApiKey();
         $detailUrlBase = function_exists('localized_url') ? rtrim(localized_url('/ilan'), '/') . '/' : (function_exists('site_url') ? rtrim(site_url('/ilan'), '/') . '/' : '/ilan/');
         $themeLoader = class_exists('ThemeLoader') ? ThemeLoader::getInstance() : null;
@@ -365,9 +472,10 @@ class ListingsMapModuleController {
         $data = [
             'listings' => $listings,
             'google_maps_api_key' => $apiKey,
-            'default_lat' => (float)($this->settings['default_lat'] ?? 39.0),
-            'default_lng' => (float)($this->settings['default_lng'] ?? 35.0),
-            'default_zoom' => (int)($this->settings['default_zoom'] ?? 6),
+            'default_lat' => $defaultLat,
+            'default_lng' => $defaultLng,
+            'default_zoom' => $defaultZoom,
+            'map_type' => $mapType,
             'detail_url_base' => $detailUrlBase,
             'theme_colors' => $themeColors,
         ];

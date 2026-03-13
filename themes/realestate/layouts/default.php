@@ -35,7 +35,7 @@
         }
     }
     $pageTitle = str_replace('{site_name}', $siteName, $pageTitle);
-    if ($pageTitle === '') $pageTitle = ($isHome ? ($siteName ?: __('Ana Sayfa')) : __('Real Estate'));
+    if ($pageTitle === '') $pageTitle = ($isHome ? $siteName : __('Real Estate'));
     $siteDescription = get_option('site_description', '');
     $defaultMetaDesc = __('Find your dream home. Browse thousands of property listings.');
     $metaDesc = $seoDescOpt !== '' ? $seoDescOpt : ($meta_description ?? ($siteDescription ?: $defaultMetaDesc));

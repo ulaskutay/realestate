@@ -103,17 +103,46 @@ $homeUrl = function_exists('localized_url') ? localized_url('/') : (function_exi
     </div>
 </nav>
 
-<!-- Mobil menü: checkbox ile aç/kapa, JS yok (iPhone dahil her yerde çalışır) -->
+<!-- Mobil menü: checkbox ile aç/kapa (JS yok) -->
 <input type="checkbox" id="cizgiaks-nav-mobile-check" class="cizgiaks-nav-mobile-check" aria-hidden="true" hidden>
-<div class="cizgiaks-mobile-menu" id="cizgiaks-mobile-menu">
+<div class="cizgiaks-mobile-menu" id="cizgiaks-mobile-menu" role="dialog" aria-label="<?php echo esc_attr(__('Menü')); ?>">
     <div class="cizgiaks-mobile-menu-inner">
-        <label for="cizgiaks-nav-mobile-check" class="cizgiaks-mobile-menu-close" aria-label="<?php echo esc_attr(__('Menüyü kapat')); ?>">
-            <i class="fas fa-times"></i>
-        </label>
-        <a href="<?php echo esc_url($homeUrl); ?>" style="color: <?php echo esc_attr($navText); ?>;"><i class="fas fa-home"></i> <?php echo esc_html(__('Ana Sayfa')); ?></a>
-        <?php foreach ($menuItems as $item): ?>
-            <a href="<?php echo esc_url(function_exists('get_localized_menu_url') ? get_localized_menu_url($item['url']) : $item['url']); ?>"<?php echo ($item['target'] ?? '') === '_blank' ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>><?php echo esc_html(__($item['title'])); ?></a>
-        <?php endforeach; ?>
+        <div class="cizgiaks-mobile-menu-header">
+            <span class="cizgiaks-mobile-menu-title"><?php echo esc_html(__('Menü')); ?></span>
+            <label for="cizgiaks-nav-mobile-check" class="cizgiaks-mobile-menu-close" aria-label="<?php echo esc_attr(__('Menüyü kapat')); ?>">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </label>
+        </div>
+        <ul class="cizgiaks-mobile-menu-list">
+            <li class="cizgiaks-mobile-menu-item">
+                <a href="<?php echo esc_url($homeUrl); ?>" class="cizgiaks-mobile-menu-link"><i class="fas fa-home" aria-hidden="true"></i> <?php echo esc_html(__('Ana Sayfa')); ?></a>
+            </li>
+            <?php foreach ($menuItems as $item): ?>
+                <?php
+                $url = function_exists('get_localized_menu_url') ? get_localized_menu_url($item['url']) : $item['url'];
+                $target = ($item['target'] ?? '') === '_blank' ? ' target="_blank" rel="noopener noreferrer"' : '';
+                $children = $item['children'] ?? [];
+                ?>
+                <li class="cizgiaks-mobile-menu-item">
+                    <?php if (empty($children)): ?>
+                        <a href="<?php echo esc_url($url); ?>" class="cizgiaks-mobile-menu-link"<?php echo $target; ?>><?php echo esc_html(__($item['title'])); ?></a>
+                    <?php else: ?>
+                        <details class="cizgiaks-mobile-submenu">
+                            <summary class="cizgiaks-mobile-submenu-trigger">
+                                <span><?php echo esc_html(__($item['title'])); ?></span>
+                                <i class="fas fa-chevron-down cizgiaks-mobile-submenu-icon" aria-hidden="true"></i>
+                            </summary>
+                            <ul class="cizgiaks-mobile-submenu-list">
+                                <li><a href="<?php echo esc_url($url); ?>" class="cizgiaks-mobile-submenu-link"<?php echo $target; ?>><?php echo esc_html(__($item['title'])); ?></a></li>
+                                <?php foreach ($children as $child): ?>
+                                    <li><a href="<?php echo esc_url(function_exists('get_localized_menu_url') ? get_localized_menu_url($child['url']) : $child['url']); ?>" class="cizgiaks-mobile-submenu-link"<?php echo ($child['target'] ?? '') === '_blank' ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>><?php echo esc_html(__($child['title'])); ?></a></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </details>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+        </ul>
     </div>
 </div>
 <label for="cizgiaks-nav-mobile-check" class="cizgiaks-mobile-menu-backdrop" id="cizgiaks-mobile-backdrop" aria-label="<?php echo esc_attr(__('Menüyü kapat')); ?>"></label>

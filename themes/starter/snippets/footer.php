@@ -159,8 +159,9 @@ $primaryColor = 'var(--color-primary, #6366f1)';
 </style>
 
 <?php
-// Renk ayarlama fonksiyonu
-function adjustBrightness($hex, $percent) {
+// Renk ayarlama fonksiyonu (çift declare hatası önlemi)
+if (!function_exists('adjustBrightness')) {
+    function adjustBrightness($hex, $percent) {
         $hex = ltrim($hex, '#');
         if (strlen($hex) === 3) {
             $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
@@ -168,12 +169,11 @@ function adjustBrightness($hex, $percent) {
         $r = hexdec(substr($hex, 0, 2));
         $g = hexdec(substr($hex, 2, 2));
         $b = hexdec(substr($hex, 4, 2));
-    
-    $r = max(0, min(255, $r + ($r * $percent / 100)));
-    $g = max(0, min(255, $g + ($g * $percent / 100)));
-    $b = max(0, min(255, $b + ($b * $percent / 100)));
-    
-    return sprintf('#%02x%02x%02x', $r, $g, $b);
+        $r = max(0, min(255, $r + ($r * $percent / 100)));
+        $g = max(0, min(255, $g + ($g * $percent / 100)));
+        $b = max(0, min(255, $b + ($b * $percent / 100)));
+        return sprintf('#%02x%02x%02x', $r, $g, $b);
+    }
 }
 ?>
 

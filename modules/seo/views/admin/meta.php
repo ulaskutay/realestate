@@ -474,7 +474,67 @@ html.dark .seo-page,
     </div>
     <?php endif; ?>
     
+    <?php
+    $siteName = function_exists('get_option') ? get_option('site_name', '') : '';
+    $seoTitle = function_exists('get_option') ? get_option('seo_title', '') : '';
+    $seoDescription = function_exists('get_option') ? get_option('seo_description', '') : '';
+    $seoAuthor = function_exists('get_option') ? get_option('seo_author', '') : '';
+    ?>
     <form method="POST">
+        <!-- Site Bilgileri (Site Adı, {site_name} değişkeni ve genel SEO) -->
+        <div class="form-section">
+            <div class="section-header">
+                <div class="section-icon">
+                    <span class="material-symbols-outlined">badge</span>
+                </div>
+                <h2 class="section-title">Site Bilgileri</h2>
+            </div>
+            <div class="section-body">
+                <p class="form-description" style="color: var(--text-dim); font-size: 0.9375rem; margin: 0 0 16px; line-height: 1.5;">
+                    Site adı ve varsayılan SEO alanları. <strong>{site_name}</strong> değişkeni title şablonlarında buradaki "Site Adı" değerini kullanır; header/footer ve e-postalarda da kullanılır.
+                </p>
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="material-symbols-outlined">label</span>
+                        Site Adı
+                    </label>
+                    <input type="text" name="site_name" class="form-input"
+                           value="<?php echo esc_attr($siteName); ?>"
+                           placeholder="Örn: Çizgi Aks Gayrimenkul">
+                    <p style="color: var(--text-dim); font-size: 0.8125rem; margin-top: 6px;">Şablonlardaki {site_name}, header/footer ve yasal metinlerde görünür.</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="material-symbols-outlined">title</span>
+                        Site Başlığı (Title)
+                    </label>
+                    <input type="text" name="seo_title" class="form-input"
+                           value="<?php echo esc_attr($seoTitle); ?>"
+                           placeholder="Arama motorlarında görünecek site başlığı"
+                           maxlength="60">
+                    <p style="color: var(--text-dim); font-size: 0.8125rem; margin-top: 6px;">E-posta konuları ve bazı sayfalarda kullanılır (önerilen: 50-60 karakter).</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="material-symbols-outlined">description</span>
+                        Site Açıklaması (Meta Description)
+                    </label>
+                    <textarea name="seo_description" class="form-textarea" rows="3" maxlength="160"
+                              placeholder="Arama motorlarında görünecek site açıklaması"><?php echo esc_html($seoDescription); ?></textarea>
+                    <p style="color: var(--text-dim); font-size: 0.8125rem; margin-top: 6px;">Önerilen: 150-160 karakter.</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="material-symbols-outlined">person</span>
+                        Site Yazarı
+                    </label>
+                    <input type="text" name="seo_author" class="form-input"
+                           value="<?php echo esc_attr($seoAuthor); ?>"
+                           placeholder="Yazar Adı">
+                </div>
+            </div>
+        </div>
+
         <!-- Title Templates -->
         <div class="form-section">
             <div class="section-header">
@@ -611,16 +671,24 @@ html.dark .seo-page,
                               placeholder="Özel açıklama girilmediğinde kullanılacak genel varsayılan metin..."><?php echo esc_html($settings['meta_description_default'] ?? ''); ?></textarea>
                 </div>
                 
-                <!-- Google Preview -->
+                <!-- Google Preview (şablondaki {site_name} gerçek değerle değiştirilir) -->
+                <?php
+                $previewSiteName = $siteName !== '' ? $siteName : 'Site Adı';
+                $previewTitle = str_replace('{site_name}', $previewSiteName, $settings['meta_title_home'] ?? '{site_name}');
+                $previewDesc = str_replace('{site_name}', $previewSiteName, $settings['meta_description_home'] ?? '');
+                if ($previewDesc === '') {
+                    $previewDesc = $seoDescription !== '' ? $seoDescription : 'Sitenizin açıklaması burada görünecek. Meta description, arama sonuçlarında görünen önemli bir SEO öğesidir.';
+                }
+                ?>
                 <div class="preview-card">
                     <h4 class="preview-title">
                         <span class="material-symbols-outlined" style="font-size: 16px;">visibility</span>
                         Google Arama Önizlemesi
                     </h4>
                     <div class="serp-preview">
-                        <h3 class="serp-title"><?php echo esc_html($settings['meta_title_home'] ?? 'Site Adı'); ?></h3>
+                        <h3 class="serp-title"><?php echo esc_html($previewTitle); ?></h3>
                         <p class="serp-url">example.com</p>
-                        <p class="serp-description"><?php echo esc_html($settings['meta_description_home'] ?? 'Sitenizin açıklaması burada görünecek. Meta description, arama sonuçlarında görünen önemli bir SEO öğesidir.'); ?></p>
+                        <p class="serp-description"><?php echo esc_html($previewDesc); ?></p>
                     </div>
                 </div>
             </div>

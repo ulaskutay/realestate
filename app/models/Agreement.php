@@ -324,6 +324,83 @@ class Agreement extends Model {
     }
     
     /**
+     * Sözleşme türüne göre varsayılan şablon döndürür (başlık + HTML içerik).
+     * Yer tutucular ([ŞİRKET ADI], [E-POSTA] vb.) şablonlarda kullanılır.
+     */
+    public static function getDefaultTemplate($type) {
+        $templates = [
+            'privacy' => [
+                'title' => 'Gizlilik Politikası',
+                'content' => '<h1>Gizlilik Politikası</h1>
+<p>Son güncelleme: [TARİH]</p>
+<p>[ŞİRKET ADI] ("şirket", "biz") olarak kişisel verilerinizin güvenliğine önem veriyoruz. Bu gizlilik politikası, [WEB SİTESİ] üzerinden sunulan hizmetlerimiz kapsamında toplanan bilgilerin nasıl kullanıldığını açıklamaktadır.</p>
+<h2>1. Toplanan Bilgiler</h2>
+<p>Hizmetlerimizi kullanırken ad, e-posta adresi, telefon numarası ve adres gibi kişisel bilgilerinizi toplayabiliriz.</p>
+<h2>2. Bilgilerin Kullanımı</h2>
+<p>Topladığımız bilgiler hizmet sunumu, iletişim, yasal yükümlülükler ve iyileştirme amaçlı kullanılır.</p>
+<h2>3. Bilgi Güvenliği</h2>
+<p>Verilerinizi yetkisiz erişime karşı korumak için uygun teknik ve idari önlemleri alıyoruz.</p>
+<h2>4. İletişim</h2>
+<p>Sorularınız için: [E-POSTA] | [TELEFON] | [ADRES]</p>'
+            ],
+            'kvkk' => [
+                'title' => 'KVKK Aydınlatma Metni',
+                'content' => '<h1>KVKK Aydınlatma Metni</h1>
+<p>6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") kapsamında, [ŞİRKET ADI] ("Veri Sorumlusu") olarak kişisel verilerinizin işlenmesine ilişkin aydınlatma yükümlülüğümüzü yerine getirmekteyiz.</p>
+<h2>1. Veri Sorumlusu</h2>
+<p>Şirket: [ŞİRKET ADI]<br>Adres: [ADRES]<br>E-posta: [E-POSTA]<br>Telefon: [TELEFON]</p>
+<h2>2. İşlenen Kişisel Veriler</h2>
+<p>Kimlik, iletişim, müşteri işlem ve finans bilgileri, hukuki işlem bilgisi ve fiziksel mekân güvenliği verileri işlenebilmektedir.</p>
+<h2>3. İşleme Amaçları</h2>
+<p>Hizmet sunumu, sözleşme süreçleri, yasal yükümlülükler ve meşru menfaat kapsamında işlenmektedir.</p>
+<h2>4. Haklarınız</h2>
+<p>KVKK md. 11 uyarınca erişim, düzeltme, silme, itiraz ve şikâyet başvurusu haklarınızı [E-POSTA] veya [KEP ADRESİ] üzerinden kullanabilirsiniz.</p>'
+            ],
+            'terms' => [
+                'title' => 'Kullanım Şartları',
+                'content' => '<h1>Kullanım Şartları</h1>
+<p>Son güncelleme: [TARİH]</p>
+<p>[WEB SİTESİ] ("Site") ve [ŞİRKET ADI] ("şirket") tarafından sunulan hizmetlere erişim ve kullanım, aşağıdaki şartlara tabidir.</p>
+<h2>1. Genel</h2>
+<p>Siteyi kullanarak bu şartları kabul etmiş sayılırsınız. Şartları kabul etmiyorsanız lütfen siteyi kullanmayınız.</p>
+<h2>2. Hizmetler</h2>
+<p>Şirket, emlak danışmanlığı ve ilgili hizmetleri sunar. Hizmet kapsamı önceden bildirilmeksizin güncellenebilir.</p>
+<h2>3. Kullanıcı Yükümlülükleri</h2>
+<p>Doğru ve güncel bilgi vermek, yasalara uymak ve siteyi kötüye kullanmamakla yükümlüsünüz.</p>
+<h2>4. Fikri Mülkiyet</h2>
+<p>Sitedeki içerik, logo ve materyaller şirkete aittir; izinsiz kullanılamaz.</p>
+<h2>5. İletişim</h2>
+<p>İletişim: [E-POSTA] | [TELEFON] | [ADRES]</p>'
+            ],
+            'cookies' => [
+                'title' => 'Çerez Politikası',
+                'content' => '<h1>Çerez Politikası</h1>
+<p>Son güncelleme: [TARİH]</p>
+<p>[ŞİRKET ADI] olarak [WEB SİTESİ] ("Site") üzerinde çerez ve benzeri teknolojilerin kullanımına ilişkin bilgilendirme yapmaktayız.</p>
+<h2>1. Çerez Nedir?</h2>
+<p>Çerezler, cihazınıza kaydedilen küçük metin dosyalarıdır; tercihlerinizi hatırlamak ve site deneyimini iyileştirmek için kullanılır.</p>
+<h2>2. Kullandığımız Çerezler</h2>
+<p><strong>Zorunlu:</strong> Site işlevi için gerekli çerezler.<br>
+<strong>Analitik:</strong> Kullanım istatistikleri (anonim).<br>
+<strong>İşlevsel:</strong> Dil veya tercih kayıtları.</p>
+<h2>3. Yönetim</h2>
+<p>Tarayıcı ayarlarınızdan çerezleri silebilir veya engelleyebilirsiniz; bu durumda bazı özellikler çalışmayabilir.</p>
+<h2>4. İletişim</h2>
+<p>Sorularınız için: [E-POSTA] | [TELEFON]</p>'
+            ],
+            'other' => [
+                'title' => 'Sözleşme',
+                'content' => '<h1>Sözleşme Başlığı</h1>
+<p>Bu sözleşme [TARİH] tarihinde [ŞİRKET ADI] ile taraflar arasında düzenlenmiştir.</p>
+<p>İletişim: [E-POSTA] | [TELEFON] | [ADRES]</p>'
+            ]
+        ];
+        
+        $t = $templates[$type] ?? $templates['other'];
+        return ['title' => $t['title'], 'content' => $t['content']];
+    }
+    
+    /**
      * Sözleşmeyi siler (soft delete yerine hard delete)
      */
     public function deleteAgreement($id) {

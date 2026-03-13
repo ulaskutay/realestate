@@ -674,5 +674,42 @@ class SeoModel {
             return false;
         }
     }
+
+    /**
+     * Sitemap için yayınlanmış ilanları getirir (realestate_listings tablosu varsa)
+     * Her ilan için slug veya id kullanılır: /ilan/{slug}
+     */
+    public function getListingsForSitemap() {
+        try {
+            $stmt = $this->db->getConnection()->query("SHOW TABLES LIKE 'realestate_listings'");
+            if (!$stmt || $stmt->rowCount() === 0) {
+                return [];
+            }
+            $rows = $this->db->fetchAll(
+                "SELECT id, slug, updated_at FROM realestate_listings WHERE status = 'published' ORDER BY updated_at DESC"
+            );
+            if (!$rows) {
+                return [];
+            }
+            foreach ($rows as &$row) {
+                $row['url_slug'] = !empty($row['slug']) ? $row['slug'] : (string) $row['id'];
+            }
+            return $rows;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * İlanlar tablosu mevcut mu
+     */
+    public function hasListings() {
+        try {
+            $stmt = $this->db->getConnection()->query("SHOW TABLES LIKE 'realestate_listings'");
+            return $stmt && $stmt->rowCount() > 0;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
 }
 

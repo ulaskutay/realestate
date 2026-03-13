@@ -265,6 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label for="admin_password">Yönetici Şifresi</label>
                 <input type="password" id="admin_password" name="admin_password" required>
                 <div class="form-help">Minimum 6 karakter</div>
+                <p class="form-note" style="margin-top:8px;font-size:13px;color:#64748b;">Kurulumda eklediğiniz bu ilk kullanıcı <strong>Süper Admin</strong> olarak atanır.</p>
             </div>
 
             <div class="btn-group">

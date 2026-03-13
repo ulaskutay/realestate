@@ -332,6 +332,36 @@ document.getElementById('title').addEventListener('input', function() {
 document.getElementById('slug').addEventListener('input', function() {
     document.getElementById('slug-preview').textContent = this.value || 'slug';
 });
+
+// Sözleşme türü değiştiğinde varsayılan şablonu yükle
+var agreementTemplateBaseUrl = '<?php echo esc_url(admin_url("agreements/template/")); ?>';
+function loadAgreementTemplate(type, skipConfirm) {
+    if (!type) return;
+    var currentContent = (quill && quill.root) ? quill.root.innerHTML.replace(/^<p><br><\/p>$/, '').trim() : '';
+    var isEmpty = !currentContent || currentContent === '<p></p>';
+    if (!skipConfirm && !isEmpty && !confirm('Bu tür için varsayılan şablon yüklenecek, mevcut içerik değişecek. Devam etmek istiyor musunuz?')) return;
+    fetch(agreementTemplateBaseUrl + encodeURIComponent(type), { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success && data.content) {
+                if (quill) quill.root.innerHTML = data.content;
+                if (data.title && document.getElementById('title')) {
+                    var titleEl = document.getElementById('title');
+                    if (!titleEl.value) titleEl.value = data.title;
+                }
+                if (document.getElementById('content')) document.getElementById('content').value = data.content;
+            }
+        })
+        .catch(function() {});
+}
+document.getElementById('type').addEventListener('change', function() {
+    loadAgreementTemplate(this.value, false);
+});
+// Yeni sözleşme sayfasında sayfa açıldığında seçili tür için şablonu otomatik yükle
+setTimeout(function() {
+    var type = document.getElementById('type') && document.getElementById('type').value;
+    if (type && quill) loadAgreementTemplate(type, true);
+}, 100);
 </script>
 
 </body>

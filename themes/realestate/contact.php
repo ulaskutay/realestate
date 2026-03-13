@@ -801,8 +801,8 @@ ob_start();
                 <!-- WhatsApp Quick Contact -->
                 <?php 
                 $whatsappNumber = get_option('whatsapp_number', $companyPhone);
-                if ($whatsappNumber): 
-                    $whatsappClean = preg_replace('/[^0-9]/', '', $whatsappNumber);
+                $whatsappClean = $whatsappNumber && function_exists('normalize_phone_for_whatsapp') ? normalize_phone_for_whatsapp($whatsappNumber) : ($whatsappNumber ? preg_replace('/[^0-9]/', '', $whatsappNumber) : '');
+                if (!empty($whatsappClean)):
                     $whatsappUrl = 'https://wa.me/' . $whatsappClean . '?text=' . urlencode(__('Merhaba, emlak danışmanlığı hakkında bilgi almak istiyorum.'));
                 ?>
                 <a href="<?php echo esc_url($whatsappUrl); ?>" 

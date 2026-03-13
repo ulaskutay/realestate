@@ -35,15 +35,22 @@ class RealEstateListingsController {
                 'sale' => 'Satılık',
                 'rent' => 'Kiralık',
             ],
+            'badges' => [
+                'firsat' => 'Fırsat',
+                'yatirimlik' => 'Yatırımlık',
+                'yeni' => 'Yeni',
+                'acil' => 'Acil',
+            ],
         ];
     }
 
-    /** Emlak tipi ve ilan durumu seçenekleri (ayarlardan veya varsayılan) */
+    /** Emlak tipi, ilan durumu ve rozet seçenekleri (ayarlardan veya varsayılan) */
     private function getListingOptions() {
         $this->loadSettings();
         return [
             'property_types' => $this->settings['property_types'] ?? $this->getDefaultSettings()['property_types'],
             'listing_statuses' => $this->settings['listing_statuses'] ?? $this->getDefaultSettings()['listing_statuses'],
+            'badges' => $this->settings['badges'] ?? $this->getDefaultSettings()['badges'],
         ];
     }
 
@@ -184,6 +191,7 @@ class RealEstateListingsController {
             'user' => get_logged_in_user(),
             'property_types' => $opts['property_types'],
             'listing_statuses' => $opts['listing_statuses'],
+            'badges' => $opts['badges'],
             'message' => $_SESSION['listings_settings_message'] ?? null,
         ];
         unset($_SESSION['listings_settings_message']);
@@ -225,8 +233,23 @@ class RealEstateListingsController {
         if (empty($listing_statuses)) {
             $listing_statuses = $this->getDefaultSettings()['listing_statuses'];
         }
+        $badges = [];
+        if (!empty($_POST['badge_key']) && is_array($_POST['badge_key'])) {
+            foreach ($_POST['badge_key'] as $i => $key) {
+                $key = trim((string) $key);
+                $label = isset($_POST['badge_label'][$i]) ? trim((string) $_POST['badge_label'][$i]) : '';
+                if ($key !== '' || $label !== '') {
+                    $key = $key !== '' ? $key : 'badge_' . $i;
+                    $badges[$key] = $label !== '' ? $label : $key;
+                }
+            }
+        }
+        if (empty($badges)) {
+            $badges = $this->getDefaultSettings()['badges'];
+        }
         $this->settings['property_types'] = $property_types;
         $this->settings['listing_statuses'] = $listing_statuses;
+        $this->settings['badges'] = $badges;
         if (class_exists('ModuleLoader')) {
             ModuleLoader::getInstance()->saveModuleSettings('realestate-listings', $this->settings);
         }
@@ -296,6 +319,8 @@ class RealEstateListingsController {
             'iller' => $iller,
             'property_types' => $opts['property_types'],
             'listing_statuses' => $opts['listing_statuses'],
+            'badges' => $opts['badges'],
+            'selected_badges' => [],
             'all_categories' => $this->model->getAllCategories(),
         ];
         $this->adminView('create', $data);
@@ -338,6 +363,25 @@ class RealEstateListingsController {
             'rooms' => intval($_POST['rooms'] ?? 0),
             'area' => floatval($_POST['area'] ?? 0),
             'area_unit' => trim($_POST['area_unit'] ?? 'sqm'),
+            'listing_no' => trim($_POST['listing_no'] ?? ''),
+            'area_net' => isset($_POST['area_net']) && $_POST['area_net'] !== '' ? floatval($_POST['area_net']) : null,
+            'building_age' => trim($_POST['building_age'] ?? ''),
+            'floor' => isset($_POST['floor']) && $_POST['floor'] !== '' ? intval($_POST['floor']) : null,
+            'total_floors' => isset($_POST['total_floors']) && $_POST['total_floors'] !== '' ? intval($_POST['total_floors']) : null,
+            'heating' => trim($_POST['heating'] ?? ''),
+            'kitchen' => trim($_POST['kitchen'] ?? ''),
+            'balcony' => trim($_POST['balcony'] ?? ''),
+            'elevator' => trim($_POST['elevator'] ?? ''),
+            'parking' => trim($_POST['parking'] ?? ''),
+            'furnished' => trim($_POST['furnished'] ?? ''),
+            'usage_status' => trim($_POST['usage_status'] ?? ''),
+            'in_complex' => trim($_POST['in_complex'] ?? ''),
+            'complex_name' => trim($_POST['complex_name'] ?? ''),
+            'monthly_dues' => isset($_POST['monthly_dues']) && $_POST['monthly_dues'] !== '' ? floatval($_POST['monthly_dues']) : null,
+            'loan_eligible' => trim($_POST['loan_eligible'] ?? ''),
+            'deed_status' => trim($_POST['deed_status'] ?? ''),
+            'listed_by' => trim($_POST['listed_by'] ?? ''),
+            'takas' => trim($_POST['takas'] ?? ''),
             'featured_image' => trim($_POST['featured_image'] ?? ''),
             'gallery' => !empty($_POST['gallery']) ? $_POST['gallery'] : '[]',
             'status' => trim($_POST['status'] ?? 'published'),
@@ -345,6 +389,7 @@ class RealEstateListingsController {
             'author_id' => $user['id'],
             'realtor_id' => !empty($_POST['realtor_id']) ? intval($_POST['realtor_id']) : null
         ];
+        $data['badges'] = isset($_POST['badge_keys']) && is_array($_POST['badge_keys']) ? json_encode(array_values(array_filter(array_map('trim', $_POST['badge_keys'])))) : '[]';
         if (empty($data['title'])) {
             $_SESSION['error_message'] = 'İlan başlığı zorunludur!';
             header('Location: ' . admin_url('module/realestate-listings/create'));
@@ -374,6 +419,7 @@ class RealEstateListingsController {
         $opts = $this->getListingOptions();
         $listingCategories = $this->model->getCategoriesForListing($id);
         $allCategories = $this->model->getAllCategories();
+        $listingBadges = isset($listing['badges']) && is_array($listing['badges']) ? $listing['badges'] : [];
         $data = [
             'title' => 'İlan Düzenle',
             'user' => get_logged_in_user(),
@@ -382,6 +428,8 @@ class RealEstateListingsController {
             'iller' => $this->getIllerForForm(),
             'property_types' => $opts['property_types'],
             'listing_statuses' => $opts['listing_statuses'],
+            'badges' => $opts['badges'],
+            'selected_badges' => $listingBadges,
             'listing_categories' => $listingCategories,
             'all_categories' => $allCategories,
             'message' => $_SESSION['listings_message'] ?? $_SESSION['error_message'] ?? null,
@@ -424,12 +472,32 @@ class RealEstateListingsController {
             'rooms' => intval($_POST['rooms'] ?? 0),
             'area' => floatval($_POST['area'] ?? 0),
             'area_unit' => trim($_POST['area_unit'] ?? 'sqm'),
+            'listing_no' => trim($_POST['listing_no'] ?? ''),
+            'area_net' => isset($_POST['area_net']) && $_POST['area_net'] !== '' ? floatval($_POST['area_net']) : null,
+            'building_age' => trim($_POST['building_age'] ?? ''),
+            'floor' => isset($_POST['floor']) && $_POST['floor'] !== '' ? intval($_POST['floor']) : null,
+            'total_floors' => isset($_POST['total_floors']) && $_POST['total_floors'] !== '' ? intval($_POST['total_floors']) : null,
+            'heating' => trim($_POST['heating'] ?? ''),
+            'kitchen' => trim($_POST['kitchen'] ?? ''),
+            'balcony' => trim($_POST['balcony'] ?? ''),
+            'elevator' => trim($_POST['elevator'] ?? ''),
+            'parking' => trim($_POST['parking'] ?? ''),
+            'furnished' => trim($_POST['furnished'] ?? ''),
+            'usage_status' => trim($_POST['usage_status'] ?? ''),
+            'in_complex' => trim($_POST['in_complex'] ?? ''),
+            'complex_name' => trim($_POST['complex_name'] ?? ''),
+            'monthly_dues' => isset($_POST['monthly_dues']) && $_POST['monthly_dues'] !== '' ? floatval($_POST['monthly_dues']) : null,
+            'loan_eligible' => trim($_POST['loan_eligible'] ?? ''),
+            'deed_status' => trim($_POST['deed_status'] ?? ''),
+            'listed_by' => trim($_POST['listed_by'] ?? ''),
+            'takas' => trim($_POST['takas'] ?? ''),
             'featured_image' => trim($_POST['featured_image'] ?? ''),
             'gallery' => !empty($_POST['gallery']) ? $_POST['gallery'] : '[]',
             'status' => trim($_POST['status'] ?? 'published'),
             'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
             'realtor_id' => !empty($_POST['realtor_id']) ? intval($_POST['realtor_id']) : null
         ];
+        $data['badges'] = isset($_POST['badge_keys']) && is_array($_POST['badge_keys']) ? json_encode(array_values(array_filter(array_map('trim', $_POST['badge_keys'])))) : '[]';
         if (empty($data['title'])) {
             $_SESSION['error_message'] = 'İlan başlığı zorunludur!';
             header('Location: ' . admin_url('module/realestate-listings/edit/' . $id));
@@ -524,10 +592,12 @@ class RealEstateListingsController {
         $ilceByIlName = $this->model->getDistrictsByCityFromListings();
         $allCategories = $this->model->getAllCategories();
 
+        $pageSections = $this->getPageSectionsForFrontend('ilanlar');
         $data = [
             'title' => 'Emlak İlanları',
             'listings' => $listings,
             'current_category' => null,
+            'page_sections' => $pageSections,
             'filters' => [
                 'location' => $location,
                 'type' => $type,
@@ -547,6 +617,7 @@ class RealEstateListingsController {
             ],
             'property_type_labels' => $opts['property_types'],
             'listing_status_labels' => $opts['listing_statuses'],
+            'badge_labels' => $opts['badges'],
             'iller' => $iller,
             'ilceByIlName' => $ilceByIlName,
             'all_categories' => $allCategories,
@@ -590,10 +661,12 @@ class RealEstateListingsController {
         $ilceByIlName = $this->model->getDistrictsByCityFromListings();
         $allCategories = $this->model->getAllCategories();
 
+        $pageSections = $this->getPageSectionsForFrontend('ilanlar');
         $data = [
             'title' => $category['name'] . ' - Emlak İlanları',
             'listings' => $listings,
             'current_category' => $category,
+            'page_sections' => $pageSections,
             'filters' => [
                 'location' => $location,
                 'type' => '',
@@ -613,6 +686,7 @@ class RealEstateListingsController {
             ],
             'property_type_labels' => $opts['property_types'],
             'listing_status_labels' => $opts['listing_statuses'],
+            'badge_labels' => $opts['badges'],
             'iller' => $iller,
             'ilceByIlName' => $ilceByIlName,
             'all_categories' => $allCategories,
@@ -640,11 +714,14 @@ class RealEstateListingsController {
             $listing['slug'] = $newSlug;
         }
         $opts = $this->getListingOptions();
+        $pageSections = $this->getPageSectionsForFrontend('listing-detail');
         $data = [
             'title' => $listing['title'],
             'listing' => $listing,
             'property_type_labels' => $opts['property_types'],
             'listing_status_labels' => $opts['listing_statuses'],
+            'badge_labels' => $opts['badges'],
+            'page_sections' => $pageSections,
         ];
         extract($data);
         $viewPath = get_module_frontend_view('realestate-listings', 'detail.php');
@@ -656,6 +733,21 @@ class RealEstateListingsController {
 
     public function getFeaturedListings($limit = 6) {
         return $this->model->getFeatured($limit);
+    }
+
+    /**
+     * Sayfa Yönetimi bölümlerini getir (ilanlar / listing-detail sayfaları için üst/alt bloklar)
+     */
+    private function getPageSectionsForFrontend(string $pageType): array {
+        if (!class_exists('ThemeManager')) {
+            return [];
+        }
+        try {
+            $themeManager = ThemeManager::getInstance();
+            return $themeManager->getPageSections($pageType, null) ?: [];
+        } catch (Exception $e) {
+            return [];
+        }
     }
 
     private function generateSlug($text, $excludeId = null) {

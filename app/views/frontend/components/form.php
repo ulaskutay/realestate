@@ -61,7 +61,7 @@ function render_form_html($form) {
         <form id="<?php echo esc_attr($formId); ?>" 
               class="cms-form <?php echo esc_attr($styleClass); ?> <?php echo esc_attr($layoutClass); ?>" 
               method="POST" 
-              action="/forms/submit"
+              action="<?php echo esc_url(function_exists('site_url') ? site_url('forms/submit') : '/forms/submit'); ?>"
               data-form-id="<?php echo esc_attr($form['id']); ?>">
             
             <input type="hidden" name="_form_id" value="<?php echo esc_attr($form['id']); ?>">
@@ -245,8 +245,17 @@ function render_form_field($field) {
         $fieldType = 'text';
     }
     
+    // Field name'i kontrol et - hem 'name' hem 'field_name' olabilir
+    $fieldName = $field['name'] ?? $field['field_name'] ?? '';
+    
+    // Field label'ı kontrol et
+    $fieldLabel = $field['label'] ?? $field['field_label'] ?? $fieldName;
+    
+    // Required kontrolü - hem 'required' hem 'is_required' olabilir
+    $isRequired = (int)($field['required'] ?? $field['is_required'] ?? 0) === 1;
+    
     $widthClass = 'field-width-' . ($field['width'] ?? 'full');
-    $requiredClass = $field['required'] ? 'field-required' : '';
+    $requiredClass = $isRequired ? 'field-required' : '';
     $customClass = $field['css_class'] ?? '';
     
     // Layout elemanları
@@ -256,11 +265,11 @@ function render_form_field($field) {
     }
     
     ?>
-    <div class="form-field <?php echo esc_attr($widthClass); ?> <?php echo esc_attr($requiredClass); ?> <?php echo esc_attr($customClass); ?>" data-field-type="<?php echo esc_attr($fieldType); ?>">
+    <div class="form-field <?php echo esc_attr($widthClass); ?> <?php echo esc_attr($requiredClass); ?> <?php echo esc_attr($customClass); ?>" data-field-type="<?php echo esc_attr($fieldType); ?>" data-field-name="<?php echo esc_attr($fieldName); ?>">
         <?php if ($fieldType !== 'hidden'): ?>
-            <label class="field-label" for="field-<?php echo esc_attr($field['name']); ?>">
-                <?php echo esc_html($field['label']); ?>
-                <?php if ($field['required']): ?>
+            <label class="field-label" for="field-<?php echo esc_attr($fieldName); ?>">
+                <?php echo esc_html($fieldLabel); ?>
+                <?php if ($isRequired): ?>
                     <span class="required-mark">*</span>
                 <?php endif; ?>
             </label>
@@ -282,29 +291,29 @@ function render_form_field($field) {
                     if ($fieldType === 'datetime') $inputType = 'datetime-local';
                     ?>
                     <input type="<?php echo esc_attr($inputType); ?>" 
-                           id="field-<?php echo esc_attr($field['name']); ?>"
-                           name="<?php echo esc_attr($field['name']); ?>" 
+                           id="field-<?php echo esc_attr($fieldName); ?>"
+                           name="<?php echo esc_attr($fieldName); ?>" 
                            placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
                            value="<?php echo esc_attr($field['default_value'] ?? ''); ?>"
-                           <?php echo $field['required'] ? 'required' : ''; ?>>
+                           <?php echo $isRequired ? 'required' : ''; ?>>
                     <?php
                     break;
                     
                 case 'textarea':
                     ?>
-                    <textarea id="field-<?php echo esc_attr($field['name']); ?>"
-                              name="<?php echo esc_attr($field['name']); ?>" 
+                    <textarea id="field-<?php echo esc_attr($fieldName); ?>"
+                              name="<?php echo esc_attr($fieldName); ?>" 
                               placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
                               rows="4"
-                              <?php echo $field['required'] ? 'required' : ''; ?>><?php echo esc_html($field['default_value'] ?? ''); ?></textarea>
+                              <?php echo $isRequired ? 'required' : ''; ?>><?php echo esc_html($field['default_value'] ?? ''); ?></textarea>
                     <?php
                     break;
                     
                 case 'select':
                     ?>
-                    <select id="field-<?php echo esc_attr($field['name']); ?>"
-                            name="<?php echo esc_attr($field['name']); ?>" 
-                            <?php echo $field['required'] ? 'required' : ''; ?>>
+                    <select id="field-<?php echo esc_attr($fieldName); ?>"
+                            name="<?php echo esc_attr($fieldName); ?>" 
+                            <?php echo $isRequired ? 'required' : ''; ?>>
                         <option value=""><?php echo esc_html($field['placeholder'] ?? 'Seçiniz...'); ?></option>
                         <?php if (!empty($field['options'])): ?>
                             <?php foreach ($field['options'] as $option): ?>
@@ -325,8 +334,8 @@ function render_form_field($field) {
                             <?php foreach ($field['options'] as $i => $option): ?>
                                 <label class="checkbox-label">
                                     <input type="checkbox" 
-                                           id="field-<?php echo esc_attr($field['name']); ?>-<?php echo $i; ?>"
-                                           name="<?php echo esc_attr($field['name']); ?>[]" 
+                                           id="field-<?php echo esc_attr($fieldName); ?>-<?php echo $i; ?>"
+                                           name="<?php echo esc_attr($fieldName); ?>[]" 
                                            value="<?php echo esc_attr($option['value'] ?? $option); ?>">
                                     <span><?php echo esc_html($option['label'] ?? $option); ?></span>
                                 </label>
@@ -343,8 +352,8 @@ function render_form_field($field) {
                             <?php foreach ($field['options'] as $i => $option): ?>
                                 <label class="radio-label">
                                     <input type="radio" 
-                                           id="field-<?php echo esc_attr($field['name']); ?>-<?php echo $i; ?>"
-                                           name="<?php echo esc_attr($field['name']); ?>" 
+                                           id="field-<?php echo esc_attr($fieldName); ?>-<?php echo $i; ?>"
+                                           name="<?php echo esc_attr($fieldName); ?>" 
                                            value="<?php echo esc_attr($option['value'] ?? $option); ?>"
                                            <?php echo ($field['default_value'] ?? '') === ($option['value'] ?? $option) ? 'checked' : ''; ?>>
                                     <span><?php echo esc_html($option['label'] ?? $option); ?></span>
@@ -358,16 +367,16 @@ function render_form_field($field) {
                 case 'file':
                     ?>
                     <input type="file" 
-                           id="field-<?php echo esc_attr($field['name']); ?>"
-                           name="<?php echo esc_attr($field['name']); ?>" 
-                           <?php echo $field['required'] ? 'required' : ''; ?>>
+                           id="field-<?php echo esc_attr($fieldName); ?>"
+                           name="<?php echo esc_attr($fieldName); ?>" 
+                           <?php echo $isRequired ? 'required' : ''; ?>>
                     <?php
                     break;
                     
                 case 'hidden':
                     ?>
                     <input type="hidden" 
-                           name="<?php echo esc_attr($field['name']); ?>" 
+                           name="<?php echo esc_attr($fieldName); ?>" 
                            value="<?php echo esc_attr($field['default_value'] ?? ''); ?>">
                     <?php
                     break;
@@ -376,11 +385,11 @@ function render_form_field($field) {
                     // Bilinmeyen tip için varsayılan text input
                     ?>
                     <input type="text" 
-                           id="field-<?php echo esc_attr($field['name']); ?>"
-                           name="<?php echo esc_attr($field['name']); ?>" 
+                           id="field-<?php echo esc_attr($fieldName); ?>"
+                           name="<?php echo esc_attr($fieldName); ?>" 
                            placeholder="<?php echo esc_attr($field['placeholder'] ?? ''); ?>"
                            value="<?php echo esc_attr($field['default_value'] ?? ''); ?>"
-                           <?php echo $field['required'] ? 'required' : ''; ?>>
+                           <?php echo $isRequired ? 'required' : ''; ?>>
                     <?php
                     break;
             }

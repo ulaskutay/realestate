@@ -271,15 +271,28 @@
                                                   class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"><?php echo esc_html($form['description'] ?? ''); ?></textarea>
                                     </div>
                                     
+                                    <?php
+                                    // Kısa kodu HTML'de [form ...] olarak yazmıyoruz; sayfa çıktısı shortcode parse
+                                    // edildiği için o metin form bileşeni çıktısıyla değişiyordu. Base64 ile saklayıp
+                                    // JS ile decode edip yazıyoruz.
+                                    $shortcodeSlug = isset($form['slug']) && (string)$form['slug'] !== '' ? $form['slug'] : null;
+                                    $shortcodeForm = $shortcodeSlug !== null
+                                        ? '[form slug="' . esc_attr($shortcodeSlug) . '"]'
+                                        : '[form id="' . (int)($form['id'] ?? 0) . '"]';
+                                    $shortcodeFormB64 = base64_encode($shortcodeForm);
+                                    ?>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kısa Kod</label>
                                         <div class="flex items-center gap-2">
-                                            <input type="text" readonly value='[form slug="<?php echo esc_attr($form['slug']); ?>"]'
+                                            <input type="text" readonly value="" data-shortcode-b64="<?php echo esc_attr($shortcodeFormB64); ?>"
                                                    class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-text" id="shortcode-input">
                                             <button type="button" onclick="copyShortcode()" class="px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" title="Kopyala">
                                                 <span class="material-symbols-outlined text-lg">content_copy</span>
                                             </button>
                                         </div>
+                                        <?php if ($shortcodeSlug === null && !empty($form['id'])): ?>
+                                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Form slug boş olduğu için ID ile kısa kod gösteriliyor. Formu kaydederek slug oluşturabilirsiniz.</p>
+                                        <?php endif; ?>
                                     </div>
                                     
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -963,6 +976,15 @@
         // Sayfa yüklendiğinde başlat
         document.addEventListener('DOMContentLoaded', () => {
             FormBuilder.init();
+            // Kısa kod input'una base64'ten decode edilmiş değeri yaz (shortcode parse ile değişmesin diye HTML'de [form ...] yok)
+            const shortcodeInput = document.getElementById('shortcode-input');
+            if (shortcodeInput && shortcodeInput.dataset.shortcodeB64) {
+                try {
+                    shortcodeInput.value = atob(shortcodeInput.dataset.shortcodeB64);
+                } catch (e) {
+                    shortcodeInput.value = '';
+                }
+            }
         });
     </script>
 </body>

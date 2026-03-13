@@ -1,14 +1,16 @@
 <?php include __DIR__ . '/../snippets/header.php'; ?>
 <?php
-// Controller'dan gelen değişkenler: $user, $users, $roles, $activeTab, $isAdmin, $message, $messageType
+$message = $message ?? null;
+$messageType = $messageType ?? null;
 $activeTab = $activeTab ?? 'users';
-$isAdmin = $isAdmin ?? false;
+$canViewRoles = $canViewRoles ?? false;
+$roles = $roles ?? [];
 ?>
 <div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
     <div class="flex min-h-screen">
         <!-- Sidebar -->
         <?php 
-        $currentPage = 'users';
+        $currentPage = (isset($activeTab) && $activeTab === 'roles') ? 'roles' : 'users';
         include __DIR__ . '/../snippets/sidebar.php'; 
         ?>
 
@@ -24,15 +26,15 @@ $isAdmin = $isAdmin ?? false;
                 <!-- Header -->
                 <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div class="flex flex-col gap-2">
-                        <h1 class="text-gray-900 dark:text-white text-2xl sm:text-3xl font-bold tracking-tight">Kullanıcı ve Rol Yönetimi</h1>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm sm:text-base">Kullanıcılarınızı ve rollerini yönetin.</p>
+                        <h1 class="text-gray-900 dark:text-white text-2xl sm:text-3xl font-bold tracking-tight">Kullanıcılar ve Roller</h1>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm sm:text-base">Kullanıcıları ve rollerini yönetin.</p>
                     </div>
                     <?php if ($activeTab === 'users'): ?>
                     <a href="<?php echo admin_url('users/create'); ?>" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[44px] w-full sm:w-auto justify-center sm:justify-start">
                         <span class="material-symbols-outlined text-lg sm:text-xl">add</span>
                         <span class="text-sm font-medium">Yeni Kullanıcı</span>
                     </a>
-                    <?php elseif ($activeTab === 'roles' && $isAdmin): ?>
+                    <?php elseif ($activeTab === 'roles' && $canViewRoles): ?>
                     <a href="<?php echo admin_url('roles/create'); ?>" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors min-h-[44px] w-full sm:w-auto justify-center sm:justify-start">
                         <span class="material-symbols-outlined text-lg sm:text-xl">add</span>
                         <span class="text-sm font-medium">Yeni Rol</span>
@@ -40,19 +42,15 @@ $isAdmin = $isAdmin ?? false;
                     <?php endif; ?>
                 </header>
 
-                <!-- Tabs -->
+                <!-- Sekmeler -->
+                <?php if ($canViewRoles): ?>
                 <div class="mb-6 border-b border-gray-200 dark:border-white/10 overflow-x-auto scrollbar-hide">
                     <nav class="flex gap-2 min-w-max">
-                        <a href="<?php echo admin_url('users', ['tab' => 'users']); ?>" class="px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap <?php echo $activeTab === 'users' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>">
-                            Kullanıcılar
-                        </a>
-                        <?php if ($isAdmin): ?>
-                        <a href="<?php echo admin_url('users', ['tab' => 'roles']); ?>" class="px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap <?php echo $activeTab === 'roles' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>">
-                            Roller
-                        </a>
-                        <?php endif; ?>
+                        <a href="<?php echo admin_url('users', ['tab' => 'users']); ?>" class="px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap <?php echo $activeTab === 'users' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-400'; ?>">Kullanıcılar</a>
+                        <a href="<?php echo admin_url('users', ['tab' => 'roles']); ?>" class="px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap <?php echo $activeTab === 'roles' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-400'; ?>">Roller</a>
                     </nav>
                 </div>
+                <?php endif; ?>
 
                 <!-- Mesaj -->
                 <?php if (!empty($message)): ?>
@@ -97,16 +95,8 @@ $isAdmin = $isAdmin ?? false;
                                     </td>
                                     <td class="px-6 py-4">
                                         <?php
-                                        $roleColors = [
-                                            'super_admin' => 'bg-red-100 text-red-800',
-                                            'admin' => 'bg-purple-100 text-purple-800',
-                                            'editor' => 'bg-blue-100 text-blue-800',
-                                            'author' => 'bg-green-100 text-green-800',
-                                            'user' => 'bg-gray-100 text-gray-800',
-                                            'subscriber' => 'bg-gray-100 text-gray-800'
-                                        ];
-                                        $uRole = $u['role'] ?? 'user';
-                                        $roleColor = $roleColors[$uRole] ?? $roleColors['user'];
+                                        $uRole = $u['role'] ?? '';
+                                        $roleColor = ($uRole === 'super_admin') ? 'bg-red-100 text-red-800' : (($uRole === 'admin') ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800');
                                         $roleName = get_role_name($uRole);
                                         ?>
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo $roleColor; ?>">
@@ -143,16 +133,8 @@ $isAdmin = $isAdmin ?? false;
                     <div class="lg:hidden p-4 space-y-4">
                         <?php foreach ($users as $u): ?>
                         <?php
-                        $roleColors = [
-                            'super_admin' => 'bg-red-100 text-red-800',
-                            'admin' => 'bg-purple-100 text-purple-800',
-                            'editor' => 'bg-blue-100 text-blue-800',
-                            'author' => 'bg-green-100 text-green-800',
-                            'user' => 'bg-gray-100 text-gray-800',
-                            'subscriber' => 'bg-gray-100 text-gray-800'
-                        ];
-                        $uRole = $u['role'] ?? 'user';
-                        $roleColor = $roleColors[$uRole] ?? $roleColors['user'];
+                        $uRole = $u['role'] ?? '';
+                        $roleColor = ($uRole === 'super_admin') ? 'bg-red-100 text-red-800' : (($uRole === 'admin') ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800');
                         $roleName = get_role_name($uRole);
                         ?>
                         <div class="bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10 p-4 space-y-3">
@@ -189,7 +171,7 @@ $isAdmin = $isAdmin ?? false;
                     <?php endif; ?>
                 </section>
 
-                <?php elseif ($activeTab === 'roles' && $isAdmin): ?>
+                <?php elseif ($activeTab === 'roles' && $canViewRoles): ?>
                 <!-- Roller Listesi -->
                 <section class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800 overflow-hidden">
                     <?php if (empty($roles)): ?>
@@ -202,7 +184,6 @@ $isAdmin = $isAdmin ?? false;
                         </a>
                     </div>
                     <?php else: ?>
-                    <!-- Desktop Table View -->
                     <div class="hidden lg:block overflow-x-auto">
                         <table class="w-full">
                             <thead class="bg-gray-50 dark:bg-white/5 border-b border-gray-200 dark:border-white/10">
@@ -219,28 +200,22 @@ $isAdmin = $isAdmin ?? false;
                                 <tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-2">
-                                            <p class="text-gray-900 dark:text-white font-medium"><?php echo esc_html($r['name']); ?></p>
+                                            <p class="text-gray-900 dark:text-white font-medium"><?php echo esc_html($r['name'] ?? ''); ?></p>
                                             <?php if (!empty($r['is_system'])): ?>
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Sistem</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">Sistem</span>
                                             <?php endif; ?>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4">
-                                        <code class="text-gray-600 text-sm bg-gray-100 px-2 py-1 rounded"><?php echo esc_html($r['slug']); ?></code>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <p class="text-gray-600 text-sm"><?php echo esc_html($r['description'] ?? '-'); ?></p>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <p class="text-gray-600 text-sm"><?php echo esc_html($r['user_count'] ?? 0); ?> kullanıcı</p>
-                                    </td>
+                                    <td class="px-6 py-4"><code class="text-gray-600 dark:text-gray-400 text-sm bg-gray-100 dark:bg-white/10 px-2 py-1 rounded"><?php echo esc_html($r['slug'] ?? ''); ?></code></td>
+                                    <td class="px-6 py-4"><p class="text-gray-600 dark:text-gray-400 text-sm"><?php echo esc_html($r['description'] ?? '-'); ?></p></td>
+                                    <td class="px-6 py-4"><p class="text-gray-600 dark:text-gray-400 text-sm"><?php echo (int)($r['user_count'] ?? 0); ?> kullanıcı</p></td>
                                     <td class="px-6 py-4 text-right">
                                         <div class="flex items-center justify-end gap-2">
                                             <a href="<?php echo admin_url('roles/edit/' . $r['id']); ?>" class="p-2 text-gray-600 hover:text-primary hover:bg-primary/10 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center" title="Düzenle">
                                                 <span class="material-symbols-outlined text-xl">edit</span>
                                             </a>
                                             <?php if (empty($r['is_system'])): ?>
-                                            <a href="<?php echo admin_url('roles/delete/' . $r['id']); ?>" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center" onclick="return confirm('Silmek istediğinize emin misiniz?');" title="Sil">
+                                            <a href="<?php echo admin_url('roles/delete/' . $r['id']); ?>" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center" onclick="return confirm('Bu rolü silmek istediğinize emin misiniz?');" title="Sil">
                                                 <span class="material-symbols-outlined text-xl">delete</span>
                                             </a>
                                             <?php endif; ?>
@@ -251,27 +226,25 @@ $isAdmin = $isAdmin ?? false;
                             </tbody>
                         </table>
                     </div>
-                    
-                    <!-- Mobile Card View -->
                     <div class="lg:hidden p-4 space-y-4">
                         <?php foreach ($roles as $r): ?>
                         <div class="bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10 p-4 space-y-3">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2 flex-wrap mb-1">
-                                        <h3 class="text-base font-semibold text-gray-900 dark:text-white line-clamp-2"><?php echo esc_html($r['name']); ?></h3>
+                                        <h3 class="text-base font-semibold text-gray-900 dark:text-white"><?php echo esc_html($r['name'] ?? ''); ?></h3>
                                         <?php if (!empty($r['is_system'])): ?>
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 flex-shrink-0">Sistem</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">Sistem</span>
                                         <?php endif; ?>
                                     </div>
-                                    <code class="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded break-all"><?php echo esc_html($r['slug']); ?></code>
+                                    <code class="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded"><?php echo esc_html($r['slug'] ?? ''); ?></code>
                                 </div>
                                 <div class="flex items-center gap-1 flex-shrink-0">
-                                    <a href="<?php echo admin_url('roles/edit/' . $r['id']); ?>" class="p-2 text-gray-600 hover:text-primary hover:bg-primary/10 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center" title="Düzenle">
+                                    <a href="<?php echo admin_url('roles/edit/' . $r['id']); ?>" class="p-2 text-gray-600 hover:text-primary hover:bg-primary/10 rounded-lg flex items-center justify-center" title="Düzenle">
                                         <span class="material-symbols-outlined text-lg">edit</span>
                                     </a>
                                     <?php if (empty($r['is_system'])): ?>
-                                    <a href="<?php echo admin_url('roles/delete/' . $r['id']); ?>" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center" onclick="return confirm('Silmek istediğinize emin misiniz?');" title="Sil">
+                                    <a href="<?php echo admin_url('roles/delete/' . $r['id']); ?>" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center justify-center" onclick="return confirm('Bu rolü silmek istediğinize emin misiniz?');" title="Sil">
                                         <span class="material-symbols-outlined text-lg">delete</span>
                                     </a>
                                     <?php endif; ?>
@@ -280,9 +253,7 @@ $isAdmin = $isAdmin ?? false;
                             <?php if (!empty($r['description'])): ?>
                             <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2"><?php echo esc_html($r['description']); ?></p>
                             <?php endif; ?>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">
-                                <span class="font-medium"><?php echo esc_html($r['user_count'] ?? 0); ?></span> kullanıcı
-                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400"><?php echo (int)($r['user_count'] ?? 0); ?> kullanıcı</p>
                         </div>
                         <?php endforeach; ?>
                     </div>

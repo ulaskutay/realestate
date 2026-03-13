@@ -186,6 +186,48 @@
                                     <p class="text-gray-500 dark:text-gray-400 text-xs">Google Analytics takip kodunuzu girin (G-XXXXXXXXXX veya UA-XXXXXXXXX-X formatında).</p>
                                 </div>
 
+                                <!-- GA4 Dashboard – Nasıl yapılır? -->
+                                <details class="rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-gray-800/50 p-3">
+                                    <summary class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">GA4 Dashboard istatistikleri – Nasıl yapılır?</summary>
+                                    <ol class="mt-2 text-xs text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                                        <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Google Cloud Console</a> → Proje seç/oluştur → "Google Analytics Data API" etkinleştir.</li>
+                                        <li>IAM → Servis hesapları → Yeni hesap → JSON anahtar oluştur ve indir.</li>
+                                        <li><a href="https://analytics.google.com/" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Google Analytics</a> → Yönetim → Özellik → Özellik erişim yönetimi → Servis hesabı e-postasını "Görüntüleyici" olarak ekle.</li>
+                                        <li>GA4 Yönetim → Özellik ayarları → "Özellik ID" (sadece sayı) kopyala.</li>
+                                        <li>Aşağıya GA4 Property ID ve indirdiğiniz JSON içeriğini yapıştırıp kaydedin.</li>
+                                    </ol>
+                                </details>
+
+                                <!-- GA4 Property ID (Dashboard API) -->
+                                <div class="flex flex-col gap-2">
+                                    <label for="ga4_property_id" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">GA4 Property ID</label>
+                                    <input 
+                                        type="text" 
+                                        id="ga4_property_id" 
+                                        name="ga4_property_id" 
+                                        value="<?php echo esc_attr($settings['ga4_property_id'] ?? ''); ?>"
+                                        placeholder="Örn. 123456789"
+                                        class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    />
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Dashboard'da istatistik göstermek için: GA4 Yönetim → Özellik ayarları → Özellik ID (sadece sayı).</p>
+                                </div>
+
+                                <!-- GA4 Servis hesabı JSON -->
+                                <div class="flex flex-col gap-2">
+                                    <label for="ga4_service_account_json" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">GA4 Servis hesabı JSON</label>
+                                    <?php if (!empty($settings['ga4_credentials_configured'])): ?>
+                                    <p class="text-xs text-green-600 dark:text-green-400">Yapılandırıldı. Değiştirmek için aşağıya yeni JSON yapıştırın.</p>
+                                    <?php endif; ?>
+                                    <textarea 
+                                        id="ga4_service_account_json" 
+                                        name="ga4_service_account_json" 
+                                        rows="6"
+                                        placeholder="Google Cloud Console'dan indirdiğiniz servis hesabı JSON içeriğini yapıştırın."
+                                        class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-mono text-sm"
+                                    ></textarea>
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Google Cloud Console → IAM → Servis hesapları → Anahtar oluştur (JSON). GA4 özelliğinde bu hesaba Görüntüleyici verin.</p>
+                                </div>
+
                                 <!-- Google Tag Manager -->
                                 <div class="flex flex-col gap-2">
                                     <label for="google_tag_manager" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">Google Tag Manager ID</label>
@@ -220,71 +262,6 @@
                                         class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors font-medium"
                                     >
                                         Genel Ayarları Kaydet
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </section>
-
-                    <!-- SEO Settings -->
-                    <section class="mb-8">
-                        <div class="rounded-xl border border-gray-200 dark:border-white/10 p-6 bg-background-light dark:bg-background-dark">
-                            <div class="flex items-center gap-3 mb-6">
-                                <span class="material-symbols-outlined text-primary text-2xl">search</span>
-                                <h2 class="text-gray-900 dark:text-white text-xl font-semibold leading-normal">SEO Ayarları</h2>
-                            </div>
-                            
-                            <form method="POST" action="" class="space-y-6">
-                                <!-- SEO Title -->
-                                <div class="flex flex-col gap-2">
-                                    <label for="seo_title" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">Site Başlığı (Title)</label>
-                                    <input 
-                                        type="text" 
-                                        id="seo_title" 
-                                        name="seo_title" 
-                                        value="<?php echo esc_attr($settings['seo_title'] ?? ''); ?>"
-                                        placeholder="Site Başlığı"
-                                        maxlength="60"
-                                        class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    />
-                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Arama motorlarında görünecek site başlığı (önerilen: 50-60 karakter).</p>
-                                </div>
-
-                                <!-- SEO Description -->
-                                <div class="flex flex-col gap-2">
-                                    <label for="seo_description" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">Site Açıklaması (Meta Description)</label>
-                                    <textarea 
-                                        id="seo_description" 
-                                        name="seo_description" 
-                                        rows="3"
-                                        placeholder="Site açıklaması"
-                                        maxlength="160"
-                                        class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    ><?php echo esc_html($settings['seo_description'] ?? ''); ?></textarea>
-                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Arama motorlarında görünecek site açıklaması (önerilen: 150-160 karakter).</p>
-                                </div>
-
-                                <!-- SEO Author -->
-                                <div class="flex flex-col gap-2">
-                                    <label for="seo_author" class="text-gray-700 dark:text-gray-300 text-sm font-medium leading-normal">Site Yazarı</label>
-                                    <input 
-                                        type="text" 
-                                        id="seo_author" 
-                                        name="seo_author" 
-                                        value="<?php echo esc_attr($settings['seo_author'] ?? ''); ?>"
-                                        placeholder="Yazar Adı"
-                                        class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-background-dark text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    />
-                                    <p class="text-gray-500 dark:text-gray-400 text-xs">Site içeriğinin yazarı.</p>
-                                </div>
-
-                                <div class="flex justify-end pt-4 border-t border-gray-200 dark:border-white/10">
-                                    <button 
-                                        type="submit" 
-                                        name="save_seo"
-                                        class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors font-medium"
-                                    >
-                                        SEO Ayarlarını Kaydet
                                     </button>
                                 </div>
                             </form>

@@ -8,6 +8,7 @@ $google_maps_api_key = $google_maps_api_key ?? '';
 $default_lat = isset($default_lat) ? (float) $default_lat : 39.0;
 $default_lng = isset($default_lng) ? (float) $default_lng : 35.0;
 $default_zoom = isset($default_zoom) ? (int) $default_zoom : 6;
+$map_type = isset($map_type) && $map_type === 'satellite' ? 'satellite' : 'roadmap';
 $detail_url_base = $detail_url_base ?? '/ilan/';
 $theme_colors = $theme_colors ?? ['primary' => '#bc1a1a', 'secondary' => '#1f2937', 'accent' => '#9a1615', 'text' => '#1f2937', 'text_muted' => '#6b7280'];
 
@@ -24,8 +25,9 @@ foreach ($listings as $row) {
     if (isset($used_positions[$key])) {
         $used_positions[$key]++;
         $offset = $used_positions[$key];
-        $lat += ($offset * 0.00015 * cos($offset * 0.7));
-        $lng += ($offset * 0.0002 * sin($offset * 0.5));
+        // Aynı noktadaki iğneleri dağıt (çakışma azalsın) – daha belirgin açılım
+        $lat += ($offset * 0.00035 * cos($offset * 0.7));
+        $lng += ($offset * 0.00045 * sin($offset * 0.5));
     } else {
         $used_positions[$key] = 0;
     }
@@ -68,8 +70,10 @@ $map_listings_json = json_encode($listings_for_map, JSON_UNESCAPED_UNICODE);
         defaultLat: <?php echo json_encode($default_lat); ?>,
         defaultLng: <?php echo json_encode($default_lng); ?>,
         defaultZoom: <?php echo json_encode($default_zoom); ?>,
+        mapType: <?php echo json_encode($map_type); ?>,
         listings: <?php echo $map_listings_json; ?>,
-        colors: <?php echo json_encode($theme_colors); ?>
+        colors: <?php echo json_encode($theme_colors); ?>,
+        mapId: <?php echo json_encode($map_id ?? 'DEMO_MAP_ID'); ?>
     };
     </script>
     <?php if (!empty($google_maps_api_key)): ?>

@@ -130,6 +130,35 @@ function maybe_unserialize($data) {
 }
 
 /**
+ * CSRF token üretir veya mevcut session token'ı döndürür.
+ * Formlarda hidden input ile kullanılır: <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+ *
+ * @return string
+ */
+function csrf_token() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+/**
+ * POST/request'teki CSRF token'ı session ile doğrular.
+ *
+ * @return bool
+ */
+function csrf_verify() {
+    if (session_status() === PHP_SESSION_NONE) {
+        return false;
+    }
+    $submitted = $_POST['csrf_token'] ?? $_REQUEST['csrf_token'] ?? '';
+    return !empty($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $submitted);
+}
+
+/**
  * Sözleşme içeriğindeki yer tutucuları site ayarlarıyla değiştirir
  * Örn: [ŞİRKET ADI] -> Ayarlardaki şirket adı
  */
@@ -247,6 +276,35 @@ function esc_js($text) {
 if (!function_exists('esc_textarea')) {
     function esc_textarea($text) {
         return esc_html($text);
+    }
+}
+
+/**
+ * WhatsApp wa.me linki için telefon numarasını normalleştirir.
+ * Başındaki 0 ve + işaretini kaldırır, Türkiye (5xx) için 90 ekler.
+ * @param string $phone Örn: 0532 123 45 67, +90 532 123 45 67
+ * @return string wa.me/XXXXXXXXXX için sadece rakam (örn: 905321234567) veya boş
+ */
+if (!function_exists('normalize_phone_for_whatsapp')) {
+    function normalize_phone_for_whatsapp($phone) {
+        if (empty($phone) || !is_string($phone)) {
+            return '';
+        }
+        $clean = preg_replace('/[^0-9]/', '', $phone);
+        $clean = ltrim($clean, '0');
+        if (strlen($clean) < 10) {
+            return '';
+        }
+        if (strlen($clean) === 10 && substr($clean, 0, 1) === '5') {
+            return '90' . $clean;
+        }
+        if (strlen($clean) >= 11 && substr($clean, 0, 2) === '90') {
+            return $clean;
+        }
+        if (strlen($clean) === 10) {
+            return '90' . $clean;
+        }
+        return $clean;
     }
 }
 
@@ -425,42 +483,63 @@ function is_user_logged_in() {
 }
 
 /**
- * Kullanıcı admin mi kontrol eder
+ * Kullanıcı admin mi kontrol eder (admin veya super_admin, büyük/küçük harf duyarsız)
  */
 function is_admin() {
     $user = get_logged_in_user();
-    return $user && isset($user['role']) && ($user['role'] === 'admin' || $user['role'] === 'super_admin');
+    if (!$user || !isset($user['role'])) return false;
+    $r = strtolower(trim((string) $user['role']));
+    return $r === 'admin' || $r === 'super_admin';
 }
 
 /**
- * Kullanıcı süper admin mi kontrol eder
+ * Kullanıcı süper admin mi kontrol eder (büyük/küçük harf duyarsız)
  */
 function is_super_admin() {
     $user = get_logged_in_user();
-    return $user && isset($user['role']) && $user['role'] === 'super_admin';
+    if (!$user || !isset($user['role'])) return false;
+    return strtolower(trim((string) $user['role'])) === 'super_admin';
 }
 
 /**
- * Kullanıcının belirli bir yetkisi var mı kontrol eder
- * Sadece super_admin HER ZAMAN true döner
- * Admin dahil diğer roller veritabanından kontrol edilir
+ * Rolün erişebileceği modül slug listesi. super_admin için null (tümü), diğerleri için role_modules'tan.
+ */
+function get_role_allowed_modules($role_slug) {
+    $role_slug = strtolower(trim((string) $role_slug));
+    if ($role_slug === 'super_admin') {
+        return null; // tüm yetkiler
+    }
+    try {
+        require_once __DIR__ . '/../app/models/RoleModel.php';
+        $roleModel = new RoleModel();
+        $role = $roleModel->findBySlug($role_slug);
+        if (!$role) {
+            return [];
+        }
+        return $roleModel->getAllowedModules($role['id']);
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Kullanıcının belirli bir yetkisi var mı (modül bazlı: permission = "module.action", sadece module kontrol edilir)
  */
 function current_user_can($permission) {
     $user = get_logged_in_user();
     if (!$user) {
         return false;
     }
-    
-    $role = strtolower(trim($user['role'] ?? 'user'));
-    
-    // Sadece super_admin HER ZAMAN yetkili
+    $role = strtolower(trim($user['role'] ?? ''));
     if ($role === 'super_admin') {
         return true;
     }
-    
-    // Admin dahil tüm roller için Role sınıfını kullan
-    require_once __DIR__ . '/../core/Role.php';
-    return Role::hasPermission($role, $permission);
+    $parts = explode('.', $permission, 2);
+    $module = isset($parts[0]) ? trim($parts[0]) : '';
+    if ($module === '') return false;
+    $allowed = get_role_allowed_modules($role);
+    if ($allowed === null) return true; // super_admin path
+    return in_array($module, $allowed, true);
 }
 
 /**
@@ -502,27 +581,90 @@ function get_user_role($userId = null) {
 }
 
 /**
- * Rol adını getirir
+ * Atanabilir roller (veritabanından). Süper admin tümünü, admin kendisi ve altındakileri atayabilir.
+ */
+function get_available_role_options() {
+    try {
+        require_once __DIR__ . '/../app/models/RoleModel.php';
+        $roleModel = new RoleModel();
+        $all = $roleModel->getAll();
+    } catch (Exception $e) {
+        $user = get_logged_in_user();
+        $currentSlug = strtolower(trim($user['role'] ?? ''));
+        $list = [['slug' => 'admin', 'name' => 'Admin']];
+        if ($currentSlug === 'super_admin') array_unshift($list, ['slug' => 'super_admin', 'name' => 'Süper Admin']);
+        return $list;
+    }
+    $user = get_logged_in_user();
+    $currentSlug = strtolower(trim($user['role'] ?? ''));
+    $list = [];
+    foreach ($all as $r) {
+        $slug = $r['slug'] ?? '';
+        if ($currentSlug === 'super_admin') {
+            $list[] = ['slug' => $slug, 'name' => $r['name'] ?? $slug];
+        } elseif ($currentSlug === 'admin' && $slug !== 'super_admin') {
+            $list[] = ['slug' => $slug, 'name' => $r['name'] ?? $slug];
+        }
+    }
+    return $list;
+}
+
+/**
+ * Rol görüntü adı (veritabanından veya fallback)
  */
 function get_role_name($role) {
-    require_once __DIR__ . '/../core/Role.php';
-    return Role::getName($role);
+    $r = strtolower(trim((string) $role));
+    if ($r === 'super_admin') return 'Süper Admin';
+    try {
+        require_once __DIR__ . '/../app/models/RoleModel.php';
+        $roleModel = new RoleModel();
+        $row = $roleModel->findBySlug($r);
+        return $row ? ($row['name'] ?? ucfirst($r)) : 'Kullanıcı';
+    } catch (Exception $e) {
+        return $r === 'admin' ? 'Admin' : 'Kullanıcı';
+    }
 }
 
 /**
- * Rol açıklamasını getirir
+ * Rol düzenleme formu için atanabilir modül listesi (çekirdek + modules tablosundan aktif modüller)
+ * @return array[] [ ['slug' => 'posts', 'label' => 'Yazılar', 'group' => 'core'|'modules'], ... ]
  */
-function get_role_description($role) {
-    require_once __DIR__ . '/../core/Role.php';
-    return Role::getDescription($role);
-}
-
-/**
- * Kullanıcının rol seviyesi diğerinden yüksek mi?
- */
-function user_role_is_higher_than($role1, $role2) {
-    require_once __DIR__ . '/../core/Role.php';
-    return Role::isHigherThan($role1, $role2);
+function get_assignable_module_slugs() {
+    $core = [
+        'posts' => 'Yazılar',
+        'pages' => 'Sayfalar',
+        'agreements' => 'Sözleşmeler',
+        'forms' => 'Formlar',
+        'media' => 'Medya',
+        'sliders' => 'Sliderlar',
+        'menus' => 'Menüler',
+        'users' => 'Kullanıcılar',
+        'themes' => 'Temalar',
+        'settings' => 'Ayarlar',
+        'modules' => 'Modüller',
+        'smtp' => 'SMTP',
+        'roles' => 'Roller',
+    ];
+    $out = [];
+    foreach ($core as $slug => $label) {
+        $out[] = ['slug' => $slug, 'label' => $label, 'group' => 'core'];
+    }
+    $db = get_db();
+    if ($db) {
+        try {
+            $rows = $db->fetchAll("SELECT slug, label FROM modules WHERE is_active = 1 ORDER BY slug");
+            foreach ($rows as $row) {
+                $slug = $row['slug'] ?? '';
+                $label = $row['label'] ?? $slug;
+                if ($slug === '' || isset($core[$slug])) continue;
+                if (stripos($label, 'Çizgi Aks') !== false) continue;
+                $out[] = ['slug' => $slug, 'label' => $label, 'group' => 'modules'];
+            }
+        } catch (Exception $e) {
+            // ignore
+        }
+    }
+    return $out;
 }
 
 /**
@@ -1426,31 +1568,7 @@ function module_view($module_name, $view_name, $data = []) {
  */
 if (!function_exists('check_permission')) {
     function check_permission($permission) {
-        if (!isset($_SESSION['user_id'])) {
-            return false;
-        }
-        
-        // Rol slug'ı session'da yoksa kullanıcıdan al
-        if (!isset($_SESSION['role_slug'])) {
-            $user = get_logged_in_user();
-            if ($user && isset($user['role'])) {
-                $_SESSION['role'] = $user['role'];
-                $_SESSION['role_slug'] = strtolower(trim($user['role']));
-            } else {
-                $_SESSION['role_slug'] = 'user';
-            }
-        }
-        
-        // Sadece super_admin bypass
-        if (isset($_SESSION['role_slug']) && $_SESSION['role_slug'] === 'super_admin') {
-            return true;
-        }
-        
-        // Admin dahil tüm roller için Role sınıfını kullan
-        $roleSlug = $_SESSION['role_slug'] ?? 'user';
-        
-        require_once __DIR__ . '/../core/Role.php';
-        return Role::hasPermission($roleSlug, $permission);
+        return current_user_can($permission);
     }
 }
 
@@ -1463,6 +1581,50 @@ if (!function_exists('check_permission')) {
 function can_access_module($module_name, $action = 'view') {
     $permission = $module_name . '.' . $action;
     return check_permission($permission);
+}
+
+/**
+ * Kullanıcının bu modüle ait herhangi bir yetkisi var mı?
+ * Menüde modülü göstermek için: .view dışında sadece .edit vb. verilmişse bile görünsün.
+ * Modül hem slug hem name ile aranır (ModuleLoader name, DB genelde slug kullanır).
+ *
+ * @param string $module_slug Modül slug/name (modules tablosu slug veya name ile eşleşir)
+ * @return bool
+ */
+function current_user_can_any_for_module($module_slug) {
+    if (!is_user_logged_in()) {
+        return false;
+    }
+    $module_slug = trim($module_slug);
+    if ($module_slug === '') {
+        return false;
+    }
+    $db = get_db();
+    // Slug veya name ile eşleştir (modül yapısı farklı kaynaklardan gelebilir)
+    $module = $db->fetch(
+        "SELECT id FROM modules WHERE slug = ? OR name = ? LIMIT 1",
+        [$module_slug, $module_slug]
+    );
+    if (!$module) {
+        return false;
+    }
+    try {
+        $rows = $db->fetchAll("SELECT permission FROM module_permissions WHERE module_id = ?", [$module['id']]);
+    } catch (Exception $e) {
+        return false;
+    }
+    // Yetki listesi varsa herhangi birine sahip mi kontrol et
+    if (!empty($rows)) {
+        foreach ($rows as $row) {
+            $perm = $row['permission'] ?? '';
+            if ($perm !== '' && current_user_can($perm)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    // module_permissions'ta kayıt yoksa (yeni/özel modül) sadece modül.view yetkisi yeterli say
+    return current_user_can($module_slug . '.view');
 }
 
 /**
@@ -2024,8 +2186,10 @@ if (!function_exists('get_header')) {
     <link rel="apple-touch-icon" href="<?php echo esc_url($favicon); ?>">
     <?php endif; ?>
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS: CDN only in debug; for production use PostCSS/CLI and include styles in theme CSS -->
+    <?php if (defined('DEBUG_MODE') && DEBUG_MODE): ?>
     <script src="https://cdn.tailwindcss.com"></script>
+    <?php endif; ?>
     
     <!-- Theme CSS Variables -->
     <?php if (!empty($cssVars)): ?>

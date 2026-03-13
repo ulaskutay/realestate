@@ -29,17 +29,30 @@ $formattedArea = !empty($listing['area']) ? number_format($listing['area'], 0, '
 // Emlak tipi + kiralık/satılık (sahibinden: "Kiralık Daire")
 $emlakTipiLabel = $statusLabel . ' ' . $propertyTypeLabel;
 
-// Oda sayısı: toplam oda + salon (örn. 3+1 = 3 oda toplam, 1 salon)
+// Oda sayısı: oda + salon (örn. 3+1 = 3 oda, 1 salon)
 $odaSayisi = '';
-$bed = (int)($listing['bedrooms'] ?? 0);
-$liv = (int)($listing['living_rooms'] ?? 0);
-$rooms = (int)($listing['rooms'] ?? 0);
-if ($bed > 0 || $liv > 0) {
-    $toplamOda = $bed + $liv;
-    $odaSayisi = $toplamOda . '+' . $liv;
-} elseif ($rooms > 0) {
-    $odaSayisi = $rooms . '+0';
+$oda = (int)($listing['rooms'] ?? 0);
+$salon = (int)($listing['living_rooms'] ?? 0);
+if ($oda > 0 || $salon > 0) {
+    $odaSayisi = $oda . '+' . $salon;
+} else {
+    $bed = (int)($listing['bedrooms'] ?? 0);
+    if ($bed > 0) $odaSayisi = $bed . '+0';
 }
+
+// Sahibinden.com uyumlu özellik değeri: boşsa "Belirtilmemiş"
+$attr = function($val) {
+    if ($val === null || $val === '') return __('Belirtilmemiş');
+    return trim((string)$val);
+};
+$attrArea = function($val) {
+    if ($val === null || $val === '' || (float)$val <= 0) return __('Belirtilmemiş');
+    return number_format((float)$val, 0, ',', '.');
+};
+$attrMoney = function($val) {
+    if ($val === null || $val === '' || (float)$val < 0) return __('Belirtilmemiş');
+    return number_format((float)$val, 0, ',', '.');
+};
 
 $realtorName = $realtorEmail = $realtorPhone = $realtorPhoto = $realtorBio = $realtorSlug = '';
 if (!empty($listing['realtor_id']) && !empty($listing['realtor_first_name'])) {
@@ -118,20 +131,10 @@ if ($locationLine === '') {
     $locationLine = trim($listing['location'] ?? '');
 }
 
-// WhatsApp link (Türkiye: 90 + 10 hane)
+// WhatsApp link (wa.me için normalleştirilmiş numara)
 $sitePhone = get_option('site_phone', '') ?: get_option('company_phone', '');
 $contactPhone = $realtorPhone ?: $sitePhone;
-$whatsappNumber = '';
-if (!empty($contactPhone)) {
-    $clean = preg_replace('/[^0-9]/', '', $contactPhone);
-    if (strlen($clean) === 10 && substr($clean, 0, 1) === '5') {
-        $whatsappNumber = '90' . $clean;
-    } elseif (strlen($clean) >= 11 && substr($clean, 0, 2) === '90') {
-        $whatsappNumber = $clean;
-    } elseif (strlen($clean) >= 10) {
-        $whatsappNumber = $clean;
-    }
-}
+$whatsappNumber = function_exists('normalize_phone_for_whatsapp') ? normalize_phone_for_whatsapp($contactPhone) : '';
 $whatsappMessage = __('Merhaba,') . ' ' . ($listing['title'] ?? '') . ' ' . __('ilanı hakkında bilgi almak istiyorum.');
 $whatsappUrl = $whatsappNumber ? ('https://wa.me/' . $whatsappNumber . '?text=' . urlencode($whatsappMessage)) : '';
 
@@ -203,10 +206,15 @@ $detailMapTitle = $listing['title'] ?? __('İlan konumu');
                     <a href="https://twitter.com/intent/tweet?url=<?php echo urlencode($baseUrl . '/ilan/' . ($listing['slug'] ?? $listing['id'])); ?>&text=<?php echo urlencode($listing['title']); ?>" target="_blank" rel="noopener" class="cizgiaks-detail-action-btn" style="padding:0.4rem 0.5rem; border:1px solid #e5e7eb; background:#fff; border-radius:6px; font-size:0.875rem; color:#000;">𝕏</a>
                     <?php
                     $shareUrl = $baseUrl . '/ilan/' . ($listing['slug'] ?? $listing['id']);
+                    $shareLocation = $locationLine ?: ($listing['location'] ?? '');
+                    $shareDetailsLine = $formattedPrice . ($shareLocation ? ' · ' . $shareLocation : '') . ' · ' . $emlakTipiLabel;
+                    $shareTextWithDetails = ($listing['title'] ?? '') . "\n" . $shareDetailsLine . "\n" . $shareUrl;
                     $shareText = ($listing['title'] ?? '') . ' ' . $shareUrl;
+                    $shareTextOneLine = ($listing['title'] ?? '') . ' · ' . $shareDetailsLine . ' ' . $shareUrl;
                     ?>
-                    <a href="https://wa.me/?text=<?php echo urlencode($shareText); ?>" target="_blank" rel="noopener" class="cizgiaks-detail-action-btn" title="<?php echo esc_attr(__("WhatsApp'ta Paylaş")); ?>" style="padding:0.4rem 0.5rem; border:1px solid #e5e7eb; background:#fff; border-radius:6px; font-size:0.875rem; color:#25d366;" aria-label="<?php echo esc_attr(__("WhatsApp'ta Paylaş")); ?>"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="display:block;"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a>
-                    <a href="mailto:?subject=<?php echo urlencode($listing['title']); ?>&body=<?php echo urlencode($shareUrl); ?>" class="cizgiaks-detail-action-btn" style="padding:0.4rem 0.5rem; border:1px solid #e5e7eb; background:#fff; border-radius:6px; font-size:0.875rem; color:var(--cizgiaks-text-muted);">✉</a>
+                    <a href="https://wa.me/?text=<?php echo urlencode($shareTextWithDetails); ?>" target="_blank" rel="noopener" class="cizgiaks-detail-action-btn" title="<?php echo esc_attr(__("WhatsApp'ta Paylaş")); ?>" style="padding:0.4rem 0.5rem; border:1px solid #e5e7eb; background:#fff; border-radius:6px; font-size:0.875rem; color:#25d366;" aria-label="<?php echo esc_attr(__("WhatsApp'ta Paylaş")); ?>"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="display:block;"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a>
+                    <button type="button" class="cizgiaks-detail-action-btn cizgiaks-detail-share-instagram" title="<?php echo esc_attr(__("Instagram'da Paylaş")); ?>" aria-label="<?php echo esc_attr(__("Instagram'da Paylaş")); ?>" data-share-url="<?php echo esc_attr($shareUrl); ?>" data-share-text="<?php echo esc_attr($shareTextOneLine); ?>" data-share-title="<?php echo esc_attr($listing['title'] ?? ''); ?>" data-share-price="<?php echo esc_attr($formattedPrice); ?>" data-share-location="<?php echo esc_attr($shareLocation); ?>" data-share-type="<?php echo esc_attr($emlakTipiLabel); ?>" data-share-image="<?php echo esc_attr(!empty($allImages[0]) ? $allImages[0] : ''); ?>" style="padding:0.4rem 0.5rem; border:1px solid #e5e7eb; background:#fff; border-radius:6px; font-size:0.875rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="display:block;"><defs><linearGradient id="ig-gradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#f9ed32"/><stop offset="50%" style="stop-color:#ee2a7b"/><stop offset="100%" style="stop-color:#002aff"/></linearGradient></defs><path fill="url(#ig-gradient)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></button>
+                    <a href="mailto:?subject=<?php echo urlencode($listing['title']); ?>&body=<?php echo urlencode($shareTextWithDetails); ?>" class="cizgiaks-detail-action-btn" style="padding:0.4rem 0.5rem; border:1px solid #e5e7eb; background:#fff; border-radius:6px; font-size:0.875rem; color:var(--cizgiaks-text-muted);">✉</a>
                 </div>
             </div>
         </div>
@@ -254,7 +262,7 @@ $detailMapTitle = $listing['title'] ?? __('İlan konumu');
             <?php endif; ?>
 
             <div class="cizgiaks-detail-right cizgiaks-detail-sidebar" style="<?php echo count($allImages) > 0 ? '' : 'grid-column:1;'; ?>">
-                <!-- Sağ sidebar: Emlakçı kartı (görselli) -->
+                <!-- Emlakçı kartı üstte: iletişim her zaman görünür -->
                 <div class="cizgiaks-detail-agent-card">
                     <div class="cizgiaks-detail-agent-card-inner">
                         <div class="cizgiaks-detail-agent-photo-wrap">
@@ -282,27 +290,52 @@ $detailMapTitle = $listing['title'] ?? __('İlan konumu');
                     </div>
                 </div>
 
-                <!-- İlan özellikleri (sidebar'da emlakçı detayının altında) -->
+                <!-- İlan özellikleri (sadece dolu alanlar gösterilir) -->
+                <?php
+                $belirtilmemis = __('Belirtilmemiş');
+                $detailRows = [
+                    ['label' => __('İlan No'), 'value' => !empty($listing['listing_no']) ? $listing['listing_no'] : $listing['id']],
+                    ['label' => __('İlan Tarihi'), 'value' => $ilanTarihi ?: null],
+                    ['label' => __('Emlak Tipi'), 'value' => $emlakTipiLabel],
+                    ['label' => __('m² (Brüt)'), 'value' => $attrArea($listing['area'] ?? null) !== $belirtilmemis ? $attrArea($listing['area'] ?? null) : null],
+                    ['label' => __('m² (Net)'), 'value' => $attrArea($listing['area_net'] ?? null) !== $belirtilmemis ? $attrArea($listing['area_net'] ?? null) : null],
+                    ['label' => __('Oda Sayısı'), 'value' => $odaSayisi ?: null],
+                    ['label' => __('Bina Yaşı'), 'value' => trim((string)($listing['building_age'] ?? '')) !== '' ? $attr($listing['building_age'] ?? null) : null],
+                    ['label' => __('Bulunduğu Kat'), 'value' => isset($listing['floor']) && $listing['floor'] !== '' && $listing['floor'] !== null ? $attr($listing['floor']) : null],
+                    ['label' => __('Kat Sayısı'), 'value' => isset($listing['total_floors']) && $listing['total_floors'] !== '' && $listing['total_floors'] !== null ? $attr($listing['total_floors']) : null],
+                    ['label' => __('Isıtma'), 'value' => trim((string)($listing['heating'] ?? '')) !== '' ? $attr($listing['heating'] ?? null) : null],
+                    ['label' => __('Banyo Sayısı'), 'value' => $listing['bathrooms'] !== null && $listing['bathrooms'] !== '' ? (string)$listing['bathrooms'] : null],
+                    ['label' => __('Mutfak'), 'value' => trim((string)($listing['kitchen'] ?? '')) !== '' ? $attr($listing['kitchen'] ?? null) : null],
+                    ['label' => __('Balkon'), 'value' => trim((string)($listing['balcony'] ?? '')) !== '' ? $attr($listing['balcony'] ?? null) : null],
+                    ['label' => __('Asansör'), 'value' => trim((string)($listing['elevator'] ?? '')) !== '' ? $attr($listing['elevator'] ?? null) : null],
+                    ['label' => __('Otopark'), 'value' => trim((string)($listing['parking'] ?? '')) !== '' ? $attr($listing['parking'] ?? null) : null],
+                    ['label' => __('Eşyalı'), 'value' => trim((string)($listing['furnished'] ?? '')) !== '' ? $attr($listing['furnished'] ?? null) : null],
+                    ['label' => __('Kullanım Durumu'), 'value' => trim((string)($listing['usage_status'] ?? '')) !== '' ? $attr($listing['usage_status'] ?? null) : null],
+                    ['label' => __('Site İçerisinde'), 'value' => trim((string)($listing['in_complex'] ?? '')) !== '' ? $attr($listing['in_complex'] ?? null) : null],
+                    ['label' => __('Site Adı'), 'value' => trim((string)($listing['complex_name'] ?? '')) !== '' ? $attr($listing['complex_name'] ?? null) : null],
+                    ['label' => __('Aidat (TL)'), 'value' => $attrMoney($listing['monthly_dues'] ?? null) !== $belirtilmemis ? $attrMoney($listing['monthly_dues'] ?? null) : null],
+                    ['label' => __('Krediye Uygun'), 'value' => trim((string)($listing['loan_eligible'] ?? '')) !== '' ? $attr($listing['loan_eligible'] ?? null) : null],
+                    ['label' => __('Tapu Durumu'), 'value' => trim((string)($listing['deed_status'] ?? '')) !== '' ? $attr($listing['deed_status'] ?? null) : null],
+                    ['label' => __('Kimden'), 'value' => trim((string)($listing['listed_by'] ?? '')) !== '' ? $attr($listing['listed_by'] ?? null) : null],
+                    ['label' => __('Takas'), 'value' => trim((string)($listing['takas'] ?? '')) !== '' ? $attr($listing['takas'] ?? null) : null],
+                ];
+                $detailRows = array_filter($detailRows, function ($r) { return $r['value'] !== null && $r['value'] !== ''; });
+                ?>
                 <div class="cizgiaks-detail-attributes cizgiaks-detail-sidebar-attributes">
                     <h4 class="cizgiaks-detail-attributes-title"><?php echo esc_html(__('İlan Özellikleri')); ?></h4>
+                    <div class="cizgiaks-detail-attributes-body">
+                    <?php if (!empty($detailRows)): ?>
                     <table class="cizgiaks-detail-table">
                         <tbody>
-                            <tr><td class="cizgiaks-detail-td-label"><?php echo esc_html(__('İlan No')); ?></td><td class="cizgiaks-detail-td-value"><?php echo esc_html($listing['listing_no'] ?? $listing['id']); ?></td></tr>
-                            <?php if ($ilanTarihi): ?>
-                            <tr><td class="cizgiaks-detail-td-label"><?php echo esc_html(__('İlan Tarihi')); ?></td><td class="cizgiaks-detail-td-value"><?php echo esc_html($ilanTarihi); ?></td></tr>
-                            <?php endif; ?>
-                            <tr><td class="cizgiaks-detail-td-label"><?php echo esc_html(__('Emlak Tipi')); ?></td><td class="cizgiaks-detail-td-value"><?php echo esc_html($emlakTipiLabel); ?></td></tr>
-                            <?php if ($formattedArea): ?>
-                            <tr><td class="cizgiaks-detail-td-label"><?php echo esc_html(__('m² (Brüt)')); ?></td><td class="cizgiaks-detail-td-value"><?php echo esc_html($formattedArea); ?></td></tr>
-                            <?php endif; ?>
-                            <?php if ($odaSayisi): ?>
-                            <tr><td class="cizgiaks-detail-td-label"><?php echo esc_html(__('Oda Sayısı')); ?></td><td class="cizgiaks-detail-td-value"><?php echo esc_html($odaSayisi); ?></td></tr>
-                            <?php endif; ?>
-                            <?php if (!empty($listing['bathrooms'])): ?>
-                            <tr><td class="cizgiaks-detail-td-label"><?php echo esc_html(__('Banyo Sayısı')); ?></td><td class="cizgiaks-detail-td-value"><?php echo esc_html($listing['bathrooms']); ?></td></tr>
-                            <?php endif; ?>
+                            <?php foreach ($detailRows as $row): ?>
+                            <tr><td class="cizgiaks-detail-td-label"><?php echo esc_html($row['label']); ?></td><td class="cizgiaks-detail-td-value"><?php echo esc_html($row['value']); ?></td></tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <?php else: ?>
+                    <p class="cizgiaks-detail-no-attributes text-sm text-gray-500 dark:text-gray-400"><?php echo esc_html(__('Henüz özellik eklenmemiş.')); ?></p>
+                    <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -382,7 +415,9 @@ $detailMapTitle = $listing['title'] ?? __('İlan konumu');
                                 enableCloseButton: false,
                                 scrollwheel: true,
                                 clickToGo: true,
-                                gestureHandling: 'greedy'
+                                gestureHandling: 'greedy',
+                                motionTracking: true,
+                                motionTrackingControl: true
                             });
                         } else {
                             tabPanorama.setPosition(streetViewPosition);
@@ -401,7 +436,9 @@ $detailMapTitle = $listing['title'] ?? __('İlan konumu');
                         enableCloseButton: true,
                         scrollwheel: true,
                         clickToGo: true,
-                        gestureHandling: 'greedy'
+                        gestureHandling: 'greedy',
+                        motionTracking: true,
+                        motionTrackingControl: true
                     });
                     map = new google.maps.Map(mapEl, {
                         center: center,
@@ -538,6 +575,72 @@ $detailMapTitle = $listing['title'] ?? __('İlan konumu');
 
     document.querySelectorAll('.detail-thumb').forEach(function(el, i) {
         el.addEventListener('click', function() { detailGo(i); });
+    });
+})();
+</script>
+
+<script>
+(function() {
+    function showTip(message) {
+        var tip = document.createElement('span');
+        tip.textContent = message;
+        tip.style.cssText = 'position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:0.5rem 1rem; border-radius:8px; font-size:0.875rem; z-index:9999; white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+        document.body.appendChild(tip);
+        setTimeout(function() { tip.remove(); }, 2500);
+    }
+    function copyFallback(url, message) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(function() { showTip(message); });
+        } else {
+            var inp = document.createElement('input');
+            inp.value = url;
+            inp.setAttribute('readonly', '');
+            inp.style.cssText = 'position:absolute; left:-9999px;';
+            document.body.appendChild(inp);
+            inp.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            inp.remove();
+            showTip(message);
+        }
+    }
+    var msgCopied = <?php echo json_encode(__("Link kopyalandı! Instagram'da yapıştırabilirsiniz.")); ?>;
+    document.querySelectorAll('.cizgiaks-detail-share-instagram').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var url = btn.getAttribute('data-share-url') || '';
+            var title = btn.getAttribute('data-share-title') || '';
+            var price = btn.getAttribute('data-share-price') || '';
+            var location = btn.getAttribute('data-share-location') || '';
+            var typeLabel = btn.getAttribute('data-share-type') || '';
+            var imageUrl = btn.getAttribute('data-share-image') || '';
+            var text = btn.getAttribute('data-share-text') || '';
+            var detailsLine = [price, location, typeLabel].filter(Boolean).join(' · ');
+            var fullText = (title ? title + '\n' : '') + (detailsLine ? detailsLine + '\n' : '') + url;
+            if (!url) return;
+            function doShare(shareData) {
+                if (!navigator.share || typeof navigator.share !== 'function') {
+                    copyFallback(url, msgCopied);
+                    return;
+                }
+                navigator.share(shareData).then(function() {}).catch(function(err) {
+                    if (err.name !== 'AbortError') copyFallback(url, msgCopied);
+                });
+            }
+            if (imageUrl) {
+                fetch(imageUrl, { mode: 'cors' }).then(function(r) { return r.blob(); }).then(function(blob) {
+                    var file = new File([blob], 'ilan.jpg', { type: blob.type || 'image/jpeg' });
+                    var shareWithImage = { title: title, text: fullText, files: [file] };
+                    if (navigator.canShare && navigator.canShare(shareWithImage)) {
+                        doShare(shareWithImage);
+                    } else {
+                        doShare({ title: title, text: fullText, url: url });
+                    }
+                }).catch(function() {
+                    doShare({ title: title, text: fullText, url: url });
+                });
+            } else {
+                doShare({ title: title, text: fullText, url: url });
+            }
+        });
     });
 })();
 </script>

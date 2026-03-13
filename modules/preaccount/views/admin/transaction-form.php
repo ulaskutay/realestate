@@ -70,8 +70,9 @@ $isEdit = !empty($transaction);
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tutar *</label>
-                <input type="number" step="0.01" min="0.01" name="amount" required value="<?php echo $transaction ? esc_attr($transaction['amount']) : ''; ?>"
-                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2" placeholder="0,00">
+                <input type="text" inputmode="decimal" name="amount" required value="<?php echo $transaction ? esc_attr(number_format((float)$transaction['amount'], 2, ',', '')) : ''; ?>"
+                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2" placeholder="2000 veya 2000,00"
+                       pattern="[0-9]+[,.]?[0-9]*" title="Örn: 2000 veya 2000,50">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Açıklama</label>

@@ -139,7 +139,9 @@ class CrmModuleController {
     }
     
     /**
-     * Form verilerini lead verilerine map et
+     * Form verilerini lead verilerine map et.
+     * Not: Field adı yanlış olsa bile değerin formatına göre doğrulama yapılır
+     * (örn. "Ad Soyad" alanı yanlışlıkla "telefon" adıyla gelirse telefona yazılmaz).
      */
     private function mapFormDataToLead($formId, $submissionData) {
         $data = $submissionData['data'] ?? [];
@@ -158,10 +160,29 @@ class CrmModuleController {
         
         foreach ($fieldMapping as $leadField => $possibleFields) {
             foreach ($possibleFields as $formField) {
-                if (isset($data[$formField]) && !empty($data[$formField])) {
-                    $leadData[$leadField] = $data[$formField];
-                    break;
+                if (!isset($data[$formField]) || (string)$data[$formField] === '') {
+                    continue;
                 }
+                $value = is_string($data[$formField]) ? trim($data[$formField]) : (string)$data[$formField];
+                if ($value === '') {
+                    continue;
+                }
+                // Telefon alanına sadece telefon formatındaki değer yazılsın (en az 10 rakam)
+                if ($leadField === 'phone') {
+                    $digits = preg_replace('/[^0-9]/', '', $value);
+                    if (strlen($digits) < 10) {
+                        continue; // İsim veya başka metin; telefona yazma
+                    }
+                }
+                // İsim alanına telefon numarası yazılmasın (çok rakam varsa isim sayma)
+                if ($leadField === 'name') {
+                    $digits = preg_replace('/[^0-9]/', '', $value);
+                    if (strlen($digits) >= 10) {
+                        continue; // Bu bir telefon numarası; isme yazma
+                    }
+                }
+                $leadData[$leadField] = $value;
+                break;
             }
         }
         

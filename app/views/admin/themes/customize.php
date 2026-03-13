@@ -558,7 +558,6 @@ try {
                 </button>
                 <div id="homepage-panel" class="section-panel">
                     <div class="px-4 pb-5 space-y-3">
-                        
                         <!-- Hero -->
                         <details class="glass rounded-xl overflow-hidden group">
                             <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">
@@ -1004,7 +1003,6 @@ try {
                 </button>
                 <div id="contact-panel" class="section-panel">
                     <div class="px-4 pb-5 space-y-3">
-                        
                         <!-- Hero Section -->
                         <details class="glass rounded-xl overflow-hidden group">
                             <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors">

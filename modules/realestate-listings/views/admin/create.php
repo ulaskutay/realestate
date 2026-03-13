@@ -200,6 +200,29 @@ include $rootPath . '/app/views/admin/snippets/header.php';
                                             </div>
                                         </div>
 
+                                        <div class="md:col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Rozetler
+                                            </label>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">İlan kartında görünecek etiketleri seçin (Fırsat, Yeni, Acil vb.). Rozetler İlanlar modülü ayarlarından tanımlanır.</p>
+                                            <div class="flex flex-wrap gap-x-4 gap-y-2">
+                                                <?php
+                                                $badges = $badges ?? [];
+                                                $selected_badges = $selected_badges ?? [];
+                                                foreach ($badges as $bKey => $bLabel): ?>
+                                                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                                                        <input type="checkbox" name="badge_keys[]" value="<?php echo esc_attr($bKey); ?>"
+                                                               <?php echo in_array($bKey, $selected_badges, true) ? ' checked' : ''; ?>
+                                                               class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
+                                                        <span class="text-sm text-gray-700 dark:text-gray-300"><?php echo esc_html($bLabel); ?></span>
+                                                    </label>
+                                                <?php endforeach; ?>
+                                                <?php if (empty($badges)): ?>
+                                                    <span class="text-sm text-gray-500 dark:text-gray-400">Önce İlanlar modülü ayarlarından rozet ekleyin.</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+
                                         <div>
                                             <label for="bedrooms" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Yatak Odası
@@ -244,6 +267,90 @@ include $rootPath . '/app/views/admin/snippets/header.php';
                                                    class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                    placeholder="0">
                                             <input type="hidden" name="area_unit" value="sqm">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- İlan Özellikleri (sahibinden.com uyumlu - detay sayfasında gösterilir) -->
+                                <div class="bg-white dark:bg-[#1e293b] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 mt-6">
+                                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">İlan Özellikleri</h2>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Bu alanlar ilan detay sayfasında "İlan Özellikleri" tablosunda gösterilir. Boş bırakılanlar "Belirtilmemiş" olarak görünür.</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="listing_no" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">İlan No</label>
+                                            <input type="text" id="listing_no" name="listing_no" placeholder="Boş bırakılırsa ilan ID kullanılır" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="area_net" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">m² (Net)</label>
+                                            <input type="number" id="area_net" name="area_net" step="0.01" min="0" placeholder="Net m²" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="building_age" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bina Yaşı</label>
+                                            <input type="text" id="building_age" name="building_age" placeholder="Örn: 5, Sıfır Bina" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="floor" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bulunduğu Kat</label>
+                                            <input type="number" id="floor" name="floor" min="0" placeholder="Kat" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="total_floors" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kat Sayısı</label>
+                                            <input type="number" id="total_floors" name="total_floors" min="0" placeholder="Bina kat sayısı" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="heating" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Isıtma</label>
+                                            <input type="text" id="heating" name="heating" placeholder="Örn: Doğalgaz, Kombi" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="kitchen" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mutfak</label>
+                                            <input type="text" id="kitchen" name="kitchen" placeholder="Örn: Amerikan, Kapalı" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="balcony" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Balkon</label>
+                                            <input type="text" id="balcony" name="balcony" placeholder="Var / Yok" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="elevator" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Asansör</label>
+                                            <input type="text" id="elevator" name="elevator" placeholder="Var / Yok" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="parking" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Otopark</label>
+                                            <input type="text" id="parking" name="parking" placeholder="Örn: Kapalı, Açık" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="furnished" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Eşyalı</label>
+                                            <input type="text" id="furnished" name="furnished" placeholder="Eşyalı / Eşyasız" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="usage_status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kullanım Durumu</label>
+                                            <input type="text" id="usage_status" name="usage_status" placeholder="Örn: İkinci el, Sıfır" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="in_complex" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Site İçerisinde</label>
+                                            <input type="text" id="in_complex" name="in_complex" placeholder="Evet / Hayır" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="complex_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Site Adı</label>
+                                            <input type="text" id="complex_name" name="complex_name" placeholder="Site adı" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="monthly_dues" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Aidat (TL)</label>
+                                            <input type="number" id="monthly_dues" name="monthly_dues" step="0.01" min="0" placeholder="Aylık aidat" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="loan_eligible" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Krediye Uygun</label>
+                                            <input type="text" id="loan_eligible" name="loan_eligible" placeholder="Evet / Hayır" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="deed_status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tapu Durumu</label>
+                                            <input type="text" id="deed_status" name="deed_status" placeholder="Örn: Kat irtifakı, Kat mülkiyeti" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="listed_by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kimden</label>
+                                            <input type="text" id="listed_by" name="listed_by" placeholder="Sahibinden / Emlakçıdan / Kurumsal" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </div>
+                                        <div>
+                                            <label for="takas" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Takas</label>
+                                            <input type="text" id="takas" name="takas" placeholder="Var / Yok" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
                                         </div>
                                     </div>
                                 </div>

@@ -11,7 +11,14 @@ if (!$show) {
 $footerBg = $themeLoader ? $themeLoader->getCustomSetting('footer_bg_color', '#0f172a') : '#0f172a';
 $footerText = $themeLoader ? $themeLoader->getCustomSetting('footer_text_color', '#f1f5f9') : '#f1f5f9';
 $siteName = __(get_option('site_name', 'Çizgi Aks Gayrimenkul'));
-$siteDescription = __(get_option('site_description', 'Güvenilir gayrimenkul danışmanlığı.'));
+// Logo altı metni: Ayarlar > Genel'de site_description; kurulum varsayılanı veya boşsa gayrimenkul açıklaması
+$siteDescriptionRaw = get_option('site_description', '');
+$footerDefaultDesc = 'Satılık ve kiralık konut, iş yeri ve arsa ilanları. Güvenilir gayrimenkul danışmanlığı.';
+if ($siteDescriptionRaw === '' || $siteDescriptionRaw === 'Modern içerik yönetim sistemi') {
+    $siteDescription = __($footerDefaultDesc);
+} else {
+    $siteDescription = __($siteDescriptionRaw);
+}
 // Logo: header ile aynı kaynak (getLogo = tema branding, yoksa global site_logo)
 $siteLogo = null;
 if ($themeLoader) {
@@ -65,19 +72,21 @@ foreach ($listingCategories as $c) {
     $categoriesByKind[$k][] = $c;
 }
 
-// İletişim
-$companyPhone = get_option('company_phone', get_option('contact_phone', ''));
-$companyEmail = get_option('company_email', get_option('contact_email', ''));
-$companyAddress = __(get_option('company_address', get_option('contact_address', '')));
-$phone = $themeLoader && $themeLoader->getSetting('phone', '', 'header') ? $themeLoader->getSetting('phone', '', 'header') : $companyPhone;
+// İletişim – tamamı Ayarlar sayfasından (Şirket Bilgileri + Sosyal Medya)
+$companyPhone = function_exists('get_option') ? get_option('company_phone', get_option('contact_phone', '')) : '';
+$companyEmail = function_exists('get_option') ? get_option('company_email', get_option('contact_email', get_option('admin_email', ''))) : '';
+$companyAddress = function_exists('get_option') ? __(get_option('company_address', get_option('contact_address', ''))) : '';
+$phone = $companyPhone;
 
-// Sosyal
-$socialFacebook = get_option('social_facebook', '');
-$socialInstagram = get_option('social_instagram', '');
-$socialTwitter = get_option('social_twitter', '');
-$socialLinkedin = get_option('social_linkedin', '');
-$socialYoutube = get_option('social_youtube', '');
-$hasSocial = $socialFacebook || $socialInstagram || $socialTwitter || $socialLinkedin || $socialYoutube;
+// Sosyal medya – Ayarlar > Sosyal Medya
+$socialFacebook  = function_exists('get_option') ? get_option('social_facebook', '') : '';
+$socialInstagram = function_exists('get_option') ? get_option('social_instagram', '') : '';
+$socialTwitter   = function_exists('get_option') ? get_option('social_twitter', '') : '';
+$socialLinkedin  = function_exists('get_option') ? get_option('social_linkedin', '') : '';
+$socialYoutube   = function_exists('get_option') ? get_option('social_youtube', '') : '';
+$socialTiktok    = function_exists('get_option') ? get_option('social_tiktok', '') : '';
+$socialPinterest = function_exists('get_option') ? get_option('social_pinterest', '') : '';
+$hasSocial = $socialFacebook || $socialInstagram || $socialTwitter || $socialLinkedin || $socialYoutube || $socialTiktok || $socialPinterest;
 
 // Popüler bölgeler (şehir filtre linkleri)
 $sep = strpos($baseListingsUrl, '?') !== false ? '&' : '?';
@@ -121,6 +130,8 @@ $corporateLinks = [
                             <?php if ($socialTwitter): ?><a href="<?php echo esc_url($socialTwitter); ?>" target="_blank" rel="noopener noreferrer" class="cizgiaks-footer-social-link" aria-label="Twitter"><i class="fab fa-twitter"></i></a><?php endif; ?>
                             <?php if ($socialLinkedin): ?><a href="<?php echo esc_url($socialLinkedin); ?>" target="_blank" rel="noopener noreferrer" class="cizgiaks-footer-social-link" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a><?php endif; ?>
                             <?php if ($socialYoutube): ?><a href="<?php echo esc_url($socialYoutube); ?>" target="_blank" rel="noopener noreferrer" class="cizgiaks-footer-social-link" aria-label="YouTube"><i class="fab fa-youtube"></i></a><?php endif; ?>
+                            <?php if ($socialTiktok): ?><a href="<?php echo esc_url($socialTiktok); ?>" target="_blank" rel="noopener noreferrer" class="cizgiaks-footer-social-link" aria-label="TikTok"><i class="fab fa-tiktok"></i></a><?php endif; ?>
+                            <?php if ($socialPinterest): ?><a href="<?php echo esc_url($socialPinterest); ?>" target="_blank" rel="noopener noreferrer" class="cizgiaks-footer-social-link" aria-label="Pinterest"><i class="fab fa-pinterest-p"></i></a><?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -246,6 +257,13 @@ $corporateLinks = [
                                         <i class="fas fa-map-marker-alt"></i>
                                         <span><?php echo esc_html($companyAddress); ?></span>
                                     </span>
+                                    <?php
+                                    $contactPageUrl = function_exists('localized_url') ? localized_url('/contact') : $homeUrl . 'contact';
+                                    ?>
+                                    <a href="<?php echo esc_url($contactPageUrl); ?>#harita" class="cizgiaks-footer-contact-item" style="margin-top:0.25rem; display:inline-flex; align-items:center; gap:0.35rem;">
+                                        <i class="fas fa-external-link-alt" style="font-size:0.75rem;"></i>
+                                        <span><?php echo esc_html(__('Haritada Gör')); ?></span>
+                                    </a>
                                 </li>
                                 <?php endif; ?>
                             </ul>

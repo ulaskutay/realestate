@@ -286,13 +286,19 @@
                                                      loading="lazy">
                                             <?php elseif ($fileType === 'video'): ?>
                                                 <?php
-                                                $videoThumb = !empty($item['thumbnail_path']) ? site_url('uploads/' . $item['thumbnail_path']) : null;
+                                                $videoThumb = !empty($item['thumbnail_path']) ? site_url('uploads/' . ltrim($item['thumbnail_path'], '/')) : null;
+                                                $videoUrl = isset($item['file_url']) && (strpos($item['file_url'], 'http') === 0 || strpos($item['file_url'], '//') === 0) ? $item['file_url'] : site_url(ltrim($item['file_url'] ?? '', '/'));
                                                 ?>
                                                 <?php if ($videoThumb): ?>
                                                     <img src="<?php echo esc_url($videoThumb); ?>"
                                                          alt="<?php echo esc_attr($item['alt_text'] ?? $item['original_name']); ?>"
                                                          class="w-full h-full object-cover"
                                                          loading="lazy">
+                                                    <div class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
+                                                        <span class="material-symbols-outlined text-white text-3xl drop-shadow">play_circle</span>
+                                                    </div>
+                                                <?php elseif ($videoUrl): ?>
+                                                    <video src="<?php echo esc_url($videoUrl); ?>" muted preload="metadata" playsinline class="w-full h-full object-cover" loading="lazy"></video>
                                                     <div class="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
                                                         <span class="material-symbols-outlined text-white text-3xl drop-shadow">play_circle</span>
                                                     </div>

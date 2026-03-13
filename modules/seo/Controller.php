@@ -99,6 +99,7 @@ class SeoModuleController {
             'sitemap_posts' => true,
             'sitemap_categories' => true,
             'sitemap_tags' => true,
+            'sitemap_listings' => true,
             'sitemap_custom_urls' => '',
             'sitemap_changefreq_pages' => 'weekly',
             'sitemap_changefreq_posts' => 'weekly',
@@ -249,6 +250,28 @@ class SeoModuleController {
                     $lastmod,
                     $this->settings['sitemap_changefreq_categories'] ?? 'weekly',
                     $this->settings['sitemap_priority_categories'] ?? '0.6'
+                );
+            }
+        }
+        
+        // İlanlar ana sayfa + tekil ilanlar (/ilanlar ve /ilan/{slug})
+        if (($this->settings['sitemap_listings'] ?? true) && $this->model->hasListings()) {
+            echo $this->sitemapUrl(
+                $siteUrl . '/ilanlar',
+                date('c'),
+                $this->settings['sitemap_changefreq_posts'] ?? 'weekly',
+                '0.9'
+            );
+            $listings = $this->model->getListingsForSitemap();
+            $listingsPriority = $this->settings['sitemap_priority_posts'] ?? '0.8';
+            $listingsChangefreq = $this->settings['sitemap_changefreq_posts'] ?? 'weekly';
+            foreach ($listings as $listing) {
+                $lastmod = !empty($listing['updated_at']) ? date('c', strtotime($listing['updated_at'])) : date('c');
+                echo $this->sitemapUrl(
+                    $siteUrl . '/ilan/' . $listing['url_slug'],
+                    $lastmod,
+                    $listingsChangefreq,
+                    $listingsPriority
                 );
             }
         }
@@ -475,7 +498,8 @@ class SeoModuleController {
         $this->adminView('sitemap', [
             'title' => 'Sitemap Ayarları',
             'settings' => $this->settings,
-            'siteUrl' => $this->getSiteUrl()
+            'siteUrl' => $this->getSiteUrl(),
+            'has_listings' => $this->model->hasListings()
         ]);
     }
     
@@ -488,6 +512,7 @@ class SeoModuleController {
         $this->settings['sitemap_posts'] = isset($_POST['sitemap_posts']);
         $this->settings['sitemap_categories'] = isset($_POST['sitemap_categories']);
         $this->settings['sitemap_tags'] = isset($_POST['sitemap_tags']);
+        $this->settings['sitemap_listings'] = isset($_POST['sitemap_listings']);
         $this->settings['sitemap_custom_urls'] = $_POST['sitemap_custom_urls'] ?? '';
         $this->settings['sitemap_changefreq_pages'] = $_POST['sitemap_changefreq_pages'] ?? 'weekly';
         $this->settings['sitemap_changefreq_posts'] = $_POST['sitemap_changefreq_posts'] ?? 'weekly';
@@ -534,6 +559,13 @@ class SeoModuleController {
         $this->ensureInitialized();
         
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // Site bilgileri (options tablosuna yazılır)
+            if (function_exists('update_option')) {
+                update_option('site_name', trim((string)($_POST['site_name'] ?? '')));
+                update_option('seo_title', trim((string)($_POST['seo_title'] ?? '')));
+                update_option('seo_description', trim((string)($_POST['seo_description'] ?? '')));
+                update_option('seo_author', trim((string)($_POST['seo_author'] ?? '')));
+            }
             $this->settings['meta_title_home'] = $_POST['meta_title_home'] ?? '{site_name}';
             $this->settings['meta_title_post'] = $_POST['meta_title_post'] ?? '{post_title} - {site_name}';
             $this->settings['meta_title_category'] = $_POST['meta_title_category'] ?? '{category_name} - {site_name}';
@@ -545,7 +577,7 @@ class SeoModuleController {
             
             ModuleLoader::getInstance()->saveModuleSettings('seo', $this->settings);
             
-            $_SESSION['flash_message'] = 'Meta tag ayarları kaydedildi';
+            $_SESSION['flash_message'] = 'Site bilgileri ve meta tag ayarları kaydedildi';
             $_SESSION['flash_type'] = 'success';
             $this->redirect('meta');
             return;
@@ -597,26 +629,33 @@ class SeoModuleController {
     }
     
     /**
-     * Sayfa anahtarları ve etiketleri (admin form için)
+     * Sayfa anahtarları ve etiketleri (admin form için).
      */
     private function getPageMetaKeys() {
-        return [
-            'home' => 'Ana Sayfa',
-            'blog' => 'Blog Listesi',
-            'blog_post' => 'Blog Yazısı (şablon)',
-            'blog_category' => 'Blog Kategori (şablon)',
-            'contact' => 'İletişim',
-            'teklif-al' => 'Teklif Al',
-            'rezervasyon' => 'Rezervasyon',
-            'search' => 'Arama',
-            'ilanlar' => 'İlanlar Listesi (modül)',
-            'ilan_kategori' => 'İlan Kategorisi Listesi (modül)',
-            'ilan_detay' => 'İlan Detay (şablon)',
-            'danismanlar' => 'Danışmanlar Listesi (modül)',
+        $templateOnly = [
+            'blog_post'      => 'Blog Yazısı (şablon)',
+            'blog_category'  => 'Blog Kategori (şablon)',
+            'ilan_kategori'  => 'İlan Kategorisi Listesi (modül)',
+            'ilan_detay'     => 'İlan Detay (şablon)',
             'danisman_detay' => 'Danışman Detay (şablon)',
+            'page_slug'      => 'Slug ile Sayfa (varsayılan şablon)',
+        ];
+        return array_merge($this->getPageMetaKeysFallback(), $templateOnly);
+    }
+
+    /**
+     * Sayfa anahtarları listesi (SEO sayfa meta formu için)
+     */
+    private function getPageMetaKeysFallback() {
+        return [
+            'home'           => 'Ana Sayfa',
+            'blog'           => 'Blog Listesi',
+            'contact'        => 'İletişim',
+            'search'         => 'Arama',
+            'ilanlar'        => 'İlanlar Listesi (modül)',
+            'danismanlar'    => 'Danışmanlar Listesi (modül)',
             'harita-ilanlar' => 'Harita İlanlar (modül)',
-            'sozlesmeler' => 'Sözleşmeler',
-            'page_slug' => 'Slug ile Sayfa (varsayılan şablon)'
+            'sozlesmeler'    => 'Sözleşmeler',
         ];
     }
     

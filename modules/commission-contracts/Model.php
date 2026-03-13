@@ -11,6 +11,8 @@ class CommissionContractsModel {
 
     public function __construct() {
         $this->db = Database::getInstance();
+        // Tablo yoksa oluştur (modül activate edilmemiş veya DB sıfırlanmış olabilir)
+        $this->ensureTablesExist();
         // Mevcut kurulumlarda yeni kolonları eklemek için (modül reactivate edilmeden)
         $this->ensureContractTrackingColumns();
         $this->ensureSignatureParty2Column();
@@ -72,6 +74,19 @@ class CommissionContractsModel {
         $this->ensureSignTokenColumn();
         $this->ensureSignedAtParty2Column();
         $this->ensureParty3Columns();
+    }
+
+    /**
+     * commission_contracts tablosu yoksa createTable() çağır (modül activate edilmeden kullanıldığında)
+     */
+    private function ensureTablesExist() {
+        $row = $this->db->fetch(
+            "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+            [$this->table]
+        );
+        if (empty($row)) {
+            $this->createTable();
+        }
     }
 
     /**

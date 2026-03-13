@@ -671,6 +671,22 @@ html.dark .seo-page,
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
+                
+                <div class="toggle-row">
+                    <div class="toggle-info">
+                        <div class="toggle-icon">
+                            <span class="material-symbols-outlined">home_work</span>
+                        </div>
+                        <div>
+                            <div class="toggle-label">İlanlar</div>
+                            <div class="toggle-desc">Yayındaki emlak ilanları (/ilanlar ve /ilan/ sayfaları)</div>
+                        </div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" name="sitemap_listings" value="1" <?php echo ($settings['sitemap_listings'] ?? true) ? 'checked' : ''; ?>>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
             </div>
         </div>
         

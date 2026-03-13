@@ -113,6 +113,15 @@ $propertyTypeLabels = [
                                 <img src="<?php echo esc_url($listingImage); ?>" alt="<?php echo esc_attr($listing['title']); ?>" loading="lazy">
                                 <div class="cizgiaks-listing-ribbons">
                                     <span class="cizgiaks-ribbon cizgiaks-ribbon-<?php echo ($listing['listing_status'] ?? 'sale') === 'rent' ? 'kiralik' : 'satilik'; ?>"><?php echo esc_html($listingStatus); ?></span>
+                                    <?php
+                                    $listingBadges = isset($listing['badges']) && is_array($listing['badges']) ? $listing['badges'] : [];
+                                    $badgeLabelsAg = function_exists('get_module_settings') ? (get_module_settings('realestate-listings')['badges'] ?? []) : [];
+                                    $badgeDisplayFallback = ['firsat' => 'Fırsat', 'yatirimlik' => 'Yatırımlık', 'yeni' => 'Yeni', 'acil' => 'Acil'];
+                                    foreach ($listingBadges as $bKey):
+                                        $bLabel = $badgeDisplayFallback[$bKey] ?? (isset($badgeLabelsAg[$bKey]) ? $badgeLabelsAg[$bKey] : $bKey);
+                                    ?><span class="cizgiaks-ribbon cizgiaks-ribbon-<?php echo esc_attr($bKey); ?>"><?php echo esc_html($bLabel); ?></span><?php
+                                    endforeach;
+                                    ?>
                                 </div>
                             </div>
                             <div class="cizgiaks-listing-card-body">

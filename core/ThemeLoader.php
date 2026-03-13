@@ -72,7 +72,7 @@ class ThemeLoader {
     }
     
     /**
-     * Temayı manuel olarak yükle (önizleme için)
+     * Temayı manuel olarak yükle (önizleme veya sayfa render için)
      */
     public function loadTheme(string $slug, array $previewSettings = []): void {
         $theme = $this->themeManager->getTheme($slug);
@@ -92,6 +92,15 @@ class ThemeLoader {
             }
             
             $this->buildCssVariables();
+        } else {
+            // Tema veritabanında yoksa ama klasör varsa yine de yükle (snippet path için)
+            $themePath = $this->themeManager->getThemesPath() . '/' . $slug;
+            if (is_dir($themePath)) {
+                $this->themePath = $themePath;
+                $this->activeTheme = ['slug' => $slug, 'name' => $slug];
+                $this->themeSettings = [];
+                $this->buildCssVariables();
+            }
         }
     }
     
@@ -1114,6 +1123,107 @@ class ThemeLoader {
         }
         
         return $output;
+    }
+    
+    /**
+     * Aktif temanın slug'ını getir
+     */
+    public function getThemeSlug(): ?string {
+        return $this->activeTheme['slug'] ?? null;
+    }
+    
+    /**
+     * Aktif temanın ID'sini getir
+     */
+    public function getThemeId(): ?int {
+        return isset($this->activeTheme['id']) ? (int)$this->activeTheme['id'] : null;
+    }
+    
+    /**
+     * Page Builder blok dosya yolunu getir
+     */
+    public function getBlockPath(string $blockType): ?string {
+        if (!$this->themePath) {
+            return null;
+        }
+        
+        // Önce tema blocks klasörüne bak
+        $blockPath = $this->themePath . '/blocks/' . $blockType . '.php';
+        if (file_exists($blockPath)) {
+            return $blockPath;
+        }
+        
+        // Tema components klasörüne bak (geriye uyumluluk)
+        $componentPath = $this->themePath . '/components/' . $blockType . '.php';
+        if (file_exists($componentPath)) {
+            return $componentPath;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Temada blok dosyası var mı kontrol et
+     */
+    public function hasBlock(string $blockType): bool {
+        return $this->getBlockPath($blockType) !== null;
+    }
+    
+    /**
+     * Tema blok listesini getir (blocks.json veya theme.json'dan)
+     */
+    public function getThemeBlocks(): array {
+        if (!$this->themePath) {
+            return [];
+        }
+        
+        $blocks = [];
+        
+        // blocks.json dosyasına bak
+        $blocksJsonPath = $this->themePath . '/blocks.json';
+        if (file_exists($blocksJsonPath)) {
+            $blocksConfig = json_decode(file_get_contents($blocksJsonPath), true);
+            if (is_array($blocksConfig)) {
+                $blocks = array_merge($blocks, $blocksConfig);
+            }
+        }
+        
+        // theme.json'daki blocks tanımlarına bak
+        $themeJsonPath = $this->themePath . '/theme.json';
+        if (file_exists($themeJsonPath)) {
+            $themeConfig = json_decode(file_get_contents($themeJsonPath), true);
+            if (isset($themeConfig['blocks']) && is_array($themeConfig['blocks'])) {
+                $blocks = array_merge($blocks, $themeConfig['blocks']);
+            }
+        }
+        
+        return $blocks;
+    }
+    
+    /**
+     * Page Builder için blok render et
+     */
+    public function renderBlock(string $blockType, array $settings = [], array $children = [], array $context = []): string {
+        $blockPath = $this->getBlockPath($blockType);
+        
+        if (!$blockPath) {
+            return "<!-- Block not found: {$blockType} -->";
+        }
+        
+        // Data'yı hazırla
+        $block_settings = $settings;
+        $block_children = $children;
+        $block_context = $context;
+        $block_id = $context['block_id'] ?? uniqid('block_');
+        
+        // Theme settings ve helper'ları ekle
+        $theme = $this->activeTheme;
+        $themeSettings = $this->themeSettings;
+        $themeLoader = $this;
+        
+        ob_start();
+        include $blockPath;
+        return ob_get_clean();
     }
     
 }

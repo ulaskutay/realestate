@@ -105,13 +105,97 @@ class VideoTimelineModuleController {
      */
     public function admin_index() {
         $this->requireLogin();
-        $timelines = $this->db->fetchAll(
-            "SELECT * FROM video_timelines ORDER BY updated_at DESC"
-        );
+        $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+        $sql = "SELECT * FROM video_timelines";
+        $params = [];
+        if ($search !== '') {
+            $sql .= " WHERE name LIKE ?";
+            $params[] = '%' . $search . '%';
+        }
+        $sql .= " ORDER BY updated_at DESC";
+        $timelines = $params ? $this->db->fetchAll($sql, $params) : $this->db->fetchAll($sql);
         $this->adminView('index', [
             'title' => 'Video Timeline - Liste',
             'timelines' => $timelines,
+            'search' => $search,
         ]);
+    }
+
+    /**
+     * Timeline çoğalt: kopyala ve editöre yönlendir
+     */
+    public function admin_duplicate_timeline() {
+        $this->requireLogin();
+        $id = isset($_GET['id']) ? (int) $_GET['id'] : (isset($_POST['id']) ? (int) $_POST['id'] : 0);
+        if ($id <= 0) {
+            $_SESSION['flash_message'] = 'Geçersiz istek.';
+            $_SESSION['flash_type'] = 'error';
+            header('Location: ' . admin_url('module/video-timeline/index'));
+            exit;
+        }
+        $timeline = $this->db->fetch("SELECT * FROM video_timelines WHERE id = ?", [$id]);
+        if (!$timeline) {
+            $_SESSION['flash_message'] = 'Timeline bulunamadı.';
+            $_SESSION['flash_type'] = 'error';
+            header('Location: ' . admin_url('module/video-timeline/index'));
+            exit;
+        }
+        $userId = $this->getUserId();
+        try {
+            $this->db->query(
+                "INSERT INTO video_timelines (user_id, name, width, height, fps, duration_sec, background_color, settings) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    $userId,
+                    $timeline['name'] . ' (kopya)',
+                    (int) $timeline['width'],
+                    (int) $timeline['height'],
+                    (int) $timeline['fps'],
+                    (float) $timeline['duration_sec'],
+                    $timeline['background_color'] ?? '#000000',
+                    $timeline['settings'],
+                ]
+            );
+            $newId = (int) $this->db->lastInsertId();
+            if ($newId <= 0) {
+                throw new Exception('Yeni timeline oluşturulamadı.');
+            }
+            $tracks = $this->db->fetchAll("SELECT * FROM video_timeline_tracks WHERE timeline_id = ? ORDER BY sort_order ASC", [$id]);
+            $oldToNewTrack = [];
+            foreach ($tracks as $t) {
+                $this->db->query(
+                    "INSERT INTO video_timeline_tracks (timeline_id, name, sort_order, is_locked, is_muted) VALUES (?, ?, ?, ?, ?)",
+                    [$newId, $t['name'], (int) $t['sort_order'], (int) $t['is_locked'], (int) $t['is_muted']]
+                );
+                $oldToNewTrack[(int) $t['id']] = (int) $this->db->lastInsertId();
+            }
+            foreach ($tracks as $t) {
+                $clips = $this->db->fetchAll("SELECT * FROM video_timeline_clips WHERE track_id = ? ORDER BY sort_order ASC, start_time ASC", [$t['id']]);
+                $newTrackId = $oldToNewTrack[(int) $t['id']];
+                foreach ($clips as $c) {
+                    $this->db->query(
+                        "INSERT INTO video_timeline_clips (track_id, type, start_time, duration, sort_order, source, content) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [
+                            $newTrackId,
+                            $c['type'],
+                            (float) $c['start_time'],
+                            (float) $c['duration'],
+                            (int) $c['sort_order'],
+                            $c['source'],
+                            $c['content'],
+                        ]
+                    );
+                }
+            }
+            $_SESSION['flash_message'] = 'Timeline kopyalandı.';
+            $_SESSION['flash_type'] = 'success';
+            header('Location: ' . admin_url('module/video-timeline/editor', ['id' => $newId]));
+            exit;
+        } catch (Exception $e) {
+            $_SESSION['flash_message'] = 'Kopyalama hatası: ' . $e->getMessage();
+            $_SESSION['flash_type'] = 'error';
+            header('Location: ' . admin_url('module/video-timeline/index'));
+            exit;
+        }
     }
 
     /**
@@ -134,7 +218,7 @@ class VideoTimelineModuleController {
             $id = $id ? (int) $id : 0;
             if ($id > 0) {
                 $this->db->query(
-                    "INSERT INTO video_timeline_tracks (timeline_id, name, sort_order) VALUES (?, 'Track 1', 0)",
+                    "INSERT INTO video_timeline_tracks (timeline_id, name, sort_order, is_locked, is_muted) VALUES (?, 'Track 1', 0, 0, 0)",
                     [$id]
                 );
                 header('Location: ' . admin_url('module/video-timeline/editor', ['id' => $id]));

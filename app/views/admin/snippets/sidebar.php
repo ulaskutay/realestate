@@ -74,6 +74,7 @@ function can_view($module) {
                 <?php 
                 // Yetki kontrolleri
                 $canViewPosts = can_view('posts');
+                $canViewPages = can_view('pages');
                 $canViewAgreements = can_view('agreements');
                 $canViewForms = can_view('forms');
                 $canViewSmtp = can_view('smtp');
@@ -88,9 +89,9 @@ function can_view($module) {
                 $canViewListings = can_view('realestate-listings');
                 $canViewAgents = can_view('realestate-agents');
                 
-                // İçerik alt menüsü için aktif kontrol (Yazılar ve Sözleşmeler)
-                $contentActive = strpos($currentPage, 'posts') === 0 || strpos($currentPage, 'agreements') === 0;
-                $showContentMenu = $canViewPosts || $canViewAgreements;
+                // İçerik alt menüsü için aktif kontrol (Yazılar, Sayfalar ve Sözleşmeler)
+                $contentActive = strpos($currentPage, 'posts') === 0 || strpos($currentPage, 'agreements') === 0 || strpos($currentPage, 'module/pages') === 0;
+                $showContentMenu = $canViewPosts || $canViewPages || $canViewAgreements;
                 
                 // Tasarım alt menüsü için aktif kontrol
                 $designActive = strpos($currentPage, 'design') === 0 || strpos($currentPage, 'sliders') === 0 || strpos($currentPage, 'menus') === 0 || strpos($currentPage, 'themes') === 0;
@@ -136,6 +137,14 @@ function can_view($module) {
                         </a>
                         <?php endif; ?>
                         
+                        <!-- Sayfalar -->
+                        <?php if ($canViewPages): ?>
+                        <a class="flex items-center gap-3 px-3 py-2 rounded-lg <?php echo strpos($currentPage, 'module/pages') === 0 ? 'bg-primary/5 text-primary' : 'hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'; ?>" href="<?php echo admin_url('module/pages'); ?>">
+                            <span class="material-symbols-outlined text-xl">description</span>
+                            <p class="text-sm font-medium">Sayfalar</p>
+                        </a>
+                        <?php endif; ?>
+                        
                         <!-- Sözleşmeler -->
                         <?php if ($canViewAgreements): ?>
                         <a class="flex items-center gap-3 px-3 py-2 rounded-lg <?php echo strpos($currentPage, 'agreements') === 0 ? 'bg-primary/5 text-primary' : 'hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'; ?>" href="<?php echo admin_url('agreements'); ?>">
@@ -171,7 +180,7 @@ function can_view($module) {
                 </a>
                 <?php endif; ?>
                 
-                <!-- Kullanıcılar -->
+                <!-- Kullanıcılar ve Roller (tek menü) -->
                 <?php if ($canViewUsers): ?>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg <?php echo strpos($currentPage, 'users') === 0 || strpos($currentPage, 'roles') === 0 ? 'bg-primary/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'; ?>" href="<?php echo admin_url('users'); ?>">
                     <span class="material-symbols-outlined <?php echo strpos($currentPage, 'users') === 0 || strpos($currentPage, 'roles') === 0 ? 'text-primary' : 'text-gray-600 dark:text-gray-300'; ?> text-2xl">people</span>
@@ -248,12 +257,18 @@ function can_view($module) {
                 
                 <?php foreach ($moduleMenus as $menu): 
                     $menuSlug = $menu['slug'];
+                    $menuModule = isset($menu['module']) ? trim((string) $menu['module']) : '';
                     // İlanlar ve Danışmanlar yukarıda sabit gösterildiği için Modüller altında tekrar gösterme
-                    if ($menuSlug === 'realestate-listings' || $menuSlug === 'realestate-agents') continue;
-                    $isActive = strpos($currentPage, $menuSlug) === 0;
-                    
-                    // Modül yetkisi kontrolü
-                    if (!can_view($menuSlug)) continue;
+                    if ($menuSlug === 'module/realestate-listings' || $menuSlug === 'realestate-listings' || $menuSlug === 'module/realestate-agents' || $menuSlug === 'realestate-agents') continue;
+                    $isActive = strpos($currentPage, $menuSlug) === 0 || ($menuModule !== '' && strpos($currentPage, 'module/' . $menuModule) === 0);
+                    // Modül slug'ı rol yetkileriyle eşleşsin diye normalize et (DB genelde küçük harf)
+                    $moduleKey = $menuModule !== '' ? strtolower($menuModule) : '';
+                    // Modül görünsün: .view yetkisi VEYA bu modüle ait herhangi bir yetki (rol yönetiminde verilen yetkiler)
+                    $canView = $moduleKey !== '' && (
+                        can_view($moduleKey) ||
+                        (function_exists('current_user_can_any_for_module') && current_user_can_any_for_module($moduleKey))
+                    );
+                    if (!$canView) continue;
                 ?>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg <?php echo $isActive ? 'bg-primary/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'; ?>" 
                    href="<?php echo admin_url($menuSlug); ?>">

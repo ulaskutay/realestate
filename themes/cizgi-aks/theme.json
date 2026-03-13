@@ -50,5 +50,12 @@
     { "id": "hero", "name": "Hero (Slider + Arama)", "component": "hero" },
     { "id": "listings", "name": "Anasayfa İlanlar", "component": "listings" }
   ],
-  "supports": ["forms", "custom_css", "custom_js"]
+  "supports": ["forms", "custom_css", "custom_js"],
+  "pages": [
+    {"key": "home", "label": "Ana Sayfa", "file": "home.php", "path": ""},
+    {"key": "about", "label": "Hakkımızda", "file": "about.php", "path": "hakkimizda"},
+    {"key": "contact", "label": "İletişim", "file": "contact.php", "path": "iletisim"},
+    {"key": "ilanlar", "label": "İlanlar Listesi", "file": null, "path": "ilanlar"},
+    {"key": "danismanlar", "label": "Danışmanlar", "file": null, "path": "danismanlar"}
+  ]
 }

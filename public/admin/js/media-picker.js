@@ -131,7 +131,7 @@ class MediaPicker {
                     <!-- Upload Area (Hidden by default) -->
                     <div id="media-picker-upload-area" class="hidden px-6 py-4 border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5">
                         <div id="media-picker-dropzone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center transition-colors hover:border-primary hover:bg-primary/5">
-                            <input type="file" id="media-picker-file-input" class="hidden" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx">
+                            <input type="file" id="media-picker-file-input" class="hidden" multiple accept="image/*,.avif,image/avif,video/*,audio/*,.pdf,.doc,.docx">
                             <span class="material-symbols-outlined text-gray-400 text-4xl mb-2">cloud_upload</span>
                             <p class="text-gray-600 dark:text-gray-400 mb-2">Dosyaları sürükleyip bırakın veya</p>
                             <button type="button" onclick="document.getElementById('media-picker-file-input').click()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
@@ -450,6 +450,18 @@ class MediaPicker {
             try { sessionStorage.clear(); } catch (e2) {}
         }
     }
+
+    /** Yeni yüklemeden sonra listeyi güncel göstermek için medya önbelleğini temizle */
+    _clearMediaCache() {
+        try {
+            const keys = [];
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key && key.indexOf('media_') === 0) keys.push(key);
+            }
+            keys.forEach(k => sessionStorage.removeItem(k));
+        } catch (e) {}
+    }
     
     // Toplu render - DocumentFragment kullanarak performans artışı
     _renderMediaItems(grid, items, emptyEl) {
@@ -555,25 +567,29 @@ class MediaPicker {
         let callbackError = null;
         
         try {
-            const selected = this.options.multiple ? this.selectedItems : this.selectedItems[0];
+            // Çoklu seçimde her öğe için file_url'li obje oluştur; tekil seçimde tek obje
+            const normalizeItem = (item) => {
+                const url = item.file_url || item.url || '';
+                return {
+                    ...item,
+                    file_url: url,
+                    url: url,
+                    id: item.id || null,
+                    original_name: item.original_name || '',
+                    file_type: item.file_type || 'unknown',
+                    mime_type: item.mime_type || ''
+                };
+            };
+            const payload = this.options.multiple
+                ? this.selectedItems.map(normalizeItem)
+                : normalizeItem(this.selectedItems[0]);
             
-            // Null/undefined kontrolü
-            if (!selected) {
+            if (this.options.multiple ? payload.length === 0 : !payload) {
                 this.close();
                 return;
             }
             
-            // Callback'e her zaman file_url/url içeren obje ver (API alan adı farklı olabilir)
-            const url = selected.file_url || selected.url || '';
-            const payload = { 
-                ...selected, 
-                file_url: url, 
-                url: url,
-                id: selected.id || null,
-                original_name: selected.original_name || '',
-                file_type: selected.file_type || 'unknown',
-                mime_type: selected.mime_type || ''
-            };
+            const singlePayload = this.options.multiple ? payload[0] : payload;
             
             // Update target input if provided
             if (this.options.targetInput) {
@@ -581,23 +597,23 @@ class MediaPicker {
                     const input = document.getElementById(this.options.targetInput) || document.querySelector(this.options.targetInput);
                     if (input) {
                         input.value = this.options.multiple 
-                            ? this.selectedItems.map(i => i.file_url || i.url || '').join(',')
-                            : (payload.file_url || '');
+                            ? payload.map(i => i.file_url || i.url || '').join(',')
+                            : (singlePayload.file_url || '');
                     }
                 } catch (inputErr) {
                     console.error('Media picker targetInput error:', inputErr);
                 }
             }
             
-            // Update preview if provided
-            if (this.options.targetPreview) {
+            // Update preview if provided (sadece tekil seçimde)
+            if (this.options.targetPreview && !this.options.multiple) {
                 try {
                     const preview = document.getElementById(this.options.targetPreview) || document.querySelector(this.options.targetPreview);
-                    if (preview && payload.file_url) {
-                        if ((payload.file_type || '') === 'image') {
-                            preview.innerHTML = `<img src="${(payload.file_url || '').replace(/"/g, '&quot;')}" alt="${(payload.original_name || '').replace(/"/g, '&quot;')}" class="max-w-full max-h-full object-contain">`;
+                    if (preview && singlePayload.file_url) {
+                        if ((singlePayload.file_type || '') === 'image') {
+                            preview.innerHTML = `<img src="${(singlePayload.file_url || '').replace(/"/g, '&quot;')}" alt="${(singlePayload.original_name || '').replace(/"/g, '&quot;')}" class="max-w-full max-h-full object-contain">`;
                         } else {
-                            preview.innerHTML = `<span class="material-symbols-outlined text-4xl">videocam</span><p class="text-sm mt-2">${(payload.original_name || '').replace(/</g, '&lt;')}</p>`;
+                            preview.innerHTML = `<span class="material-symbols-outlined text-4xl">videocam</span><p class="text-sm mt-2">${(singlePayload.original_name || '').replace(/</g, '&lt;')}</p>`;
                         }
                     }
                 } catch (previewErr) {
@@ -605,7 +621,7 @@ class MediaPicker {
                 }
             }
             
-            // Call onSelect callback
+            // Call onSelect callback: çoklu seçimde dizi, tekil seçimde tek obje
             if (this.options.onSelect && typeof this.options.onSelect === 'function') {
                 try {
                     this.options.onSelect(payload);
@@ -674,11 +690,19 @@ class MediaPicker {
                 try {
                     const response = JSON.parse(xhr.responseText);
                     if (response.success) {
+                        this._clearMediaCache();
                         this.loadMedia();
                         document.getElementById('media-picker-upload-area').classList.add('hidden');
+                        if (response.message && (response.results && response.results.some(r => !r.success))) {
+                            alert(response.message);
+                        }
+                    } else {
+                        const msg = (response.message || 'Yükleme başarısız.') + (response.results && response.results.length ? '\n\nDetay: ' + response.results.filter(r => !r.success).map(r => r.message || r.filename).join('\n') : '');
+                        alert(msg);
                     }
                 } catch (e) {
                     console.error('Upload response error:', e);
+                    alert('Yükleme yanıtı işlenemedi.');
                 }
             });
             

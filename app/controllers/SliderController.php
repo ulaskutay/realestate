@@ -1202,7 +1202,7 @@ class SliderController extends Controller {
             }
             
             $files = [];
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'];
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'mp4', 'webm', 'mov'];
             
             // Ana uploads klasörünü tara
             if (is_dir($uploadDir)) {
@@ -1227,7 +1227,7 @@ class SliderController extends Controller {
                                         }
                                     }
                                     
-                                    $fileType = (strpos($mimeType, 'image/') === 0 || in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'])) ? 'image' : 'video';
+                                    $fileType = (strpos($mimeType, 'image/') === 0 || in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'])) ? 'image' : 'video';
                                     
                                     $fileSize = @filesize($itemPath);
                                     $fileModified = @filemtime($itemPath);
@@ -1274,7 +1274,7 @@ class SliderController extends Controller {
                                         }
                                     }
                                     
-                                    $fileType = (strpos($mimeType, 'image/') === 0 || in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'])) ? 'image' : 'video';
+                                    $fileType = (strpos($mimeType, 'image/') === 0 || in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'])) ? 'image' : 'video';
                                     
                                     $fileSize = @filesize($itemPath);
                                     $fileModified = @filemtime($itemPath);
@@ -1332,7 +1332,7 @@ class SliderController extends Controller {
         $file = $_FILES['file'];
         $allowedTypes = [
             'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
-            'image/webp', 'image/svg+xml',
+            'image/webp', 'image/avif', 'image/svg+xml',
             'video/mp4', 'video/webm', 'video/quicktime'
         ];
         $maxSize = 50 * 1024 * 1024; // 50MB

@@ -137,7 +137,13 @@
                                                 <td class="px-6 py-4">
                                                     <div>
                                                         <p class="text-gray-900 dark:text-white font-medium"><?php echo esc_html($form['name']); ?></p>
-                                                        <p class="text-gray-500 dark:text-gray-400 text-xs mt-1">Kısa kod: [form slug="<?php echo esc_attr($form['slug']); ?>"]</p>
+                                                        <?php
+                                                        $sc = (isset($form['slug']) && (string)$form['slug'] !== '')
+                                                            ? '[form slug="' . esc_attr($form['slug']) . '"]'
+                                                            : '[form id="' . (int)($form['id'] ?? 0) . '"]';
+                                                        $scB64 = base64_encode($sc);
+                                                        ?>
+                                                        <p class="text-gray-500 dark:text-gray-400 text-xs mt-1">Kısa kod: <code class="shortcode-display" data-shortcode-b64="<?php echo esc_attr($scB64); ?>"></code></p>
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-4">
@@ -199,7 +205,13 @@
                                     <div class="flex items-start justify-between mb-3">
                                         <div class="flex-1 min-w-0">
                                             <h3 class="text-gray-900 dark:text-white font-medium mb-1 line-clamp-2"><?php echo esc_html($form['name']); ?></h3>
-                                            <p class="text-gray-500 text-xs truncate">[form slug="<?php echo esc_attr($form['slug']); ?>"]</p>
+                                            <?php
+                                            $scMobile = (isset($form['slug']) && (string)$form['slug'] !== '')
+                                                ? '[form slug="' . esc_attr($form['slug']) . '"]'
+                                                : '[form id="' . (int)($form['id'] ?? 0) . '"]';
+                                            $scMobileB64 = base64_encode($scMobile);
+                                            ?>
+                                            <p class="text-gray-500 dark:text-gray-400 text-xs truncate">Kısa kod: <code class="shortcode-display" data-shortcode-b64="<?php echo esc_attr($scMobileB64); ?>"></code></p>
                                         </div>
                                         <?php if ($form['status'] === 'active'): ?>
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 flex-shrink-0 ml-2">Aktif</span>
@@ -251,6 +263,19 @@
             </div>
         </div>
     </div>
+    <script>
+        (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.shortcode-display[data-shortcode-b64]').forEach(function(el) {
+                    try {
+                        el.textContent = atob(el.getAttribute('data-shortcode-b64') || '');
+                    } catch (e) {
+                        el.textContent = '';
+                    }
+                });
+            });
+        })();
+    </script>
 </body>
 </html>
 

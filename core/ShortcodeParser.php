@@ -397,22 +397,25 @@ add_shortcode('form', function($atts) {
         'class' => ''
     ], $atts);
     
-    // Form component'ini render et
     $form_file = dirname(__DIR__) . '/app/views/frontend/components/form.php';
     
     if (!file_exists($form_file)) {
         return '<!-- Form component not found -->';
     }
     
-    ob_start();
+    require_once $form_file;
     
-    $form_id = $atts['id'];
-    $form_slug = $atts['slug'];
-    $extra_class = $atts['class'];
+    $form_slug = $atts['slug'] !== null && $atts['slug'] !== '' ? $atts['slug'] : null;
+    $form_id = $atts['id'] !== null && $atts['id'] !== '' ? $atts['id'] : null;
     
-    include $form_file;
+    if ($form_slug !== null) {
+        return render_form($form_slug);
+    }
+    if ($form_id !== null) {
+        return render_form_by_id((int) $form_id);
+    }
     
-    return ob_get_clean();
+    return '<!-- Form shortcode: slug veya id gerekli. Örn: [form slug="iletisim"] veya [form id="1"] -->';
 });
 
 /**

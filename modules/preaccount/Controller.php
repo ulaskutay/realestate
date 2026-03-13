@@ -17,6 +17,8 @@ class PreaccountModuleController {
     private $transactionModel;
     /** @var PreaccountCurrency */
     private $currencyModel;
+    /** @var PreaccountPayment */
+    private $paymentModel;
 
     public function __construct() {
         if (class_exists('Database')) {
@@ -25,6 +27,7 @@ class PreaccountModuleController {
             $this->categoryModel = new PreaccountCategory();
             $this->transactionModel = new PreaccountTransaction();
             $this->currencyModel = new PreaccountCurrency();
+            $this->paymentModel = new PreaccountPayment();
         }
     }
 
@@ -55,6 +58,7 @@ class PreaccountModuleController {
     public function onUninstall() {
         $this->ensureInitialized();
         $this->transactionModel->dropTables();
+        $this->paymentModel->dropTables();
         $this->categoryModel->dropTables();
         $this->accountModel->dropTables();
         $this->currencyModel->dropTables();
@@ -87,6 +91,28 @@ class PreaccountModuleController {
     private function saveDefaultSettings() {
         if (!class_exists('ModuleLoader')) return;
         ModuleLoader::getInstance()->saveModuleSettings('preaccount', $this->getDefaultSettings());
+    }
+
+    /**
+     * Tutar alanını float hassasiyet hatası olmadan parse eder (2000 -> 2000.00, 1999.999... -> 2000.00).
+     * Virgül/nokta ondalık ayracı kabul eder.
+     */
+    private function parseAmount($value) {
+        $s = is_string($value) ? trim($value) : (string) $value;
+        $s = preg_replace('/\s+/', '', $s);
+        if ($s === '' || $s === '-') return 0.0;
+        $negative = (strpos($s, '-') === 0);
+        $s = ltrim($s, '-+');
+        $s = str_replace(',', '.', $s);
+        $s = preg_replace('/[^0-9.]/', '', $s);
+        if ($s === '' || $s === '.') return 0.0;
+        $parts = explode('.', $s);
+        if (count($parts) > 2) {
+            $s = $parts[0] . '.' . implode('', array_slice($parts, 1));
+        }
+        $num = (float) $s;
+        $rounded = round($num, 2);
+        return $negative ? -$rounded : $rounded;
     }
 
     // ---------- Dashboard ----------
@@ -462,7 +488,7 @@ class PreaccountModuleController {
             'account_id' => (int) ($_POST['account_id'] ?? 0),
             'category_id' => !empty($_POST['category_id']) ? (int) $_POST['category_id'] : null,
             'type' => $_POST['type'] === 'income' ? 'income' : 'expense',
-            'amount' => (float) ($_POST['amount'] ?? 0),
+            'amount' => $this->parseAmount($_POST['amount'] ?? 0),
             'date' => $_POST['date'] ?? date('Y-m-d'),
             'description' => trim($_POST['description'] ?? ''),
             'reference_type' => $referenceType,
@@ -519,7 +545,7 @@ class PreaccountModuleController {
             'account_id' => (int) ($_POST['account_id'] ?? 0),
             'category_id' => !empty($_POST['category_id']) ? (int) $_POST['category_id'] : null,
             'type' => $_POST['type'] === 'income' ? 'income' : 'expense',
-            'amount' => (float) ($_POST['amount'] ?? 0),
+            'amount' => $this->parseAmount($_POST['amount'] ?? 0),
             'date' => $_POST['date'] ?? date('Y-m-d'),
             'description' => trim($_POST['description'] ?? ''),
             'reference_type' => $referenceType,
@@ -597,6 +623,7 @@ class PreaccountModuleController {
         if (!$this->categoryModel) $this->categoryModel = new PreaccountCategory();
         if (!$this->transactionModel) $this->transactionModel = new PreaccountTransaction();
         if (!$this->currencyModel) $this->currencyModel = new PreaccountCurrency();
+        if (!$this->paymentModel) $this->paymentModel = new PreaccountPayment();
         if (empty($this->settings)) $this->loadSettings();
     }
 

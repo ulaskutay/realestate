@@ -287,9 +287,9 @@ return [
         }
     }
     
-    // 5. Admin kullanıcısını oluştur
+    // 5. İlk kullanıcıyı oluştur (kurulumda eklenen bu kullanıcı Süper Admin olur)
     if (!$hasError) {
-        $messages[] = ['type' => 'info', 'text' => 'Admin kullanıcısı oluşturuluyor...'];
+        $messages[] = ['type' => 'info', 'text' => 'Yönetici kullanıcısı oluşturuluyor...'];
         
         try {
             $adminCheck = $db->fetch("SELECT id FROM users WHERE username = ? OR email = ?", [
@@ -297,7 +297,7 @@ return [
                 $_SESSION['admin_email']
             ]);
         } catch (PDOException $e) {
-            // Tablo yok veya hata, admin kullanıcısı oluştur
+            // Tablo yok veya hata, kullanıcı oluştur
             $adminCheck = false;
         }
         
@@ -305,8 +305,7 @@ return [
             try {
                 $adminPassword = password_hash($_SESSION['admin_password'], PASSWORD_DEFAULT);
                 
-                // İlk kullanıcı her zaman super_admin olmalı
-                // Önce kullanıcı sayısını kontrol et
+                // Kurulumda ilk eklenen kullanıcı her zaman super_admin'dir; sonrakiler admin.
                 $userCount = 0;
                 try {
                     $countResult = $db->fetch("SELECT COUNT(*) as count FROM users");
@@ -316,7 +315,6 @@ return [
                     $userCount = 0;
                 }
                 
-                // İlk kullanıcı ise super_admin, değilse admin
                 $role = ($userCount == 0) ? 'super_admin' : 'admin';
                 
                 $db->query(
@@ -325,30 +323,27 @@ return [
                 );
                 
                 $roleLabel = ($role === 'super_admin') ? 'Süper Admin' : 'Admin';
-                $messages[] = ['type' => 'success', 'text' => "{$roleLabel} kullanıcısı oluşturuldu (İlk kullanıcı: {$roleLabel})"];
+                $messages[] = ['type' => 'success', 'text' => ($role === 'super_admin') ? 'İlk kullanıcı Süper Admin olarak oluşturuldu.' : "{$roleLabel} kullanıcısı oluşturuldu."];
             } catch (PDOException $e) {
                 $messages[] = ['type' => 'error', 'text' => 'Admin kullanıcısı oluşturulamadı: ' . htmlspecialchars($e->getMessage())];
                 $hasError = true;
             }
         } else {
-            // Mevcut kullanıcı varsa, eğer ilk kullanıcı ise super_admin yap
+            // Aynı kullanıcı zaten var; tek kullanıcıysa kurulumdaki ilk kullanıcı kabul edip super_admin yap
             try {
-                $userCount = 0;
                 $countResult = $db->fetch("SELECT COUNT(*) as count FROM users");
-                $userCount = $countResult['count'] ?? 0;
-                
-                if ($userCount == 1) {
-                    // İlk kullanıcı, super_admin yap
+                $userCount = (int) ($countResult['count'] ?? 0);
+                if ($userCount === 1) {
                     $db->query(
                         "UPDATE users SET role = 'super_admin' WHERE id = ?",
                         [$adminCheck['id']]
                     );
-                    $messages[] = ['type' => 'info', 'text' => 'İlk kullanıcı Süper Admin olarak güncellendi'];
+                    $messages[] = ['type' => 'info', 'text' => 'Mevcut ilk kullanıcı Süper Admin olarak güncellendi.'];
                 } else {
-                    $messages[] = ['type' => 'info', 'text' => 'Admin kullanıcısı zaten mevcut'];
+                    $messages[] = ['type' => 'info', 'text' => 'Bu kullanıcı zaten kayıtlı.'];
                 }
             } catch (PDOException $e) {
-                $messages[] = ['type' => 'info', 'text' => 'Admin kullanıcısı zaten mevcut'];
+                $messages[] = ['type' => 'info', 'text' => 'Bu kullanıcı zaten kayıtlı.'];
             }
         }
     }

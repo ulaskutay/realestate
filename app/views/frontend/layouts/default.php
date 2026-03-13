@@ -15,19 +15,21 @@
         $reqPath = trim(substr($reqPath, strlen($basePath)), '/');
     }
     $isHome = ($reqPath === '' || $reqPath === false);
-    // Title: Sayfa/view title öncelikli; ana sayfa dışında path'ten sayfa adı türet
+    $siteName = function_exists('get_option') ? (get_option('site_name', '') ?: get_option('seo_title', '') ?: 'CMS') : 'CMS';
+    // Title: Sayfa/view title öncelikli; ana sayfa için SEO şablonu (meta_title_home) site adıyla çözülür
     $pageTitle = isset($title) && trim((string) $title) !== '' ? trim((string) $title) : '';
     if ($pageTitle === '') {
         if ($isHome) {
-            $pageTitle = $seoTitle ?: 'CMS - Ana Sayfa';
+            $homeTemplate = function_exists('get_module_settings') ? (get_module_settings('seo')['meta_title_home'] ?? '{site_name}') : '{site_name}';
+            $pageTitle = str_replace('{site_name}', $siteName, $homeTemplate);
+            if ($pageTitle === '') $pageTitle = $seoTitle ?: $siteName;
         } else {
-            $siteName = function_exists('get_option') ? (get_option('site_name', '') ?: 'CMS') : 'CMS';
             $pageTitleSeg = function_exists('get_seo_page_title_from_path') ? get_seo_page_title_from_path($reqPath) : ucfirst(str_replace(['-', '_'], ' ', explode('/', $reqPath)[0] ?: 'Sayfa'));
             $template = function_exists('get_module_settings') ? (get_module_settings('seo')['meta_title_default'] ?? '{page_title} - {site_name}') : '{page_title} - {site_name}';
             $pageTitle = str_replace(['{site_name}', '{page_title}'], [$siteName, $pageTitleSeg], $template);
         }
     }
-    if ($pageTitle === '') $pageTitle = 'CMS - Ana Sayfa';
+    if ($pageTitle === '') $pageTitle = $siteName ?: 'CMS';
     ?>
     <title><?php echo ViewRenderer::escHtml($pageTitle); ?></title>
     

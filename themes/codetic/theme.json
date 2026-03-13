@@ -421,6 +421,12 @@
     "blog",
     "custom_css",
     "custom_js"
+  ],
+  "pages": [
+    {"key": "home", "label": "Ana Sayfa", "file": "home.php", "path": ""},
+    {"key": "contact", "label": "İletişim", "file": "contact.php", "path": "contact"},
+    {"key": "teklif-al", "label": "Teklif Al", "file": "teklif-al.php", "path": "teklif-al"},
+    {"key": "rezervasyon", "label": "Rezervasyon", "file": "rezervasyon.php", "path": "rezervasyon"}
   ]
 }
 

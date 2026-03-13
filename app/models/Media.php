@@ -169,6 +169,7 @@ class Media extends Model {
             'image/png' => 'png',
             'image/gif' => 'gif',
             'image/webp' => 'webp',
+            'image/avif' => 'avif',
             'image/svg+xml' => 'svg',
             // Videolar
             'video/mp4' => 'mp4',
@@ -205,16 +206,40 @@ class Media extends Model {
             return ['success' => false, 'message' => 'Dosya boyutu çok büyük. Maksimum 50MB olabilir.'];
         }
         
-        // MIME tipi kontrolü
-        $mimeType = $file['type'];
-        if (function_exists('finfo_file')) {
+        // MIME tipi kontrolü (finfo öncelikli; tarayıcı ve uzantı yedek)
+        $clientType = isset($file['type']) ? trim(strtolower((string) $file['type'])) : '';
+        // Noktalı virgül sonrası parametreleri kaldır (örn: image/avif; charset=binary)
+        if (strpos($clientType, ';') !== false) {
+            $clientType = trim(explode(';', $clientType)[0]);
+        }
+        $mimeType = $clientType;
+        if (function_exists('finfo_file') && !empty($file['tmp_name']) && file_exists($file['tmp_name'])) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_file($finfo, $file['tmp_name']);
-            finfo_close($finfo);
+            $detected = $finfo ? finfo_file($finfo, $file['tmp_name']) : '';
+            if ($finfo) finfo_close($finfo);
+            if ($detected) {
+                $mimeType = trim(strtolower($detected));
+                if (strpos($mimeType, ';') !== false) {
+                    $mimeType = trim(explode(';', $mimeType)[0]);
+                }
+            }
+        }
+        if (!$mimeType) {
+            $mimeType = $clientType ?: '';
+        }
+        
+        // Bazı sistemlerde AVIF/WebP finfo ile tanınmaz; uzantı veya tarayıcı MIME yedek
+        $extFromName = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        if (!isset($allowedTypes[$mimeType])) {
+            if ($extFromName === 'avif' || $clientType === 'image/avif' || strpos($clientType, 'avif') !== false) {
+                $mimeType = 'image/avif';
+            } elseif ($extFromName === 'webp' || $clientType === 'image/webp' || strpos($clientType, 'webp') !== false) {
+                $mimeType = 'image/webp';
+            }
         }
         
         if (!isset($allowedTypes[$mimeType])) {
-            return ['success' => false, 'message' => 'Bu dosya türü desteklenmiyor.'];
+            return ['success' => false, 'message' => 'Bu dosya türü desteklenmiyor. Desteklenen: JPG, PNG, GIF, WebP, AVIF, SVG.'];
         }
         
         // Upload klasörünü oluştur
@@ -250,7 +275,7 @@ class Media extends Model {
         $finalFilename = $filename;
         $finalFilepath = $filepath;
         
-        if (strpos($mimeType, 'image/') === 0 && $mimeType !== 'image/svg+xml' && $mimeType !== 'image/webp') {
+        if (strpos($mimeType, 'image/') === 0 && $mimeType !== 'image/svg+xml' && $mimeType !== 'image/webp' && $mimeType !== 'image/avif') {
             $webpResult = $this->convertToWebP($filepath);
             if ($webpResult['success']) {
                 // Orijinal dosyayı sil
@@ -599,6 +624,7 @@ class Media extends Model {
                 WHERE `mime_type` LIKE 'image/%' 
                 AND `mime_type` != 'image/webp' 
                 AND `mime_type` != 'image/svg+xml'
+                AND `mime_type` != 'image/avif'
                 ORDER BY `created_at` DESC 
                 LIMIT {$limit}";
         

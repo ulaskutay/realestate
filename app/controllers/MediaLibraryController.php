@@ -257,11 +257,19 @@ class MediaLibraryController extends Controller {
         // Dosya tiplerini ekle (sadece gerekli alanlar)
         foreach ($result['items'] as &$item) {
             $item['file_type'] = $this->mediaModel->getFileType($item['mime_type']);
-            // Thumbnail varsa ekle (görsel için)
+            // Thumbnail varsa tam URL (görsel önizleme için)
             if (isset($item['thumbnail_path']) && $item['thumbnail_path']) {
-                $item['thumbnail_url'] = site_url('uploads/' . $item['thumbnail_path']);
+                $item['thumbnail_url'] = site_url('uploads/' . ltrim($item['thumbnail_path'], '/'));
             }
-            // formatted_size kaldırıldı - picker'da gerekli değil
+            // file_url tam erişilebilir URL olsun (göreli ise site_url ile birleştir)
+            $fu = $item['file_url'] ?? '';
+            if ($fu !== '' && strpos($fu, 'http') !== 0 && strpos($fu, '//') !== 0) {
+                $item['file_url'] = site_url(ltrim($fu, '/'));
+            }
+            // Video için thumbnail yoksa önizlemede video URL'i kullanılsın (<video> ile ilk kare)
+            if (isset($item['file_type']) && $item['file_type'] === 'video' && empty($item['thumbnail_url'])) {
+                $item['thumbnail_url'] = $item['file_url'];
+            }
             unset($item['file_size'], $item['mime_type']);
         }
         

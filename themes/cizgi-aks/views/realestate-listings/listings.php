@@ -42,7 +42,8 @@ $totalListings = count($listings);
 $listingsPageUrl = function_exists('localized_url') ? localized_url('/ilanlar') : site_url('/ilanlar');
 $listingsFormAction = $categorySlug !== '' ? (function_exists('localized_url') ? localized_url('/ilanlar/kategori/' . $categorySlug) : site_url('/ilanlar/kategori/' . $categorySlug)) : $listingsPageUrl;
 $ilanBase = function_exists('localized_url') ? rtrim(localized_url('/ilan'), '/') : rtrim(site_url('/ilan'), '/');
-$danismanBase = function_exists('localized_url') ? rtrim(localized_url('/danismanlar'), '/') : rtrim(site_url('/danismanlar'), '/');
+$danismanDetailBase = function_exists('localized_url') ? rtrim(localized_url('/danisman'), '/') : rtrim(site_url('/danisman'), '/');
+$danismanListUrl = function_exists('localized_url') ? localized_url('/danismanlar') : site_url('/danismanlar');
 $themeLoader = class_exists('ThemeLoader') ? ThemeLoader::getInstance() : null;
 $primaryColor = $themeLoader ? $themeLoader->getColor('primary', '#bc1a1a') : '#bc1a1a';
 $currentType = $filters['type'] ?? '';
@@ -65,8 +66,22 @@ function cizgiaks_listings_cat_url($listingsPageUrl, $type, $filters) {
     $q = http_build_query($params);
     return $listingsPageUrl . ($q ? '?' . $q : '');
 }
-// Embed URL: header/footer olmadan sadece harita (iframe'de çift header önlenir)
-$haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ilanlar/embed') : (function_exists('site_url') ? rtrim(site_url('/harita-ilanlar/embed'), '/') : '/harita-ilanlar/embed');
+// Embed URL: mevcut filtrelerle harita (Katalog ile aynı ilanlar haritada gösterilir, çakışma azalır)
+$haritaEmbedBase = function_exists('localized_url') ? localized_url('/harita-ilanlar/embed') : (function_exists('site_url') ? rtrim(site_url('/harita-ilanlar/embed'), '/') : '/harita-ilanlar/embed');
+$haritaIframeParams = array_filter([
+    'city' => $filters['city'] ?? '',
+    'district' => $filters['district'] ?? '',
+    'location' => $filters['location'] ?? '',
+    'status' => $filters['status'] ?? '',
+    'type' => $filters['type'] ?? '',
+    'price_range' => $filters['price_range'] ?? '',
+    'area_min' => (isset($filters['area_min']) && $filters['area_min'] !== '' && $filters['area_min'] !== null) ? $filters['area_min'] : '',
+    'area_max' => (isset($filters['area_max']) && $filters['area_max'] !== '' && $filters['area_max'] !== null) ? $filters['area_max'] : '',
+    'min_rooms' => (int)($filters['min_rooms'] ?? 0) > 0 ? (int)$filters['min_rooms'] : '',
+    'min_bathrooms' => (int)($filters['min_bathrooms'] ?? 0) > 0 ? (int)$filters['min_bathrooms'] : '',
+    'search' => $filters['search'] ?? '',
+], function ($v) { return $v !== '' && $v !== null; });
+$haritaIframeUrl = $haritaEmbedBase . (empty($haritaIframeParams) ? '' : '?' . http_build_query($haritaIframeParams));
 ?>
 <?php
 /* Filtreler sol sidebar'da – aşağıda view--katalog içinde */
@@ -382,7 +397,7 @@ $haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ila
                 $img = !empty($listing['featured_image']) ? $listing['featured_image'] : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800';
                 $realtorName = trim(($listing['realtor_first_name'] ?? '') . ' ' . ($listing['realtor_last_name'] ?? ''));
                 $realtorSlug = $listing['realtor_slug'] ?? '';
-                $realtorUrl = $realtorSlug ? $danismanBase . '/' . $realtorSlug : $danismanBase;
+                $realtorUrl = $realtorSlug ? ($danismanDetailBase . '/' . $realtorSlug) : $danismanListUrl;
                 $realtorPhoto = $listing['realtor_photo'] ?? '';
             ?>
             <article class="cizgiaks-listing-card cizgiaks-listing-card--vitrin">
@@ -392,8 +407,15 @@ $haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ila
                     </a>
                     <div class="cizgiaks-listing-ribbons">
                         <span class="cizgiaks-ribbon cizgiaks-ribbon-<?php echo $listingStatus === 'rent' ? 'kiralik' : 'satilik'; ?>"><?php echo esc_html($statusLabel); ?></span>
-                        <?php if (!empty($listing['label_yeni'])): ?><span class="cizgiaks-ribbon cizgiaks-ribbon-yeni"><?php echo esc_html(__('Yeni')); ?></span><?php endif; ?>
-                        <?php if (!empty($listing['label_firsat'])): ?><span class="cizgiaks-ribbon cizgiaks-ribbon-firsat"><?php echo esc_html(__('Fırsat')); ?></span><?php endif; ?>
+                        <?php
+                        $listingBadges = isset($listing['badges']) && is_array($listing['badges']) ? $listing['badges'] : [];
+                        $badgeLabels = $badge_labels ?? [];
+                        $badgeDisplayFallback = ['firsat' => 'Fırsat', 'yatirimlik' => 'Yatırımlık', 'yeni' => 'Yeni', 'acil' => 'Acil'];
+                        foreach ($listingBadges as $bKey):
+                            $bLabel = $badgeDisplayFallback[$bKey] ?? (isset($badgeLabels[$bKey]) ? $badgeLabels[$bKey] : $bKey);
+                        ?><span class="cizgiaks-ribbon cizgiaks-ribbon-<?php echo esc_attr($bKey); ?>"><?php echo esc_html($bLabel); ?></span><?php
+                        endforeach;
+                        ?>
                     </div>
                 </div>
                 <div class="cizgiaks-listing-card-body">
@@ -442,7 +464,7 @@ $haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ila
         </div><!-- .cizgiaks-listings-with-filters -->
         </div><!-- .cizgiaks-listings-view--katalog -->
 
-        <!-- Harita görünümü: sadece harita (tam genişlik) -->
+        <!-- Haritada Gör: Sadece harita modülü. İlana tıklanınca ilan detay sayfasına gider. -->
         <div class="cizgiaks-listings-view cizgiaks-listings-view--harita" id="view-harita" role="tabpanel" hidden>
             <div class="cizgiaks-listings-view-switch cizgiaks-listings-view-switch--map" role="tablist" aria-label="<?php echo esc_attr(__('Görünüm')); ?>">
                 <button type="button" class="cizgiaks-listings-view-switch-btn" data-view="katalog" role="tab" aria-selected="false">
@@ -452,12 +474,8 @@ $haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ila
                     <span aria-hidden="true">🗺️</span> <?php echo esc_html(__('Haritada Gör')); ?>
                 </button>
             </div>
-            <div class="cizgiaks-listings-split cizgiaks-listings-split--map-only">
-                <div class="cizgiaks-listings-split-map">
-                    <div class="cizgiaks-listings-map-iframe-wrap">
-                        <iframe src="<?php echo esc_url($haritaIframeUrl); ?>" class="cizgiaks-listings-map-iframe" title="<?php echo esc_attr(__('İlanlar haritası')); ?>"></iframe>
-                    </div>
-                </div>
+            <div class="cizgiaks-listings-map-only">
+                <iframe data-src="<?php echo esc_attr($haritaIframeUrl); ?>" src="<?php echo esc_url($haritaIframeUrl); ?>" class="cizgiaks-listings-map-iframe" title="<?php echo esc_attr(__('İlanlar haritası')); ?>"></iframe>
             </div>
         </div>
     </div>
@@ -471,18 +489,10 @@ $haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ila
 .cizgiaks-listings-view-switch-btn.is-active { color: #fff; background: var(--cizgiaks-primary, #bc1a1a); }
 .cizgiaks-listings-view-switch--map { margin-bottom: 0.75rem; }
 .cizgiaks-listings-view-switch--empty { margin-bottom: 1rem; }
-.cizgiaks-listings-view--harita { display: block !important; }
+.cizgiaks-listings-view--harita { display: block !important; min-height: 70vh; }
 .cizgiaks-listings-view--harita[hidden] { display: none !important; }
-.cizgiaks-listings-split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; min-height: 70vh; }
-.cizgiaks-listings-split--map-only { grid-template-columns: 1fr; min-height: 75vh; }
-@media (max-width: 900px) { .cizgiaks-listings-split { grid-template-columns: 1fr; } }
-.cizgiaks-listings-split-catalog { overflow-y: auto; max-height: 75vh; padding-right: 0.5rem; }
-.cizgiaks-listings-split-catalog .cizgiaks-listings-grid--compact { grid-template-columns: 1fr; }
-.cizgiaks-listings-split-title { font-size: 1.125rem; font-weight: 600; margin: 0 0 0.75rem; color: var(--cizgiaks-text, #1f2937); }
-.cizgiaks-listings-split-count { font-size: 0.875rem; color: var(--cizgiaks-text-muted, #6b7280); margin: 0 0 1rem; }
-.cizgiaks-listings-split--map-only .cizgiaks-listings-map-iframe-wrap { height: 78vh; min-height: 500px; }
-.cizgiaks-listings-map-iframe-wrap { position: relative; width: 100%; height: 65vh; min-height: 400px; border-radius: 0.5rem; overflow: hidden; border: 1px solid rgba(0,0,0,0.08); background: #f5f5f5; }
-.cizgiaks-listings-map-iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+.cizgiaks-listings-map-only { position: relative; width: 100%; min-height: 70vh; height: 75vh; border-radius: 0.5rem; overflow: hidden; border: 1px solid rgba(0,0,0,0.08); background: #e8e8e8; margin-top: 0.75rem; }
+.cizgiaks-listings-map-only .cizgiaks-listings-map-iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; display: block; }
 </style>
 
 <script>
@@ -490,10 +500,17 @@ $haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ila
     var viewKatalog = document.getElementById('view-katalog');
     var viewHarita = document.getElementById('view-harita');
     if (!viewKatalog || !viewHarita) return;
+
     function showView(view) {
         var isKatalog = (view === 'katalog');
-        viewKatalog.hidden = !isKatalog;
-        viewHarita.hidden = isKatalog;
+        if (isKatalog) {
+            viewKatalog.removeAttribute('hidden');
+            viewHarita.setAttribute('hidden', '');
+        } else {
+            viewKatalog.setAttribute('hidden', '');
+            viewHarita.removeAttribute('hidden');
+        }
+
         document.querySelectorAll('.cizgiaks-listings-view-switch-btn[data-view="katalog"]').forEach(function(btn) {
             btn.classList.toggle('is-active', isKatalog);
             btn.setAttribute('aria-selected', isKatalog ? 'true' : 'false');
@@ -502,19 +519,37 @@ $haritaIframeUrl = function_exists('localized_url') ? localized_url('/harita-ila
             btn.classList.toggle('is-active', !isKatalog);
             btn.setAttribute('aria-selected', !isKatalog ? 'true' : 'false');
         });
-        if (!isKatalog && viewHarita.querySelector('.cizgiaks-listings-map-iframe')) {
-            var src = viewHarita.querySelector('.cizgiaks-listings-map-iframe').src;
-            if (src && src.indexOf('harita-ilanlar') !== -1 && src.indexOf('http') === 0) { /* iframe zaten yüklü */ }
+
+        if (!isKatalog) {
+            var iframe = viewHarita.querySelector('.cizgiaks-listings-map-iframe');
+            if (iframe) {
+                var dataSrc = iframe.getAttribute('data-src');
+                if (dataSrc && (!iframe.src || iframe.src === 'about:blank')) {
+                    iframe.src = dataSrc;
+                }
+                setTimeout(function() {
+                    try {
+                        if (iframe.contentWindow && iframe.contentWindow.postMessage) {
+                            iframe.contentWindow.postMessage({ type: 'resize' }, '*');
+                        }
+                    } catch (e) {}
+                }, 300);
+            }
         }
+
         try { window.history.replaceState(null, '', (window.location.pathname || '') + (isKatalog ? '' : '#harita')); } catch (e) {}
     }
+
     document.querySelectorAll('.cizgiaks-listings-view-switch-btn[data-view="katalog"]').forEach(function(btn) {
         btn.addEventListener('click', function() { showView('katalog'); });
     });
     document.querySelectorAll('.cizgiaks-listings-view-switch-btn[data-view="harita"]').forEach(function(btn) {
         btn.addEventListener('click', function() { showView('harita'); });
     });
-    if (window.location.hash === '#harita') showView('harita');
+
+    if (window.location.hash === '#harita') {
+        showView('harita');
+    }
 })();
 </script>
 

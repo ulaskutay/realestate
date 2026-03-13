@@ -19,12 +19,24 @@ class ThemeController extends Controller {
         $this->db = Database::getInstance();
         $this->themeManager = ThemeManager::getInstance();
     }
+
+    /**
+     * Giriş + tema modülü yetkisi (rol sisteminde "themes" erişimi gerekir)
+     */
+    private function requireThemesPermission() {
+        $this->requireLogin();
+        if (!function_exists('current_user_can') || !current_user_can('themes.view')) {
+            $_SESSION['error_message'] = 'Bu modülde yetkiniz yoktur!';
+            $this->redirect(admin_url('dashboard'));
+            exit;
+        }
+    }
     
     /**
      * Tema listesi sayfası
      */
     public function index() {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         $message = $_SESSION['theme_message'] ?? null;
         $messageType = $_SESSION['theme_message_type'] ?? 'info';
@@ -47,7 +59,7 @@ class ThemeController extends Controller {
      * Tema özelleştirici sayfası
      */
     public function customize($slug = null) {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         // Slug verilmemişse aktif temayı kullan
         if (!$slug) {
@@ -131,7 +143,7 @@ class ThemeController extends Controller {
      * Tema ayarlarını kaydet (AJAX)
      */
     public function saveSettings() {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         header('Content-Type: application/json');
         
         try {
@@ -270,7 +282,7 @@ class ThemeController extends Controller {
      * Özel CSS/JS kaydet (AJAX)
      */
     public function saveCustomCode() {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         header('Content-Type: application/json');
         
         try {
@@ -299,7 +311,7 @@ class ThemeController extends Controller {
      * Temayı aktifleştir
      */
     public function activate($slug) {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         try {
             $result = $this->themeManager->activateTheme($slug);
@@ -324,7 +336,7 @@ class ThemeController extends Controller {
      * Tema kur (klasörden)
      */
     public function install($slug) {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         try {
             $result = $this->themeManager->installThemeFromDirectory($slug);
@@ -349,7 +361,7 @@ class ThemeController extends Controller {
      * ZIP'ten tema yükle
      */
     public function upload() {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header("Location: " . admin_url('themes'));
@@ -400,7 +412,7 @@ class ThemeController extends Controller {
      * Tema kaldır
      */
     public function uninstall($slug) {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         try {
             $result = $this->themeManager->uninstallTheme($slug);
@@ -425,7 +437,7 @@ class ThemeController extends Controller {
      * Temayı ZIP dosyası olarak indir
      */
     public function download($slug) {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         try {
             // Temayı export et
@@ -480,7 +492,7 @@ class ThemeController extends Controller {
      * Section kaydet (AJAX)
      */
     public function saveSection() {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         // Önceki output'u temizle
         while (ob_get_level()) {
@@ -526,7 +538,7 @@ class ThemeController extends Controller {
      * Section sil (AJAX)
      */
     public function deleteSection($id) {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         header('Content-Type: application/json');
         
         try {
@@ -548,7 +560,7 @@ class ThemeController extends Controller {
      * Section sıralamasını güncelle (AJAX)
      */
     public function updateSectionOrder() {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         header('Content-Type: application/json');
         
         try {
@@ -577,7 +589,7 @@ class ThemeController extends Controller {
      * Sayfa section'larını getir (AJAX)
      */
     public function getSections($pageType = 'home') {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         header('Content-Type: application/json');
         
         try {
@@ -594,7 +606,7 @@ class ThemeController extends Controller {
      * Tek section verisini getir (AJAX)
      */
     public function getSectionData() {
-        $this->requireLogin();
+        $this->requireThemesPermission();
         
         // Önceki output'u temizle
         while (ob_get_level()) {
@@ -632,10 +644,7 @@ class ThemeController extends Controller {
      * Tema önizleme
      */
     public function preview($slug = null) {
-        // Debug: Hata raporlamayı aç
-        error_reporting(E_ALL);
-        ini_set('display_errors', 1);
-        
+        $this->requireThemesPermission();
         // Slug verilmemişse aktif temayı kullan
         if (!$slug) {
             $activeTheme = $this->themeManager->getActiveTheme();

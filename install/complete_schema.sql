@@ -54,6 +54,18 @@ CREATE TABLE IF NOT EXISTS `role_permissions` (
   KEY `role_id` (`role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Rol-modül erişimi (basit yetki: rol bu modülü kullanabilir mi?)
+CREATE TABLE IF NOT EXISTS `role_modules` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `role_id` int(11) NOT NULL,
+  `module_slug` varchar(100) NOT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `role_module_slug` (`role_id`, `module_slug`),
+  KEY `role_id` (`role_id`),
+  CONSTRAINT `role_modules_role_id` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ==========================================
 -- 2. MODÜL SİSTEMİ
 -- ==========================================
@@ -163,6 +175,8 @@ CREATE TABLE IF NOT EXISTS `posts` (
   `slug` varchar(500) NOT NULL,
   `excerpt` text DEFAULT NULL,
   `content` longtext DEFAULT NULL,
+  `page_builder_data` longtext DEFAULT NULL COMMENT 'Page Builder JSON verisi',
+  `use_page_builder` tinyint(1) DEFAULT 0 COMMENT 'Page Builder kullanılıyor mu?',
   `featured_image` varchar(500) DEFAULT NULL,
   `category_id` bigint(20) DEFAULT NULL,
   `author_id` int(11) DEFAULT NULL,
@@ -186,7 +200,8 @@ CREATE TABLE IF NOT EXISTS `posts` (
   KEY `status` (`status`),
   KEY `type` (`type`),
   KEY `published_at` (`published_at`),
-  KEY `visibility` (`visibility`)
+  KEY `visibility` (`visibility`),
+  KEY `use_page_builder` (`use_page_builder`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Yazı-Etiket ilişkileri
@@ -711,6 +726,8 @@ CREATE TABLE IF NOT EXISTS `realestate_listings` (
 -- ==========================================
 -- VARSAYILAN VERİLER
 -- ==========================================
+-- Not: roles ve role_permissions INSERT'leri kurulumda mutlaka çalıştırılmalı;
+-- eksik kalırsa core/Role.php admin fallback ile panel yine çalışır.
 
 -- Varsayılan roller
 INSERT IGNORE INTO `roles` (`id`, `name`, `slug`, `description`, `is_system`) VALUES
@@ -720,7 +737,23 @@ INSERT IGNORE INTO `roles` (`id`, `name`, `slug`, `description`, `is_system`) VA
 (4, 'Yazar', 'author', 'İçerik oluşturma ve kendi içeriklerini düzenleme', 1),
 (5, 'Abone', 'subscriber', 'Temel kullanıcı', 1);
 
--- Admin rolüne tüm yetkileri ver (ID: 2)
+-- Admin rolüne tüm çekirdek modülleri ver (role_modules - basit yetki sistemi)
+INSERT IGNORE INTO `role_modules` (`role_id`, `module_slug`) VALUES
+(2, 'posts'),
+(2, 'pages'),
+(2, 'agreements'),
+(2, 'forms'),
+(2, 'media'),
+(2, 'sliders'),
+(2, 'menus'),
+(2, 'users'),
+(2, 'themes'),
+(2, 'settings'),
+(2, 'modules'),
+(2, 'smtp'),
+(2, 'roles');
+
+-- Admin rolüne tüm yetkileri ver (ID: 2) [eski role_permissions - uyumluluk]
 INSERT IGNORE INTO `role_permissions` (`role_id`, `module`, `permission`) VALUES
 -- Admin rolü - Tüm yetkiler
 (2, 'system', '*'),
@@ -1105,5 +1138,65 @@ CREATE INDEX IF NOT EXISTS `idx_media_type_created` ON `media` (`mime_type`, `cr
 -- ALTER TABLE `media` ADD INDEX `idx_media_mime_type` (`mime_type`);
 -- ALTER TABLE `media` ADD INDEX `idx_media_type_created` (`mime_type`, `created_at` DESC);
 
+-- ==========================================
+-- PAGE BUILDER SİSTEMİ
+-- ==========================================
+
+-- Page Builder blok tanımları tablosu
+CREATE TABLE IF NOT EXISTS `page_builder_blocks` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `block_type` VARCHAR(100) NOT NULL COMMENT 'Blok tipi (heading, text, image vb.)',
+  `block_name` VARCHAR(255) NOT NULL COMMENT 'Blok adı (görüntülenen)',
+  `block_icon` VARCHAR(100) DEFAULT 'widgets' COMMENT 'Material icon adı',
+  `block_category` ENUM('basic', 'layout', 'content', 'media', 'module', 'theme') DEFAULT 'basic' COMMENT 'Blok kategorisi',
+  `block_description` VARCHAR(500) DEFAULT NULL COMMENT 'Blok açıklaması',
+  `default_settings` JSON DEFAULT NULL COMMENT 'Varsayılan ayarlar',
+  `settings_schema` JSON DEFAULT NULL COMMENT 'Ayar alanları şeması',
+  `theme_slug` VARCHAR(100) DEFAULT NULL COMMENT 'NULL = global, değilse tema özel',
+  `render_callback` VARCHAR(255) DEFAULT NULL COMMENT 'Özel render fonksiyonu',
+  `is_active` TINYINT(1) DEFAULT 1,
+  `is_system` TINYINT(1) DEFAULT 0 COMMENT 'Sistem bloğu mu (silinemez)',
+  `sort_order` INT(11) DEFAULT 0,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `block_type_theme` (`block_type`, `theme_slug`),
+  KEY `block_category` (`block_category`),
+  KEY `theme_slug` (`theme_slug`),
+  KEY `is_active` (`is_active`),
+  KEY `sort_order` (`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Page Builder sayfa verileri tablosu
+CREATE TABLE IF NOT EXISTS `page_builder_pages` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `page_type` VARCHAR(100) NOT NULL COMMENT 'Sayfa tipi (home, contact, custom vb.)',
+  `page_id` BIGINT(20) DEFAULT NULL COMMENT 'posts tablosu ID (custom sayfalar için)',
+  `theme_id` INT(11) DEFAULT NULL COMMENT 'Tema ID',
+  `blocks_data` LONGTEXT DEFAULT NULL COMMENT 'Blok verileri JSON',
+  `page_settings` JSON DEFAULT NULL COMMENT 'Sayfa genel ayarları',
+  `revision` INT(11) DEFAULT 1 COMMENT 'Revizyon numarası',
+  `is_active` TINYINT(1) DEFAULT 1,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `page_type_theme` (`page_type`, `theme_id`, `page_id`),
+  KEY `page_id` (`page_id`),
+  KEY `theme_id` (`theme_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Page Builder revizyonları tablosu
+CREATE TABLE IF NOT EXISTS `page_builder_revisions` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `page_builder_page_id` INT(11) NOT NULL,
+  `blocks_data` LONGTEXT DEFAULT NULL,
+  `page_settings` JSON DEFAULT NULL,
+  `revision_number` INT(11) NOT NULL,
+  `created_by` INT(11) DEFAULT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `page_builder_page_id` (`page_builder_page_id`),
+  KEY `revision_number` (`revision_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -3,6 +3,7 @@ if (!isset($rootPath)) $rootPath = dirname(dirname(dirname(__DIR__)));
 include $rootPath . '/app/views/admin/snippets/header.php';
 $property_types = $property_types ?? [];
 $listing_statuses = $listing_statuses ?? [];
+$badges = $badges ?? [];
 ?>
 
 <div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
@@ -91,6 +92,37 @@ $listing_statuses = $listing_statuses ?? [];
                             <button type="button" id="add-listing-status" class="mt-3 text-sm text-primary hover:underline flex items-center gap-1"><span class="material-symbols-outlined text-lg">add</span> İlan durumu ekle</button>
                         </div>
 
+                        <div id="badges-section" class="bg-white dark:bg-[#1e293b] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rozetler (ilan etiketleri)</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">İlan kartında görünecek rozetler. Değer: tema CSS sınıfıyla eşleşen kod (örn: firsat, yeni, acil), Etiket: ilanda görünen metin. İlan eklerken/düzenlerken bu rozetlerden seçim yapılır.</p>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full" id="badges-table">
+                                    <thead>
+                                        <tr class="border-b border-gray-200 dark:border-gray-600">
+                                            <th class="text-left py-2 pr-4 text-sm font-medium text-gray-700 dark:text-gray-300">Değer (value)</th>
+                                            <th class="text-left py-2 pr-4 text-sm font-medium text-gray-700 dark:text-gray-300">Etiket (görünen ad)</th>
+                                            <th class="w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($badges as $key => $label): ?>
+                                        <tr class="border-b border-gray-100 dark:border-gray-700 badge-row">
+                                            <td class="py-2 pr-4"><input type="text" name="badge_key[]" value="<?php echo esc_attr($key); ?>" class="w-full max-w-xs px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" placeholder="örn: firsat"></td>
+                                            <td class="py-2 pr-4"><input type="text" name="badge_label[]" value="<?php echo esc_attr($label); ?>" class="w-full max-w-xs px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" placeholder="örn: Fırsat"></td>
+                                            <td class="py-2"><button type="button" class="remove-badge-row text-red-500 hover:text-red-700 p-1" aria-label="Kaldır"><span class="material-symbols-outlined text-lg">remove_circle_outline</span></button></td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                        <tr class="badge-row template-row">
+                                            <td class="py-2 pr-4"><input type="text" name="badge_key[]" class="w-full max-w-xs px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" placeholder="yeni değer"></td>
+                                            <td class="py-2 pr-4"><input type="text" name="badge_label[]" class="w-full max-w-xs px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm" placeholder="yeni etiket"></td>
+                                            <td class="py-2"><button type="button" class="remove-badge-row text-red-500 hover:text-red-700 p-1" aria-label="Kaldır"><span class="material-symbols-outlined text-lg">remove_circle_outline</span></button></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button type="button" id="add-badge" class="mt-3 text-sm text-primary hover:underline flex items-center gap-1"><span class="material-symbols-outlined text-lg">add</span> Rozet ekle</button>
+                        </div>
+
                         <div class="flex gap-3">
                             <button type="submit" class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center gap-2">
                                 <span class="material-symbols-outlined">save</span> Kaydet
@@ -124,8 +156,10 @@ $listing_statuses = $listing_statuses ?? [];
     }
     document.getElementById('add-property-type').addEventListener('click', function() { addRow('property-types-table', 'property-type-row'); });
     document.getElementById('add-listing-status').addEventListener('click', function() { addRow('listing-statuses-table', 'listing-status-row'); });
+    document.getElementById('add-badge').addEventListener('click', function() { addRow('badges-table', 'badge-row'); });
     initRemove('.remove-row', 'property-types-table', 'property-type-row');
     initRemove('.remove-status-row', 'listing-statuses-table', 'listing-status-row');
+    initRemove('.remove-badge-row', 'badges-table', 'badge-row');
 })();
 </script>
 <?php include $rootPath . '/app/views/admin/snippets/footer.php'; ?>
